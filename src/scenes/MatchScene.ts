@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
 import { World } from "../sim/world";
 import { STAGE_WIDTH, STAGE_HEIGHT, VIEW_WIDTH } from "../sim/constants";
+import { groupZoom, stepZoom } from "../render/camera-frame";
 import { EdgeLatch, InputReader } from "./input";
 import { drawDebugBoxes, allBounds, BOUND_KINDS, type BoundsToggles } from "../render/boxes";
 import { CpuController, DAMAGE_SCALE } from "../sim/cpu";
@@ -59,6 +60,12 @@ const KO_FLASH_MS = 220;
 const BLOCK_SHAKE_MS = 90;
 const BLOCK_SHAKE_INTENSITY = 0.003;
 
+// Match-end menu. Palette + motion borrowed from FlowScene so the two screens read as one product.
+const END_OPTIONS = ["REMATCH", "MAIN MENU"] as const;
+const END_ACCENT = 0xfd9146; // DUSK_ORANGE
+const END_DIM = "#c9b8d4";
+const END_MOVE_MS = 120;
+
 export class MatchScene extends Phaser.Scene {
   private world!: World;
   private reader!: InputReader;
@@ -85,6 +92,21 @@ export class MatchScene extends Phaser.Scene {
   private quitPrompt!: Phaser.GameObjects.Text;
   private quitTimer?: Phaser.Time.TimerEvent;
   private prevPhase: MatchPhase = "intro";
+  // Group camera: eased zoom held across frames (render-only, never feeds the sim).
+  private zoom = 1;
+  /** Screen-space camera. The HUD can't just ride cameras.main with setScrollFactor(0) any more —
+   *  scroll factor exempts an object from SCROLL, not from ZOOM, so at ZOOM_MAX the bars would grow
+   *  25% and the outer ones would leave the screen. */
+  private uiCam!: Phaser.Cameras.Scene2D.Camera;
+  private legend!: Phaser.GameObjects.Text;
+  // Match-end menu (scene-local: a UI selection is not simulation state).
+  private endSel: 0 | 1 = 0;
+  private endShown = false;
+  private endScrim!: Phaser.GameObjects.Rectangle;
+  private endTexts!: Phaser.GameObjects.Text[];
+  private endUnderline!: Phaser.GameObjects.Graphics;
+  private endTween?: Phaser.Tweens.Tween;
+  private endKeys!: { up: Phaser.Input.Keyboard.Key[]; down: Phaser.Input.Keyboard.Key[] };
   // latched pressed-edges: keep a press alive until a sim tick consumes it (rate-independent)
   private latch = new EdgeLatch();
   // dev-only: acceptance tests hold inputs through the real input->sim path (no synthetic keys).
@@ -114,6 +136,10 @@ export class MatchScene extends Phaser.Scene {
     this.quitArmed = false;
     this.quitTimer = undefined;
     this.prevPhase = "intro";
+    this.zoom = 1;
+    this.endSel = 0;
+    this.endShown = false;
+    this.endTween = undefined;
   }
 
   create(): void {
@@ -138,9 +164,11 @@ export class MatchScene extends Phaser.Scene {
         __holdP1: (v: Partial<InputSnapshot>) => void;
         __holdP2: (v: Partial<InputSnapshot>) => void;
         __quitArmed: () => boolean;
+        __endMenu: () => { shown: boolean; sel: number };
       };
       w.__world = this.world;
       w.__quitArmed = () => this.quitArmed;
+      w.__endMenu = () => ({ shown: this.endShown, sel: this.endSel });
       w.__holdP1 = (v) => { this.testHoldP1 = v ?? {}; };
       w.__holdP2 = (v) => { this.testHoldP2 = v ?? {}; };
       // Drop the hooks with the scene. Since Esc returns to the flow, a surviving `__world` is a
@@ -148,7 +176,7 @@ export class MatchScene extends Phaser.Scene {
       // write into a dead scene's fields.
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
         const g = window as unknown as Record<string, unknown>;
-        for (const k of ["__world", "__holdP1", "__holdP2", "__sprites", "__stage", "__quitArmed"]) delete g[k];
+        for (const k of ["__world", "__holdP1", "__holdP2", "__sprites", "__stage", "__quitArmed", "__endMenu"]) delete g[k];
       });
     }
 
@@ -186,17 +214,27 @@ export class MatchScene extends Phaser.Scene {
     // 1-4 pick which bound kinds the overlay draws, same order as BOUND_KINDS (hurt/hit/push/guard);
     // B still toggles the overlay itself.
     this.boundKeys = [KC.ONE, KC.TWO, KC.THREE, KC.FOUR].map((k) => kb.addKey(k));
+    // Match-end menu navigation. Both players' up/down bindings work — whoever won should not have
+    // to reach across the keyboard. These keys are also P1 jump/crouch and P2 jump/crouch, which is
+    // harmless: a matchEnd tick consumes no input at all.
+    this.endKeys = {
+      up: [kb.addKey(KC.UP), kb.addKey(KC.W)],
+      down: [kb.addKey(KC.DOWN), kb.addKey(KC.S)],
+    };
 
     // On-screen control legend: one compact line in the bottom strip (below the feet line so it
     // never covers the fighters). White + thin outline for legibility over the busy stage; surfaces
     // the non-obvious keys — crouch = hold down, block = a dedicated key (P1 Q, P2 /), and low/air
     // attacks come from attacking while crouching / airborne.
-    this.add
+    this.legend = this.add
       .text(
         VIEW_WIDTH / 2,
         STAGE_HEIGHT - 6,
-        "P1 A/D·W·S crouch·Q block·F/G   |   P2 ←→·↑·↓·/ block·,/.   |   CROUCH attacks are LOWS: block CROUCHING (ground normals and jump-ins are HIGH: block STANDING)   |   B hitboxes · 1-4 kinds · Enter rematch · Esc menu",
-        { fontFamily: "monospace", fontSize: "14px", color: "#ffffff", stroke: "#000000", strokeThickness: 3 },
+        // Two lines: as one it measured 1535px against a 1280 viewport, so ~128px fell off each
+        // end — including the P1 bindings. Measured, not eyeballed; it had been clipped for phases.
+        "P1 A/D·W·S crouch·Q block·F/G   |   P2 ←→·↑·↓·/ block·,/.   |   B hitboxes · 1-4 kinds · Esc menu\n"
+          + "CROUCH attacks are LOWS: block CROUCHING   (ground normals and jump-ins are HIGH: block STANDING)",
+        { fontFamily: "monospace", fontSize: "14px", color: "#ffffff", stroke: "#000000", strokeThickness: 3, align: "center" },
       )
       .setOrigin(0.5, 1)
       .setDepth(101)
@@ -215,6 +253,121 @@ export class MatchScene extends Phaser.Scene {
       .setDepth(102)
       .setScrollFactor(0)
       .setVisible(false);
+
+    this.buildEndMenu();
+
+    // --- Cameras. MUST be last: Phaser starts every Game Object with cameraFilter 0 ("render on
+    // every camera") and ignore() only sets one camera's bit, so anything created after this and
+    // left out of BOTH lists draws twice, once at world zoom and once at 1:1. The two lists below
+    // must therefore stay exhaustive and disjoint; e2e/camera-group.spec.ts asserts exactly that.
+    this.uiCam = this.cameras.add(0, 0, VIEW_WIDTH, STAGE_HEIGHT).setName("ui");
+    this.uiCam.ignore([...stage.objects, ...this.sprites.map((s) => s.sprite), this.debugG]);
+    this.cameras.main.ignore([
+      ...this.hud.objects,
+      this.legend,
+      this.quitPrompt,
+      this.endScrim,
+      this.endUnderline,
+      ...this.endTexts,
+    ]);
+    // Screen-space objects keep setScrollFactor(0) anyway: it is what stage.spec.ts checks, and it
+    // keeps them correct if the UI camera ever gains a scroll of its own.
+  }
+
+  /** The match-end choice, built once and hidden. Selection is shown by a caret AND weight, not by
+   *  colour alone, so it survives a colour-blind read. */
+  private buildEndMenu(): void {
+    this.endScrim = this.add
+      .rectangle(0, 0, VIEW_WIDTH, STAGE_HEIGHT, 0x000000, 0.5)
+      .setOrigin(0, 0)
+      // Below the HUD (100/101) so the winner banner stays the brightest thing on screen — it is
+      // still a full-screen scrim over the WORLD, because the UI camera renders after the main one.
+      .setDepth(99)
+      .setScrollFactor(0)
+      .setVisible(false);
+    this.endUnderline = this.add.graphics().setDepth(103).setScrollFactor(0).setVisible(false);
+    this.endTexts = END_OPTIONS.map((label, i) =>
+      this.add
+        .text(VIEW_WIDTH / 2, 400 + i * 56, label, {
+          fontFamily: "monospace",
+          fontSize: "32px",
+          color: "#ffffff",
+          stroke: "#000000",
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5, 0.5)
+        .setDepth(103)
+        .setScrollFactor(0)
+        .setVisible(false),
+    );
+  }
+
+  /** Show/hide the menu. Driven off `match.phase` every frame rather than off the `matchEnd` EVENT:
+   *  the event fires once, but the phase is also set directly (the e2e does it, and a rematch
+   *  re-enters matchEnd later), and a menu that only ever appeared on the event would miss those. */
+  private setEndMenu(show: boolean): void {
+    this.endShown = show;
+    if (show) this.endSel = 0; // default to REMATCH on every ENTRY, not just in init() — the scene
+                               // instance is reused across rematches
+    this.endScrim.setVisible(show);
+    this.endUnderline.setVisible(show);
+    for (const t of this.endTexts) t.setVisible(show);
+    if (show) this.paintEndMenu(false);
+    else {
+      this.endTween?.stop();
+      this.endTween = undefined;
+      for (const t of this.endTexts) t.setScale(1);
+    }
+  }
+
+  private paintEndMenu(animate: boolean): void {
+    this.endTexts.forEach((t, i) => {
+      const on = i === this.endSel;
+      t.setText(on ? `▸ ${END_OPTIONS[i]}` : END_OPTIONS[i]);
+      t.setColor(on ? "#ffffff" : END_DIM);
+      if (!on) t.setScale(1);
+    });
+    const sel = this.endTexts[this.endSel];
+    this.endUnderline.clear();
+    // A plate behind the options. The scrim alone is not enough: the winner is usually standing
+    // right where these two lines sit, and a 32px glyph over a lit sprite is a busy read.
+    const top = this.endTexts[0].y - 30;
+    const bottom = this.endTexts[this.endTexts.length - 1].y + 30;
+    this.endUnderline.fillStyle(0x000000, 0.62);
+    this.endUnderline.fillRect(VIEW_WIDTH / 2 - 200, top, 400, bottom - top);
+    this.endUnderline.fillStyle(END_ACCENT, 1);
+    this.endUnderline.fillRect(sel.x - sel.displayWidth / 2, sel.y + 22, sel.displayWidth, 3);
+    if (!animate) return;
+    // Track and stop THIS tween rather than killTweensOf(target): that would also kill anything
+    // else running on the same object (the lesson from Phase 11's permanently-invisible cards).
+    this.endTween?.stop();
+    sel.setScale(1);
+    this.endTween = this.tweens.add({ targets: sel, scale: 1.06, duration: END_MOVE_MS, ease: "Sine.easeOut" });
+  }
+
+  private moveEndSel(delta: number): void {
+    this.endSel = (((this.endSel + delta) % END_OPTIONS.length) + END_OPTIONS.length) % END_OPTIONS.length as 0 | 1;
+    this.paintEndMenu(true);
+  }
+
+  /** Act on the highlighted option. REMATCH runs exactly the cleanup the old bare Enter did. */
+  private confirmEndSel(): void {
+    if (this.endSel === 1) {
+      this.scene.start("Flow");
+      return;
+    }
+    this.rematch();
+  }
+
+  /** Full restart of the match in place. `latch.clear()` is load-bearing: Arrow-Up doubles as P2's
+   *  jump, so navigating this menu leaves a jump edge latched (matchEnd ticks consume nothing) that
+   *  would otherwise fire into the first actionable tick of the new match. */
+  private rematch(): void {
+    this.world.restart(); // resets the CPU controller too, via the CpuSeam — see world.resetRound
+    this.disarmQuit();
+    this.setEndMenu(false);
+    this.latch.clear();
+    for (const s of this.sprites) s.clearFx();
   }
 
   /** First Esc mid-fight: show the prompt and open a short window for the confirming press. */
@@ -281,20 +434,43 @@ export class MatchScene extends Phaser.Scene {
     }
     this.applyHitFeedback(this.world.drainEvents());
 
+    // Match-end menu: visibility tracks the phase, so a rematch and a directly-set phase both work.
+    const atEnd = this.world.match.phase === "matchEnd";
+    if (atEnd !== this.endShown) this.setEndMenu(atEnd);
+    // Menu navigation. Polled on EVERY frame and only ACTED on at matchEnd — never polled inside the
+    // `if (atEnd)`. Phaser's `Key._justDown` is set on the keydown event and cleared only when a
+    // JustDown() read consumes it or the key comes up; it is NOT frame-scoped. These keys are also
+    // jump/crouch, so a player who dies while holding crouch — a very normal way to die — would
+    // arrive at the menu carrying an unconsumed edge that fires the instant the menu starts polling,
+    // silently moving the highlight off REMATCH before they touch anything. Draining it every frame
+    // is the same discipline `prevMenuDown`/`prevRestartDown` and the sim's EdgeLatch already use.
+    // At most ONE move per frame, too: two bindings point the same way (ArrowDown and S) and with
+    // two options a double step wraps straight back, which reads as the menu ignoring you.
+    let step = 0;
+    for (const k of this.endKeys.up) if (Phaser.Input.Keyboard.JustDown(k)) step = -1;
+    for (const k of this.endKeys.down) if (Phaser.Input.Keyboard.JustDown(k)) step = step === -1 ? 0 : 1;
+    if (atEnd && step !== 0) this.moveEndSel(step);
+
     const rDown = this.restartKey.isDown;
     if (rDown && !this.prevRestartDown) {
-      this.world.restart(); // resets the CPU controller too, via the CpuSeam — see world.resetRound
-      this.disarmQuit();
-      this.latch.clear();
-      for (const s of this.sprites) s.clearFx();
+      // At matchEnd Enter confirms the highlighted option; everywhere else it stays the bare
+      // restart it has always been (which is what the Phase 11 quit-prompt spec presses, in intro).
+      this.prevRestartDown = true;
+      if (atEnd) { this.confirmEndSel(); return; }
+      this.rematch();
     }
     this.prevRestartDown = rDown;
 
     this.render();
-    // Follow-camera: centre on the fighters' midpoint; setBounds clamps scrollX. No zoom needed —
-    // the sim caps the pair at MAX_SEPARATION (< VIEW_WIDTH), so both always fit the viewport.
+    // Group camera: centre on the fighters' midpoint and zoom IN as they close. Zoom never drops
+    // below 1 — the stage art is exactly STAGE_HEIGHT tall, so zooming out would show empty bands
+    // (see camera-frame.ts). The view is bottom-aligned: `centerOn`'s y is computed from the CURRENT
+    // displayHeight rather than left to clampY, so the intent is in the code and not in the clamp.
     const [f0, f1] = this.world.fighters;
-    this.cameras.main.centerOnX((f0.x + f1.x) / 2);
+    const cam = this.cameras.main;
+    this.zoom = stepZoom(this.zoom, groupZoom(Math.abs(f0.x - f1.x)));
+    cam.setZoom(this.zoom);
+    cam.centerOn((f0.x + f1.x) / 2, STAGE_HEIGHT - cam.displayHeight / 2);
     this.hud.update(this.world, time);
   }
 

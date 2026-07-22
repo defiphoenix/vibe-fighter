@@ -90,21 +90,34 @@ test("parallax layers, occlusion, and camera bounds", async ({ page }) => {
   // exact camera clamps: shove both fighters to a wall, pump, read scrollX.
   const clampLeft = await page.evaluate(() => {
     const w = window as any;
-    for (const f of w.__world.fighters) f.x = 90; // STAGE_MARGIN (left wall)
+    for (const f of w.__world.fighters) f.x = 116; // STAGE_MARGIN (left wall)
     return 0;
   });
   void clampLeft;
   await pump(page, 2);
-  const scrollLeft = await page.evaluate(() => (window as any).__stage.cam.scrollX);
-  expect(scrollLeft).toBe(0);
+  // Phase 12: the camera zooms IN when the fighters are close, so the old constants (scrollX 0 and
+  // 416 = 1696-1280) no longer describe the clamp — Phaser stores scrollX relative to the UNZOOMED
+  // viewport midpoint, so the bound is `bounds.right - (width + displayWidth)/2`. Assert the
+  // invariant those constants were standing in for instead: the visible world edge sits exactly on
+  // the stage edge, at whatever zoom the pair happens to be at.
+  const atLeft = await page.evaluate(() => {
+    const c = (window as any).__stage.cam;
+    return { left: c.worldView.left, scrollX: c.scrollX, zoom: c.zoomX, w: c.width };
+  });
+  expect(atLeft.left).toBeCloseTo(0, 3);
+  expect(atLeft.scrollX).toBeCloseTo((atLeft.w - atLeft.w / atLeft.zoom) / -2, 3);
 
   await page.evaluate(() => {
     const w = window as any;
-    for (const f of w.__world.fighters) f.x = 1606; // STAGE_WIDTH - STAGE_MARGIN (right wall)
+    for (const f of w.__world.fighters) f.x = 1580; // STAGE_WIDTH - STAGE_MARGIN (right wall)
   });
   await pump(page, 2);
-  const scrollRight = await page.evaluate(() => (window as any).__stage.cam.scrollX);
-  expect(scrollRight).toBe(416); // world 1696 - viewport 1280
+  const atRight = await page.evaluate(() => {
+    const c = (window as any).__stage.cam;
+    return { right: c.worldView.right, scrollX: c.scrollX, zoom: c.zoomX, w: c.width };
+  });
+  expect(atRight.right).toBeCloseTo(1696, 3); // world edge, not viewport width
+  expect(atRight.scrollX).toBeCloseTo(1696 - atRight.w / 2 - atRight.w / atRight.zoom / 2, 3);
 
   // HUD is screen-space: every Text + the HUD graphics keep scrollFactorX 0 while the camera pans.
   const hudPinned = await page.evaluate(() => {

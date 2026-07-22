@@ -2,7 +2,7 @@ import { Fighter } from "./fighter";
 import { resolveSpatial } from "./spatial";
 import { resolveCombat } from "./combat";
 import { MatchState } from "./match";
-import { emptyInput, isAttackState } from "./types";
+import { emptyInput, isAttackState, isWalkState } from "./types";
 import type { CharacterConfig, InputSnapshot, SimEvent } from "./types";
 import { STAGE_WIDTH, GROUND_Y, START_GAP, MAX_FRAME, DT } from "./constants";
 
@@ -216,15 +216,29 @@ export class World {
     }
   }
 
+  /** Who is drawn in front: the most recent ATTACKER, else the most recent MOVER, else unchanged.
+   *
+   *  The mover signal is the locomotion STATE that `think` assigns, deliberately NOT a position
+   *  delta. Position is the wrong thing to measure here because this runs AFTER `integrate` and
+   *  `resolveSpatial`: a walker pushing an idle opponent moves BOTH bodies, the MAX_SEPARATION cap
+   *  rewrites both, and retained knockback/momentum keeps moving a fighter who never acted — most
+   *  visibly a KO body sliding through `roundEnd` via `settleBodies`, which would pop the LOSER in
+   *  front. A state can only be walkF/walkB if the fighter actually chose to walk this tick.
+   *
+   *  ponytail: jumps and knockback deliberately don't affect depth — an air attack already wins via
+   *  the attacker rule, and everything else stays stable. */
   private updateDepth(a: Fighter, b: Fighter): void {
-    // change front only on an accepted side swap: the fighter that is behind (further from
-    // center on the losing side) ... simplest stable rule: the fighter currently moving into
-    // the other is drawn in front. Use most-recent attacker, else keep.
     const aAtk = isAttackState(a.state);
     const bAtk = isAttackState(b.state);
-    if (aAtk && !bAtk) this.frontIndex = 0;
-    else if (bAtk && !aAtk) this.frontIndex = 1;
-    // otherwise keep the current front (stable)
+    if (aAtk !== bAtk) {
+      this.frontIndex = aAtk ? 0 : 1;
+      return;
+    }
+    if (aAtk) return; // both attacking: tie, keep the current front
+    const aWalk = isWalkState(a.state);
+    const bWalk = isWalkState(b.state);
+    if (aWalk !== bWalk) this.frontIndex = aWalk ? 0 : 1;
+    // neither or both moving: keep the current front (stable — no per-frame flicker)
   }
 
   /** End the round on a KO (returns true if the round/match ended this tick). */

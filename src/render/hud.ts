@@ -14,6 +14,9 @@ export class Hud {
   private centerText: Phaser.GameObjects.Text;
   private p1Pips: Phaser.GameObjects.Text;
   private p2Pips: Phaser.GameObjects.Text;
+  /** Everything the HUD owns, for a caller that has to assign objects to a camera. Kept as one list
+   *  so adding an element here can't silently leave it rendering on the world camera too. */
+  readonly objects: Phaser.GameObjects.GameObject[];
 
   constructor(scene: Phaser.Scene) {
     // HUD is screen-space: pin every element with setScrollFactor(0) so the follow-camera
@@ -24,6 +27,7 @@ export class Hud {
     this.centerText = scene.add.text(VIEW_WIDTH / 2, 300, "", { ...font, fontSize: "60px", color: "#ffdd44" }).setOrigin(0.5).setDepth(101).setScrollFactor(0);
     this.p1Pips = scene.add.text(MARGIN, TOP + BAR_H + 6, "", { ...font, fontSize: "18px", color: "#66ccff" }).setDepth(101).setScrollFactor(0);
     this.p2Pips = scene.add.text(VIEW_WIDTH - MARGIN, TOP + BAR_H + 6, "", { ...font, fontSize: "18px", color: "#ff8866" }).setOrigin(1, 0).setDepth(101).setScrollFactor(0);
+    this.objects = [this.g, this.timerText, this.centerText, this.p1Pips, this.p2Pips];
   }
 
   private bar(x: number, frac: number, flip: boolean, blink: boolean): void {

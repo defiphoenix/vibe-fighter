@@ -253,3 +253,71 @@ describe("input buffered across the intro boundary (R-7)", () => {
     expect(w.fighters[0].state).toBe("attackLight"); // buffered press survived
   });
 });
+
+// R-8: z-order follows the most recent mover, not just the attacker.
+// Before Phase 12 `updateDepth` only reacted to attacks, so two fighters that merely walked never
+// swapped and P1 was drawn behind P2 for the whole match. The signal is the LOCOMOTION STATE that
+// `think` assigns — not a position delta, because `resolveSpatial` moves both bodies when a walker
+// pushes an idle opponent, the MAX_SEPARATION cap rewrites both, and retained knockback moves a
+// fighter who never acted (including a KO body sliding through roundEnd).
+describe("depth follows the mover (R-8)", () => {
+  const walkRight = mk({ right: true });
+  const walkLeft = mk({ left: true });
+
+  it("a lone walker is drawn in front", () => {
+    const w = fightWorld(400);
+    w.frontIndex = 1; // the constructor default: P2 in front
+    w.tick([walkRight, mk()]); // only P1 moves
+    expect(w.fighters[0].state).toBe("walkF");
+    expect(w.frontIndex).toBe(0);
+    // ...and the other way round
+    w.tick([mk(), walkLeft]);
+    expect(w.fighters[1].state).toBe("walkF");
+    expect(w.frontIndex).toBe(1);
+  });
+
+  it("both walking is a tie and keeps the current front", () => {
+    const w = fightWorld(400);
+    w.tick([walkRight, mk()]); // P1 takes the front alone
+    expect(w.frontIndex).toBe(0);
+    w.tick([walkRight, walkLeft]); // both walking now
+    expect(w.fighters[0].state).toBe("walkF");
+    expect(w.fighters[1].state).toBe("walkF");
+    expect(w.frontIndex).toBe(0); // unchanged — no flicker
+  });
+
+  it("an attacker outranks a walker", () => {
+    const w = fightWorld(400);
+    w.tick([walkRight, mk()]);
+    expect(w.frontIndex).toBe(0);
+    w.tick([walkRight, mk({ light: true, lightPressed: true })]); // P1 walks, P2 attacks
+    expect(w.fighters[1].state).toBe("attackLight");
+    expect(w.frontIndex).toBe(1);
+  });
+
+  it("a walker pushing an idle opponent still takes the front", () => {
+    // Touching pushboxes: resolveSpatial moves BOTH bodies, so a position-delta rule would read
+    // this as "both moved" and refuse to swap. The state rule still sees exactly one walker.
+    const w = fightWorld(40);
+    w.frontIndex = 1;
+    const before = w.fighters[1].x;
+    w.tick([walkRight, mk()]);
+    expect(w.fighters[1].x).not.toBe(before); // the idle fighter really was pushed
+    expect(w.fighters[1].state).toBe("idle");
+    expect(w.frontIndex).toBe(0);
+  });
+
+  it("a KO body sliding through roundEnd never takes the front", () => {
+    const w = fightWorld(400);
+    w.tick([walkRight, mk()]); // P1 (the eventual winner) is in front
+    expect(w.frontIndex).toBe(0);
+    const loser = w.fighters[1];
+    loser.health = 0;
+    loser.state = "ko"; // `state` is public; setState is private (it also resets stateFrame)
+    loser.vx = -300; // still sliding
+    w.match.phase = "roundEnd";
+    w.match.endTicks = 30;
+    for (let i = 0; i < 10; i++) w.tick(NONE); // settleBodies integrates + updates depth
+    expect(w.frontIndex).toBe(0); // the loser did not pop in front while sliding
+  });
+});

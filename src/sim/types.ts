@@ -56,6 +56,12 @@ export function isAttackState(s: StateName): s is AttackStateName {
   return Object.prototype.hasOwnProperty.call(ATTACK_STATE_TO_KEY, s);
 }
 
+/** Ground locomotion — the states `think` assigns when the fighter CHOSE to walk. Used by
+ *  world.ts's depth rule as a movement-intent signal that survives the tick order (see updateDepth). */
+export function isWalkState(s: StateName): boolean {
+  return s === "walkF" || s === "walkB";
+}
+
 export interface StateSpec {
   /** number of animation frames; stateFrame indexes frames[] */
   frames: FrameBoxes[];

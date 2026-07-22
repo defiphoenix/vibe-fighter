@@ -135,3 +135,143 @@ test("a light attack plays attackLight and puts the opponent in hitstun; hitstop
   expect(opp.health).toBeLessThan(100);
   expect(frozeDuringHitstop).toBe(true);
 });
+
+// Phase 12: the measured contact frame must actually reach Phaser. anim-timing.test.ts proves the
+// arithmetic, but it would stay green if FighterSprite stopped applying the durations — this asserts
+// the wiring, on the real AnimationManager, after a real boot.
+test("attack animations carry per-frame durations that put the strike on the active window", async ({ page }) => {
+  await ready(page);
+
+  const checked = await page.evaluate(() => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const w = window as any;
+    const reg = w.__game.cache.json.get("characters");
+    const out: { key: string; windUpMs: number; startupMs: number; totalMs: number; moveMs: number }[] = [];
+    const STATE_TO_KEY: Record<string, string> = {
+      attackLight: "light", attackHeavy: "heavy", airLight: "airLight",
+      airHeavy: "airHeavy", crouchLight: "crouchLight", crouchHeavy: "crouchHeavy",
+    };
+    for (const id of ["brawler", "jiujitsu"]) { // the two fighters this match built
+      for (const [state, key] of Object.entries(STATE_TO_KEY)) {
+        const sheet = reg[id].render.sheets[state];
+        if (sheet.hit === undefined) continue; // no measurement -> uniform timing, nothing to assert
+        const anim = w.__game.anims.get(`${id}-${state}`);
+        const d = anim.frames.map((f: any) => f.duration);
+        const a = reg[id].data.attacks[key];
+        out.push({
+          key: `${id}.${state}`,
+          windUpMs: d.slice(0, sheet.hit).reduce((t: number, x: number) => t + x, 0),
+          startupMs: ((a.startup - 1) * 1000) / 60 - 1, // -1 tick = play() lag, -1ms = boundary bias
+          totalMs: d.reduce((t: number, x: number) => t + x, 0),
+          moveMs: ((a.startup + a.active + a.recovery) * 1000) / 60,
+        });
+      }
+    }
+    return out;
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
+  expect(checked.length, "expected measured contact frames in the shipped registry").toBeGreaterThan(0);
+  for (const c of checked) {
+    // the frame the sprite strikes on begins exactly when the hit box does...
+    expect(c.windUpMs, `${c.key} wind-up`).toBeCloseTo(c.startupMs, 6);
+    // ...and re-timing did not change how long the move takes
+    expect(c.totalMs, `${c.key} total`).toBeCloseTo(c.moveMs, 6);
+  }
+});
+
+// The acceptance criterion itself, measured on the running game rather than on the numbers that
+// feed it: on the sim tick the hit box first goes live, the sprite must be showing the frame the art
+// actually strikes on. This is what caught the play() lag — the durations were arithmetically
+// perfect and the contact frame still landed one tick late, because the animation clock starts at
+// the END of the tick that entered the state.
+test("the strike frame is on screen on the tick the hit box goes live", async ({ page }) => {
+  test.slow();
+  await ready(page);
+
+  const results = await page.evaluate(async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const w = window as any;
+    const reg = w.__game.cache.json.get("characters");
+    const step = () => { const g = w.__game; g.step((g.loop?.now ?? 0) + 1000 / 60, 1000 / 60); };
+    const out: { key: string; shown: number; hit: number }[] = [];
+
+    for (const [state, key, input] of [
+      ["attackLight", "light", { light: true, lightPressed: true }],
+      ["attackHeavy", "heavy", { heavy: true, heavyPressed: true }],
+      ["crouchHeavy", "crouchHeavy", { down: true, downAtPress: true, heavy: true, heavyPressed: true }],
+    ] as const) {
+      const sheet = reg.brawler.render.sheets[state];
+      if (sheet.hit === undefined) continue;
+      const startup = reg.brawler.data.attacks[key].startup;
+      w.__world.match.phase = "fight";
+      w.__world.match.introTicks = 0;
+      w.__world.fighters[0].reset(700, 1);
+      w.__world.fighters[1].reset(900, -1); // out of range: measure the animation, not the hit
+      w.__holdP1(input);
+      let shown = -1;
+      for (let i = 0; i < 60; i++) {
+        step();
+        const f = w.__world.fighters[0];
+        if (f.state === state && f.stateFrame >= startup) {
+          shown = (w.__sprites[0].anims.currentFrame?.index ?? 0) - 1; // Phaser's index is 1-based
+          break;
+        }
+      }
+      w.__holdP1({});
+      for (let i = 0; i < 60; i++) step(); // return to idle before the next one
+      out.push({ key: `brawler.${state}`, shown, hit: sheet.hit });
+    }
+    return out;
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
+  expect(results.length).toBeGreaterThan(0);
+  for (const r of results) {
+    expect(r.shown, `${r.key}: frame on screen at the first active tick`).toBe(r.hit);
+  }
+});
+
+// ...and the same acceptance under a FRAME HITCH. `World.advance` runs a whole batch of fixed ticks
+// before the scene renders (up to 15 at MAX_FRAME), but `play()` only happens at render — so on a
+// long frame an attack can enter its state and run clean past its active window before its animation
+// has started, drawing the wind-up while the hit box is already live. Every other pump in this suite
+// is exactly one tick, so none of them can see it. This one steps 5 ticks at a time.
+test("the strike frame is still correct when one render frame spans several sim ticks", async ({ page }) => {
+  await ready(page);
+
+  const r = await page.evaluate(() => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const w = window as any;
+    const reg = w.__game.cache.json.get("characters");
+    const sheet = reg.brawler.render.sheets.attackLight;
+    const a = reg.brawler.data.attacks.light;
+    const TICKS = 5; // one long frame ~= 83ms, well past this move's 4-tick startup
+    const step = () => { const g = w.__game; g.step((g.loop?.now ?? 0) + (1000 / 60) * TICKS, (1000 / 60) * TICKS); };
+
+    w.__world.match.phase = "fight";
+    w.__world.match.introTicks = 0;
+    w.__world.fighters[0].reset(700, 1);
+    w.__world.fighters[1].reset(900, -1);
+    w.__holdP1({ light: true, lightPressed: true });
+    const seen: { stateFrame: number; shown: number }[] = [];
+    for (let i = 0; i < 12; i++) {
+      step();
+      const f = w.__world.fighters[0];
+      if (f.state === "attackLight") {
+        seen.push({ stateFrame: f.stateFrame, shown: (w.__sprites[0].anims.currentFrame?.index ?? 0) - 1 });
+      }
+    }
+    w.__holdP1({});
+    return { seen, hit: sheet.hit, startup: a.startup, active: a.active };
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
+  expect(r.hit, "this test needs a measured contact frame").toBeGreaterThan(0);
+  // Find the first observation at or after the hit box going live. Under a 5-tick frame we may not
+  // land exactly on `startup`, so take the first sample inside or past the active window.
+  const atContact = r.seen.find((s) => s.stateFrame >= r.startup);
+  expect(atContact, "never observed the active window").toBeDefined();
+  // The animation must have caught up: at least the contact frame, never still on the wind-up.
+  expect(atContact!.shown, `stateFrame ${atContact!.stateFrame} showed a wind-up frame`).toBeGreaterThanOrEqual(r.hit);
+});

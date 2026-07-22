@@ -119,3 +119,34 @@ describe("validateFighterEntry", () => {
     expect(validateFighterEntry("brawler", e).some((m) => m.includes("active window") || m.includes("non-attack"))).toBe(true);
   });
 });
+
+describe("render.sheets.<state>.hit — the measured contact frame", () => {
+  const withHit = (state: string, hit: unknown, startupOverride?: number) => {
+    const e = sampleEntry() as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    e.render.sheets[state].hit = hit;
+    if (startupOverride !== undefined) e.data.attacks.light.startup = startupOverride;
+    return validateFighterEntry("x", e);
+  };
+
+  it("accepts a sane contact frame on an attack sheet", () => {
+    expect(withHit("attackLight", 1)).toEqual([]);
+  });
+
+  it("rejects it on a non-attack sheet — there is no active window to align to", () => {
+    expect(withHit("idle", 1).join()).toMatch(/only attack sheets/);
+  });
+
+  it("rejects a non-integer, a zero, and an out-of-range frame", () => {
+    expect(withHit("attackLight", 1.5).join()).toMatch(/integer required/);
+    expect(withHit("attackLight", 0).join()).toMatch(/must be in/);   // empty wind-up segment
+    expect(withHit("attackLight", 99).join()).toMatch(/must be in/);
+  });
+
+  it("rejects a startup the renderer cannot spend on a wind-up (must exceed the play lag)", () => {
+    // anim-timing budgets the wind-up `startup - PLAY_LAG_TICKS` ticks, so startup 1 would declare a
+    // contact frame that the renderer then silently ignores. The two contracts must agree.
+    expect(withHit("attackLight", 1, 1).join()).toMatch(/needs startup >/);
+    expect(withHit("attackLight", 1, 0).join()).toMatch(/needs startup >/);
+    expect(withHit("attackLight", 1, 2)).toEqual([]);
+  });
+});

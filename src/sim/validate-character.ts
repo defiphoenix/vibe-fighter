@@ -1,6 +1,10 @@
 import type { AttackKey, AttackStateName, StateName } from "./types";
 import { ATTACK_STATE_TO_KEY, isAttackState } from "./types";
 
+/** Mirrors PLAY_LAG_TICKS in render/anim-timing.ts. Duplicated, not imported: sim/ must not depend
+ *  on render/. anim-timing.test.ts pins the two together. */
+const PLAY_LAG_TICKS = 1;
+
 // Shared, pure validator for character-gym.json entries. Used by BootScene (throw on any error)
 // and the dev-only Vite write-back middleware (reject a bad save). One source of truth so the two
 // paths can't drift. Operates on untyped input — every access is guarded.
@@ -55,6 +59,38 @@ function checkAttack(v: unknown, where: string, errs: string[], expectBody?: "ai
     else if ((v[k] as number) < 0) errs.push(`${where}.${k}: must be >= 0`);
   }
   if (!isObj(v.knockback) || !isFiniteNum(v.knockback.x) || !isFiniteNum(v.knockback.y)) errs.push(`${where}.knockback: needs finite x,y`);
+}
+
+/**
+ * `render.sheets.<state>.hit` — the measured contact frame, optional.
+ *
+ * Rules, in the order they can fail:
+ *  - non-attack sheets have no active window to align to, so the field is meaningless there;
+ *  - it indexes render frames, so it must be an integer inside the sheet;
+ *  - it must be > 0, because frames 0..hit-1 are the wind-up segment and a hit of 0 leaves that
+ *    segment empty — which is just the uniform timing, spelled the long way;
+ *  - and `startup` must exceed the renderer's one-tick play lag, or that segment has no time in it.
+ *    `startup: 0` is legal for an attack (checkAttack only requires non-negative).
+ */
+function checkHitFrame(
+  sh: Record<string, unknown>,
+  state: StateName,
+  data: unknown,
+  p: (m: string) => void,
+): void {
+  if (sh.hit === undefined) return;
+  const where = `render.sheets.${state}.hit`;
+  if (!isAttackState(state)) return void p(`${where}: only attack sheets can declare a contact frame`);
+  if (!isFiniteNum(sh.hit) || !Number.isInteger(sh.hit)) return void p(`${where}: integer required`);
+  const frames = isFiniteNum(sh.frames) ? sh.frames : 0;
+  if (sh.hit <= 0 || sh.hit >= frames) return void p(`${where}: must be in 1..${frames - 1} (got ${sh.hit})`);
+  const attacks = isObj(data) && isObj(data.attacks) ? data.attacks : undefined;
+  const atk = attacks?.[ATTACK_STATE_TO_KEY[state]];
+  const startup = isObj(atk) && isFiniteNum(atk.startup) ? atk.startup : 0;
+  // Strictly greater than the render's one-tick play lag, not merely non-zero: anim-timing budgets
+  // the wind-up `startup - PLAY_LAG_TICKS` ticks, so startup 1 would declare a contact frame that
+  // the renderer then silently refuses to use. Keep the two contracts in step.
+  if (startup <= PLAY_LAG_TICKS) p(`${where}: needs startup > ${PLAY_LAG_TICKS} to spread over frames 0..${sh.hit - 1} (got ${startup})`);
 }
 
 /** Assembled frame count + active window (or null) for a state, from the authored data. */
@@ -137,6 +173,7 @@ export function validateFighterEntry(id: string, entry: unknown): string[] {
         if (!isPosInt(sh.frames)) p(`render.sheets.${s}.frames: positive integer required`);
         if (!isFiniteNum(sh.fps) || (sh.fps as number) <= 0) p(`render.sheets.${s}.fps: must be > 0`);
         if (typeof sh.loop !== "boolean") p(`render.sheets.${s}.loop: boolean required`);
+        checkHitFrame(sh, s, data, p);
       }
       for (const k of Object.keys(sheets)) if (!STATE_NAMES.includes(k as StateName)) p(`render.sheets.${k}: unknown state`);
     }

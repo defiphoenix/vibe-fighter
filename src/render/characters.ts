@@ -9,6 +9,11 @@ export interface SheetMeta {
   frames: number;
   fps: number;
   loop: boolean;
+  /** ATTACK sheets only: the render frame on which the strike actually connects (measured from the
+   *  art by `scripts/check-attack-sync.py`). Lets `anim-timing.ts` time the animation so that frame
+   *  starts on the sim's first ACTIVE tick. Optional — a sheet the measurement can't call keeps the
+   *  old uniform timing rather than getting a guessed value. */
+  hit?: number;
 }
 
 /** Loader-only render metadata for a fighter (never reaches the sim). */

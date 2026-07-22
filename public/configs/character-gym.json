@@ -49,13 +49,15 @@
           "path": "sprites/brawler/attackLight.png",
           "frames": 6,
           "fps": 14,
-          "loop": false
+          "loop": false,
+          "hit": 3
         },
         "attackHeavy": {
           "path": "sprites/brawler/attackHeavy.png",
           "frames": 6,
           "fps": 12,
-          "loop": false
+          "loop": false,
+          "hit": 2
         },
         "hitstun": {
           "path": "sprites/brawler/hitstun.png",
@@ -91,19 +93,22 @@
           "path": "sprites/brawler/airHeavy.png",
           "frames": 4,
           "fps": 10,
-          "loop": false
+          "loop": false,
+          "hit": 2
         },
         "crouchLight": {
           "path": "sprites/brawler/crouchLight.png",
           "frames": 4,
           "fps": 12,
-          "loop": false
+          "loop": false,
+          "hit": 2
         },
         "crouchHeavy": {
           "path": "sprites/brawler/crouchHeavy.png",
           "frames": 4,
           "fps": 10,
-          "loop": false
+          "loop": false,
+          "hit": 2
         }
       }
     },
@@ -392,13 +397,15 @@
           "path": "sprites/jiujitsu/attackLight.png",
           "frames": 6,
           "fps": 14,
-          "loop": false
+          "loop": false,
+          "hit": 1
         },
         "attackHeavy": {
           "path": "sprites/jiujitsu/attackHeavy.png",
           "frames": 6,
           "fps": 12,
-          "loop": false
+          "loop": false,
+          "hit": 2
         },
         "hitstun": {
           "path": "sprites/jiujitsu/hitstun.png",
@@ -428,19 +435,22 @@
           "path": "sprites/jiujitsu/airLight.png",
           "frames": 4,
           "fps": 12,
-          "loop": false
+          "loop": false,
+          "hit": 2
         },
         "airHeavy": {
           "path": "sprites/jiujitsu/airHeavy.png",
           "frames": 4,
           "fps": 10,
-          "loop": false
+          "loop": false,
+          "hit": 2
         },
         "crouchLight": {
           "path": "sprites/jiujitsu/crouchLight.png",
           "frames": 4,
           "fps": 12,
-          "loop": false
+          "loop": false,
+          "hit": 1
         },
         "crouchHeavy": {
           "path": "sprites/jiujitsu/crouchHeavy.png",
@@ -735,13 +745,15 @@
           "path": "sprites/monk/attackLight.png",
           "frames": 6,
           "fps": 14,
-          "loop": false
+          "loop": false,
+          "hit": 3
         },
         "attackHeavy": {
           "path": "sprites/monk/attackHeavy.png",
           "frames": 6,
           "fps": 12,
-          "loop": false
+          "loop": false,
+          "hit": 3
         },
         "hitstun": {
           "path": "sprites/monk/hitstun.png",
@@ -771,7 +783,8 @@
           "path": "sprites/monk/airLight.png",
           "frames": 4,
           "fps": 12,
-          "loop": false
+          "loop": false,
+          "hit": 2
         },
         "airHeavy": {
           "path": "sprites/monk/airHeavy.png",
@@ -789,7 +802,8 @@
           "path": "sprites/monk/crouchHeavy.png",
           "frames": 4,
           "fps": 10,
-          "loop": false
+          "loop": false,
+          "hit": 2
         }
       }
     },

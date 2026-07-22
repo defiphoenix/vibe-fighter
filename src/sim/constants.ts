@@ -12,7 +12,12 @@ export const STAGE_WIDTH = 1696;
 export const VIEW_WIDTH = 1280;
 export const STAGE_HEIGHT = 720;
 export const GROUND_Y = 620; // feet line (screen y-down)
-export const STAGE_MARGIN = 90; // fighter center cannot pass this from either edge
+// Fighter CENTRE cannot pass this from either edge. Set from the art, not by feel: the widest
+// outward extent of any frame in the roster is 116px (jiujitsu `ko`, frames 3-5; `knockdown` is
+// 106px), so a margin below that clips the body against the camera's world bound at the wall. It
+// sat at 90 for phases and cropped 26px off a cornered KO — invisible until Phase 12's zoom
+// magnified it. Re-measure with scripts/check-attack-sync.py's forward_reach if the art changes.
+export const STAGE_MARGIN = 116;
 // Max horizontal gap between the two fighters. Without it a pair can reach 1516px apart (the two
 // wall clamps) while the camera view is only VIEW_WIDTH=1280, so the midpoint follow-camera pushes
 // both off-screen. Cap it so BOTH full sprites stay framed at 1:1 zoom — the classic 2D-fighter

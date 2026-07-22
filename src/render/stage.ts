@@ -34,6 +34,10 @@ const PROP_FRAMES = 4; // each prop is a 4-frame loop, per public/props/twilight
  *  every GameObject it created (layers + props). */
 export interface StageHandle {
   layers: Phaser.GameObjects.Image[];
+  /** EVERY object the stage created — layers AND props. `layers` alone is not enough for a caller
+   *  that must partition the scene between cameras: a prop left out of the world camera's ignore
+   *  list renders on the UI camera too. */
+  objects: Phaser.GameObjects.GameObject[];
   destroy(): void;
 }
 
@@ -100,6 +104,7 @@ export function buildStage(scene: Phaser.Scene, cfg: StageConfig): StageHandle {
 
   return {
     layers,
+    objects,
     destroy() {
       for (const o of objects) o.destroy();
       objects.length = 0;

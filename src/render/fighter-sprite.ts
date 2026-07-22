@@ -1,7 +1,8 @@
 import * as Phaser from "phaser";
 import type { Fighter } from "../sim/fighter";
 import type { CharacterData, StateName } from "../sim/types";
-import { attackFrameRate } from "./anim-timing";
+import { attackFrameRate, attackFrameDurations, PLAY_LAG_TICKS } from "./anim-timing";
+import { TICK_HZ } from "../sim/constants";
 import { textureKey, type RenderMeta } from "./characters";
 import { STATE_NAMES } from "../sim/validate-character";
 
@@ -33,9 +34,19 @@ export class FighterSprite {
       const key = textureKey(id, state);
       if (scene.anims.exists(key)) continue;
       const meta = render.sheets[state];
+      const frames = scene.anims.generateFrameNumbers(key, { start: 0, end: meta.frames - 1 });
+      // Attacks with a MEASURED contact frame get explicit per-frame durations, so the frame the
+      // sprite actually strikes on begins on the sim's first active tick (see anim-timing.ts).
+      // In Phaser 4 a frame's `duration` REPLACES msPerFrame rather than adding to it
+      // (Animation.js getNextTick: `currentFrame.duration || msPerFrame`) — and only while the
+      // playback frameRate still equals the animation's, so never pass a per-play `frameRate`
+      // override to play() or these durations silently stop applying. `frameRate` below stays the
+      // base for every other frame and for sheets with no measurement.
+      const durations = attackFrameDurations(state, meta, data);
+      if (durations) frames.forEach((f, i) => { f.duration = durations[i]; });
       scene.anims.create({
         key,
-        frames: scene.anims.generateFrameNumbers(key, { start: 0, end: meta.frames - 1 }),
+        frames,
         frameRate: attackFrameRate(state, meta, data),
         repeat: meta.loop ? -1 : 0,
       });
@@ -72,6 +83,14 @@ export class FighterSprite {
       this.sprite.play(textureKey(this.id, f.state));
       this.lastState = f.state;
       this.paused = false;
+      // Catch the animation up to where the SIM already is. `World.advance` runs a whole batch of
+      // fixed ticks before the scene renders — up to 15 on a stalled frame (MAX_FRAME) — so on a
+      // frame hitch an attack can enter its state AND run past its active window before play() is
+      // ever called, which would draw the wind-up while the hit box was already live: exactly the
+      // defect the measured contact frames exist to remove. On a healthy frame stateFrame is 1 here
+      // and this contributes nothing, which is the constant PLAY_LAG_TICKS already accounts for.
+      const behind = (f.stateFrame - PLAY_LAG_TICKS) * (1000 / TICK_HZ);
+      if (behind > 0) this.sprite.anims.update(0, behind);
     }
     if (frozen && !this.paused) { this.sprite.anims.pause(); this.paused = true; }
     else if (!frozen && this.paused) { this.sprite.anims.resume(); this.paused = false; }
