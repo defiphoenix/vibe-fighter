@@ -1,0 +1,25 @@
+SNES 16-bit pixel art, side-view 2D fighting game background layer in the style of Street Fighter II and Final Fight. This is the FAR PARALLAX LAYER - the dusk sky behind everything else. It is a backdrop, not a finished scene.
+
+CONTENT: nothing but sky at dusk, filling the entire frame edge to edge. The mood is a WARM GOLDEN-HOUR SUNSET, not night. The frame is dominated by warm orange in its lower half - this is the single most important thing about the image.
+
+Follow this exact vertical colour ramp from top to bottom, as a classic SNES dithered gradient:
+- top edge (0%): muted dusty purple #5E3D74
+- 12%: purple leaning warmer #774270
+- 20%: dusty mauve-rose #8F496B
+- 24%: warm rose #AD525B
+- 32%: strong orange-red #E16647
+- 36%: bright orange #F07843
+- 40% to 50%: the brightest warm ORANGE #FD9146 - a broad glowing orange horizon band
+- from 50% down to the bottom edge: hold that warm orange #FD9146, fading only slightly, staying orange all the way to the bottom edge of the frame.
+
+The bottom half of the image must read ORANGE, not purple, not magenta, not blue. Only the top quarter is purple.
+
+A scattering of tiny pale stars in the purple region at the very top only. A few long, thin, flat horizontal clouds in dusty purple silhouette catching orange underlight, sitting around 12% to 28% down. Classic SNES dithering and banding in the gradient - visible chunky pixel dither bands rather than a smooth photographic blend.
+
+ABSOLUTELY NO buildings, NO skyline, NO city, NO rooftops, NO ground, NO floor, NO fence, NO antennas, NO water towers, NO silhouettes of any structures. Sky and thin clouds ONLY. The bottom edge of the frame is still open orange sky.
+
+Full-bleed: the artwork fills the entire image edge to edge. NO black border, NO rounded frame, NO CRT/TV bezel, NO vignette, NO letterboxing.
+
+NO fighters, no people, no characters, no HUD, no UI, no text, no logos.
+
+Crisp chunky pixels, vivid but limited palette. Retro 16-bit pixel art, NOT high-resolution comic or 3D.

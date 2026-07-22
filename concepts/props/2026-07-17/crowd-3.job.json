@@ -1,0 +1,29 @@
+[
+  {
+    "created_at": "2026-07-17T13:50:11.999906Z",
+    "display_name": "Nano Banana Pro",
+    "id": "c08ce29c-8a4d-4eae-b28f-34d474cbb8c7",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_135011_c08ce29c-8a4d-4eae-b28f-34d474cbb8c7_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "16:9",
+      "batch_size": 1,
+      "height": 1536,
+      "input_image": null,
+      "input_images": [
+        {
+          "id": "f91c51a0-2698-40a5-b6e2-afe4d9db2183",
+          "type": "media_input",
+          "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/f91c51a0-2698-40a5-b6e2-afe4d9db2183_resize.jpg"
+        }
+      ],
+      "prompt": "Keep this exact crowd: the same people, the same number of them, the same silhouette, the same\nspacing, the same heights, the same rim of dusk light, the same colours, in the same position on the\ncanvas at the same size.\nChange one thing only: every one of them has dropped both arms back down to their chests, bent at the\nelbow, hands level with their own chests. Nothing else moves.\n\nFRAMING:\nOne subject only, alone, painted over a completely flat #FF00FF magenta void. There is no ground, no\nsky, no wall and no floor -- only the subject and the magenta. Do not paint scenery, a horizon, a\nskyline, a rooftop, a building, or any second separate subject into the magenta. Nothing casts a\nshadow onto the magenta.\nLeave a clear band of magenta on all four sides: the subject must not touch or run off any edge of\nthe canvas.\nThe magenta is one single uniform colour from edge to edge of the canvas, with no gradient, no\ntexture, no noise and no light falling on it. Do not put a decorative border, a CRT bezel, a\nvignette, scanlines or a matte around the canvas.\nThe camera stands at the eye level of a grown adult on the same rooftop and looks straight across at\nthe subject, neither down onto it nor up at it.\nSTYLE: 16-bit SNES arcade fighting-game stage art, hand-painted, chunky readable shapes, hard cel\nedges, flat blocks of colour, no photographic detail, no 3D render, no airbrush gradient, and no\noutline drawn around the subject. A low dusk sun sits behind and to the left, so the subject is\nmostly in warm shadow with a hot rim of light down its left edge.\nPALETTE: use only these colours, sampled from the locked rooftop-dusk stage -- backlight and hot rim\n#F07830 #F09048 #C04848 #904860; midtones #784860 #604860 #604848 #483060; shadow #483048 #301848\n#300048 #180030; warm highlights on metal #906060 #A86060 #786060 #786078.\nNo text, no letters, no numbers, no signage, no logo, no watermark, no signature, no label.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 2752
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_135011_c08ce29c-8a4d-4eae-b28f-34d474cbb8c7.png",
+    "status": "completed"
+  }
+]

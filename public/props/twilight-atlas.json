@@ -1,0 +1,339 @@
+{
+  "frames": {
+    "crowd-0": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 149
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 149
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 149
+      }
+    },
+    "crowd-1": {
+      "frame": {
+        "x": 384,
+        "y": 0,
+        "w": 384,
+        "h": 149
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 149
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 149
+      }
+    },
+    "crowd-2": {
+      "frame": {
+        "x": 768,
+        "y": 0,
+        "w": 384,
+        "h": 149
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 149
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 149
+      }
+    },
+    "crowd-3": {
+      "frame": {
+        "x": 1152,
+        "y": 0,
+        "w": 384,
+        "h": 149
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 149
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 149
+      }
+    },
+    "vents-0": {
+      "frame": {
+        "x": 0,
+        "y": 149,
+        "w": 384,
+        "h": 373
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 373
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 373
+      }
+    },
+    "vents-1": {
+      "frame": {
+        "x": 384,
+        "y": 149,
+        "w": 384,
+        "h": 373
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 373
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 373
+      }
+    },
+    "vents-2": {
+      "frame": {
+        "x": 768,
+        "y": 149,
+        "w": 384,
+        "h": 373
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 373
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 373
+      }
+    },
+    "vents-3": {
+      "frame": {
+        "x": 1152,
+        "y": 149,
+        "w": 384,
+        "h": 373
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 373
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 373
+      }
+    },
+    "beacon-0": {
+      "frame": {
+        "x": 0,
+        "y": 522,
+        "w": 162,
+        "h": 384
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 162,
+        "h": 384
+      },
+      "sourceSize": {
+        "w": 162,
+        "h": 384
+      }
+    },
+    "beacon-1": {
+      "frame": {
+        "x": 162,
+        "y": 522,
+        "w": 162,
+        "h": 384
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 162,
+        "h": 384
+      },
+      "sourceSize": {
+        "w": 162,
+        "h": 384
+      }
+    },
+    "beacon-2": {
+      "frame": {
+        "x": 324,
+        "y": 522,
+        "w": 162,
+        "h": 384
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 162,
+        "h": 384
+      },
+      "sourceSize": {
+        "w": 162,
+        "h": 384
+      }
+    },
+    "beacon-3": {
+      "frame": {
+        "x": 486,
+        "y": 522,
+        "w": 162,
+        "h": 384
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 162,
+        "h": 384
+      },
+      "sourceSize": {
+        "w": 162,
+        "h": 384
+      }
+    },
+    "steam-0": {
+      "frame": {
+        "x": 0,
+        "y": 906,
+        "w": 272,
+        "h": 384
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 272,
+        "h": 384
+      },
+      "sourceSize": {
+        "w": 272,
+        "h": 384
+      }
+    },
+    "steam-1": {
+      "frame": {
+        "x": 272,
+        "y": 906,
+        "w": 272,
+        "h": 384
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 272,
+        "h": 384
+      },
+      "sourceSize": {
+        "w": 272,
+        "h": 384
+      }
+    },
+    "steam-2": {
+      "frame": {
+        "x": 544,
+        "y": 906,
+        "w": 272,
+        "h": 384
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 272,
+        "h": 384
+      },
+      "sourceSize": {
+        "w": 272,
+        "h": 384
+      }
+    },
+    "steam-3": {
+      "frame": {
+        "x": 816,
+        "y": 906,
+        "w": 272,
+        "h": 384
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 272,
+        "h": 384
+      },
+      "sourceSize": {
+        "w": 272,
+        "h": 384
+      }
+    }
+  },
+  "meta": {
+    "app": "scripts/build-atlases.py",
+    "version": "1.0",
+    "image": "twilight-atlas.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 1536,
+      "h": 1290
+    },
+    "scale": "1",
+    "phase": "07",
+    "source": "concepts/props/2026-07-17",
+    "anchor": "bottom-center: add with setOrigin(0.5, 1)",
+    "frames_per_prop": 4
+  }
+}

@@ -1,0 +1,41 @@
+[
+  {
+    "created_at": "2026-07-18T17:41:31.789416Z",
+    "display_name": "Seedance 2.0",
+    "id": "dddf5e2a-7ff6-490b-a67d-c43d770017d8",
+    "job_type": "seedance_2_0",
+    "min_result_url": null,
+    "params": {
+      "aspect_ratio": "3:4",
+      "bitrate_mode": "standard",
+      "duration": 4,
+      "generate_audio": false,
+      "genre": "auto",
+      "height": 960,
+      "medias": [
+        {
+          "data": {
+            "id": "3d911baf-e49a-4f95-85e1-e91e087dac06",
+            "type": "media_input",
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/3d911baf-e49a-4f95-85e1-e91e087dac06.png"
+          },
+          "role": "start_image"
+        }
+      ],
+      "mode": "fast",
+      "model": "seedance_2_0_fast",
+      "multi_prompt": [],
+      "multi_shot_mode": "custom",
+      "multi_shots": false,
+      "prompt": "The SAME single monk fighter from the start image stays in a deep low crouch the entire time, hips dropped near the floor and both knees fully bent, and flicks one quick low jab straight forward at ground level WITHOUT ever standing up, side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt_language": "en",
+      "reference_elements": [],
+      "resolution": "720p",
+      "speedramp": "auto",
+      "width": 720
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_174131_dddf5e2a-7ff6-490b-a67d-c43d770017d8.mp4",
+    "status": "completed",
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_174131_dddf5e2a-7ff6-490b-a67d-c43d770017d8_thumbnail.webp"
+  }
+]

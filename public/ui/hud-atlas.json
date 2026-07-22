@@ -1,0 +1,97 @@
+{
+  "frames": {
+    "health-bar": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 460,
+        "h": 144
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 460,
+        "h": 144
+      },
+      "sourceSize": {
+        "w": 460,
+        "h": 144
+      }
+    },
+    "portrait-base": {
+      "frame": {
+        "x": 0,
+        "y": 144,
+        "w": 463,
+        "h": 625
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 463,
+        "h": 625
+      },
+      "sourceSize": {
+        "w": 463,
+        "h": 625
+      }
+    },
+    "health-bar-slot": {
+      "frame": {
+        "x": 40,
+        "y": 41,
+        "w": 380,
+        "h": 62
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 380,
+        "h": 62
+      },
+      "sourceSize": {
+        "w": 380,
+        "h": 62
+      }
+    },
+    "portrait-slot": {
+      "frame": {
+        "x": 81,
+        "y": 225,
+        "w": 300,
+        "h": 460
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 300,
+        "h": 460
+      },
+      "sourceSize": {
+        "w": 300,
+        "h": 460
+      }
+    }
+  },
+  "meta": {
+    "app": "scripts/build-atlases.py",
+    "version": "1.0",
+    "image": "hud-atlas.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 463,
+      "h": 769
+    },
+    "scale": "1",
+    "phase": "07",
+    "source": "concepts/ui/2026-07-17"
+  }
+}

@@ -1,0 +1,31 @@
+A single empty portrait plate from a 16-bit arcade fighting game character-select screen, drawn
+face-on: one upright rectangular frame, taller than it is wide.
+It is an ornamental bevelled metal border running unbroken all the way around a large empty window.
+The window is the slot the game drops a character portrait into later, so paint the window flat
+#FF00FF magenta -- the identical magenta as the void outside the plate -- and keep the border
+unbroken all the way around the window on every side: top, bottom, left and right. The window is
+therefore a completely enclosed hole sitting inside the border. The window must not touch the outside
+of the plate anywhere.
+The window is a plain empty upright rectangle, about three units wide for every four units tall.
+There is nothing inside it: no portrait, no face, no person, no silhouette, no colour, no pattern.
+The border is thick warm gunmetal, with a brightly lit bevel along its top and left, a dark shadowed
+bevel along its bottom and right, one rivet in each of its four corners, and the same thickness of
+border on all four sides.
+
+FRAMING:
+One object only, alone, drawn face-on and flat to the camera with no perspective and no tilt, painted
+over a completely flat #FF00FF magenta void. Do not paint scenery, a background, a character, a
+portrait, or any second object into the magenta. Nothing casts a shadow onto the magenta.
+Leave a clear band of magenta on all four sides: the object must not touch or run off any edge of
+the canvas.
+The magenta is one single uniform colour from edge to edge of the canvas, with no gradient, no
+texture, no noise and no light falling on it. Do not put a decorative border, a CRT bezel, a
+vignette, scanlines or a matte around the canvas.
+STYLE: 16-bit SNES arcade fighting-game interface art, hand-painted, chunky readable shapes, hard cel
+edges, flat blocks of colour, heavy bevels with a clearly lit edge and a clearly shadowed edge,
+rivets and panel lines, no photographic detail, no 3D render, no airbrush gradient.
+PALETTE: use only these colours, sampled from the locked rooftop-dusk stage -- hot highlight #F07830
+#F09048; warm metal #C04848 #904860 #906060 #A86060 #786060 #786078; midtones #784860 #604860
+#604848 #483060; deep shadow #483048 #301848 #300048 #180030.
+No text, no letters, no numbers, no digits, no signage, no logo, no watermark, no signature, no name
+plate, no icon, no tick marks, no gauge markings, no scale, no graduations.

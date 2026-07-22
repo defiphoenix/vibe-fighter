@@ -1,0 +1,27 @@
+One crowd of distant onlookers watching a fight from the parapet of a neighbouring rooftop: a single
+tight huddle of about nine grown adults seen from the chest up, packed shoulder to shoulder in one
+horizontal row, much wider than it is tall. They are near-solid dark silhouettes carrying only a hot
+rim of dusk light along the tops of their heads and shoulders -- no faces, no features, no clothing
+detail. The whole huddle reads as one bumpy dark band.
+Every one of them has both arms down at their sides.
+
+FRAMING:
+One subject only, alone, painted over a completely flat #FF00FF magenta void. There is no ground, no
+sky, no wall and no floor -- only the subject and the magenta. Do not paint scenery, a horizon, a
+skyline, a rooftop, a building, or any second separate subject into the magenta. Nothing casts a
+shadow onto the magenta.
+Leave a clear band of magenta on all four sides: the subject must not touch or run off any edge of
+the canvas.
+The magenta is one single uniform colour from edge to edge of the canvas, with no gradient, no
+texture, no noise and no light falling on it. Do not put a decorative border, a CRT bezel, a
+vignette, scanlines or a matte around the canvas.
+The camera stands at the eye level of a grown adult on the same rooftop and looks straight across at
+the subject, neither down onto it nor up at it.
+STYLE: 16-bit SNES arcade fighting-game stage art, hand-painted, chunky readable shapes, hard cel
+edges, flat blocks of colour, no photographic detail, no 3D render, no airbrush gradient, and no
+outline drawn around the subject. A low dusk sun sits behind and to the left, so the subject is
+mostly in warm shadow with a hot rim of light down its left edge.
+PALETTE: use only these colours, sampled from the locked rooftop-dusk stage -- backlight and hot rim
+#F07830 #F09048 #C04848 #904860; midtones #784860 #604860 #604848 #483060; shadow #483048 #301848
+#300048 #180030; warm highlights on metal #906060 #A86060 #786060 #786078.
+No text, no letters, no numbers, no signage, no logo, no watermark, no signature, no label.

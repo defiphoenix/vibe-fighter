@@ -1,0 +1,29 @@
+[
+  {
+    "created_at": "2026-07-17T11:42:30.961787Z",
+    "display_name": "Nano Banana Pro",
+    "id": "6f147770-7240-41c1-a01b-310f018eab18",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_114230_6f147770-7240-41c1-a01b-310f018eab18_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "3:4",
+      "batch_size": 1,
+      "height": 2400,
+      "input_image": null,
+      "input_images": [
+        {
+          "id": "80a05917-4cfb-41aa-85e5-c8376c66900d",
+          "type": "media_input",
+          "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/80a05917-4cfb-41aa-85e5-c8376c66900d_resize.jpg"
+        }
+      ],
+      "prompt": "Redraw the fighter in the reference image as a character-select portrait. Keep his design\nexactly as it is: the short dark blue-black hair, and the plain white gi jacket with its open\ncollar and lapels crossing over his bare chest. His face and the silhouette of his hair must stay\nrecognisably the same person.\n\nTASK: The reference shows him standing full-body in a guard on a flat magenta void. Discard the\nfull-body framing and discard the magenta void completely -- keep only the character himself, and\nreframe to his head, shoulders and upper chest as described below.\n\nPOSE: Calm and technical. Both of his hands are up at his own chest, gripping his own gi lapels in\nthe classic collar grip, his fingers buried in the white cloth. He is composed and still, his head\nlevel, his eyes fixed calmly on the viewer.\n\nHis gi in the reference is plain white with NO patch, NO flag and NO emblem on either shoulder or\nsleeve. Keep it plain white: do not add a shoulder patch, a flag patch, a badge or any marking to\nit.\n\nFRAMING:\nThis is a character-select portrait, not a full-body figure. The camera has moved in close, at the\nfighter's own eye level, until only his head, shoulders and upper chest fill the frame. The bottom\nedge of the image cuts straight through his chest: his waist, legs and feet are outside the frame\nand are not drawn at all. Above his hair leave a shallow band of backdrop about a third as tall as\nhis own head. His shoulders stay inside the frame with a narrow strip of backdrop down each side.\nHe faces the viewer, his body angled slightly, his head and eyes turned to the camera.\n\nBACKDROP:\nReplace the reference image's flat magenta background completely. There must be no magenta anywhere\nin the finished image. Behind him paint a dusk backdrop in these exact colours: a smooth vertical\ngradient running from deep violet #5E3C74 at the top, through rose #8C476A across the middle, to\nwarm orange #FD9146 at the bottom edge. Over that gradient lay a symmetrical burst of broad\nstraight sunbeam rays radiating outward from directly behind his head, each ray a slightly lighter\ntint of the gradient it crosses, and scatter coarse chunky halftone dots of the same palette in the\ncorners. This backdrop is flat graphic decoration only: no buildings, no rooftop, no water tower,\nno chain-link fence, no clouds, no landscape, no floor, no ground, no horizon line, no room, no\nscenery of any kind. It is drawn identically for every fighter.\n\nLIGHTING:\nNeutral, even, frontal light on the fighter so his own colours read true. Do not tint his skin,\nhair or clothing violet or orange to match the backdrop. He reads as a separate element sitting on\ntop of the backdrop, separated from it by a crisp dark outline.\n\nNOTHING WRITTEN:\nNo text of any kind anywhere in the image. No name plate, no nameplate banner, no name bar, no\nlabel, no caption, no kanji, no lettering, no numbers, no logo, no emblem, no badge, no crest, no\nflag, no patch, no signature, no watermark, no UI frame, no border box, no health bar, no icon.\n\nUNARMED:\nNo weapons and no props of any kind. Nothing in his hands but his own hands.\n\nSTYLE:\nA 16-bit SNES arcade fighting-game character-select portrait. Hand-drawn pixel art with visible\nsquare pixels, a limited flat palette, hard cel-shaded blocks of colour, crisp dithered transitions\nand bold dark outlines. Higher fidelity and more detail than a small in-game sprite, because this\nis the large portrait artwork, but the same chunky pixel-art feel: not smooth digital painting, not\n3D, not anti-aliased vector art, not photorealism.\n\nFULL-BLEED:\nThe artwork fills the entire canvas edge to edge. No border, no frame, no CRT bezel, no scanlines,\nno vignette, no rounded corners, no drop shadow, no letterboxing, no margin.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 1792
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_114230_6f147770-7240-41c1-a01b-310f018eab18.png",
+    "status": "completed"
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "created_at": "2026-07-17T08:40:17.957909Z",
+    "display_name": "Nano Banana Pro",
+    "id": "c893ab94-238b-4b44-b3a7-4e2c278a47c1",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_084017_c893ab94-238b-4b44-b3a7-4e2c278a47c1_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "21:9",
+      "batch_size": 1,
+      "height": 1344,
+      "input_image": null,
+      "input_images": [],
+      "prompt": "SNES 16-bit pixel art, side-view 2D fighting game background layer in the style of Street Fighter II and Final Fight. This is the MAIN STAGE LAYER - the rooftop the fighters stand on. It is ONE PARALLAX LAYER out of four, not a finished scene. A separate city-skyline layer is composited BEHIND this one, so every magenta gap in this image must stay magenta for the city to show through.\r\n\r\nCAMERA (most important instruction): the camera sits LOW, at the height of a fighter standing on the roof, looking flat ACROSS the rooftop at eye level - NOT looking down at it. Because the view is level, the concrete floor is FORESHORTENED into a THIN horizontal band along the very bottom of the frame. You see almost none of the floor's surface - just a narrow strip. This is a flat side-on 2D fighting-game stage like Street Fighter II, not a 3/4 overhead view. Do NOT tilt the camera down. Do NOT show a big receding floor plane.\r\n\r\nSCALE ANCHOR (also critical): a grown adult standing on this roof would be about ONE QUARTER of the image height. Size everything to that person:\r\n- the air-conditioner units are WAIST-HIGH on them (about half their height),\r\n- the chain-link fence is slightly TALLER than them,\r\n- the wooden water tower, including its steel legs, is about TWICE their height.\r\nDo not make the props bigger than this. They are rooftop clutter, not buildings.\r\n\r\nCOMPOSITION, top to bottom:\r\n- The TOP 92% of the image is a SOLID FLAT MAGENTA VOID, pure #FF00FF, absolutely uniform - no sky, no gradient, no clouds, no city, no buildings, no haze. Nothing but flat magenta. The ONLY things allowed to break into this magenta are the few rooftop props listed below, standing up from the roof floor. Everything between and around those props stays pure magenta.\r\n- The BOTTOM 8% ONLY is the flat concrete roof floor, seen from the side, at dusk. It MUST run UNBROKEN from the extreme LEFT edge to the extreme RIGHT edge - end to end, no gaps, touching both side edges and the bottom edge. Weathered grey concrete with tar seams, patches, gravel and cracks, lit warm from the left by the low sun. Keep it a THIN band along the very bottom.\r\n\r\nSTANDING ON THE ROOF FLOOR, rising up into the magenta (these are the only exceptions to the magenta):\r\n- RIGHT side: a tall wooden water tower on splayed steel legs - the hero prop, twice a person's height - and next to it a satellite dish on a small mount, and a chain-link fence running along the roof's back edge with visible posts. The fence is see-through: pure magenta shows through every diamond gap in the mesh.\r\n- LEFT side: two SMALL boxy air-conditioner units with fan grilles, only waist-high on a person, sitting low and close to the floor. A thin TV antenna mast.\r\n- The MIDDLE of the roof stays clear and open - just floor and magenta above it.\r\n\r\nCRITICAL:\r\n- The roof floor is FULL WIDTH. Do not inset it, do not float it, do not leave magenta at the left or right ends of the floor. Concrete touches both side edges.\r\n- Do NOT fill the magenta with a city, a skyline, distant buildings, haze or sky. That is a different layer. The magenta is a transparency key.\r\n- Keep the props sparse and low. The magenta must dominate the image.\r\n- Boundaries between magenta and artwork are crisp hard-edged pixels - no blur, no anti-aliased fade, no glow bleeding into the magenta.\r\n\r\nFull-bleed: the artwork fills the entire image edge to edge. NO black border, NO rounded frame, NO CRT/TV bezel, NO vignette, NO letterboxing.\r\n\r\nNO fighters, no people, no characters, no HUD, no UI, no text, no logos.\r\n\r\nCrisp chunky pixels, bold cel shading, vivid but limited palette, dusk colour scheme (cool grey-blue concrete, warm orange rim light from the left). Retro 16-bit pixel art, NOT high-resolution comic or 3D.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 3168
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_084017_c893ab94-238b-4b44-b3a7-4e2c278a47c1.png",
+    "status": "completed"
+  }
+]

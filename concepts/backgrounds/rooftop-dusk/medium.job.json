@@ -1,0 +1,23 @@
+[
+  {
+    "created_at": "2026-07-17T08:37:45.404929Z",
+    "display_name": "Nano Banana Pro",
+    "id": "aaab19d5-5fc4-4b11-b33c-08545a0e0c69",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_083745_aaab19d5-5fc4-4b11-b33c-08545a0e0c69_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "21:9",
+      "batch_size": 1,
+      "height": 1344,
+      "input_image": null,
+      "input_images": [],
+      "prompt": "SNES 16-bit pixel art, side-view 2D fighting game background layer in the style of Street Fighter II and Final Fight. This is the MIDGROUND PARALLAX LAYER - a distant city skyline. It is ONE PARALLAX LAYER out of four, not a finished scene.\n\nCOMPOSITION, top to bottom:\n- The TOP 41% of the image is a SOLID FLAT MAGENTA VOID, pure #FF00FF, absolutely uniform - no sky, no gradient, no clouds, no stars, no texture, no noise, no shading, no glow. Nothing but flat magenta.\n- The BOTTOM 59% is a dense city skyline seen from a rooftop at dusk: silhouetted skyscrapers of many different heights in deep purple-blue tones, hundreds of small warm orange lit windows, water towers on their roofs, radio masts, TV antennas and aerials, smaller buildings receding into haze behind the near ones. Give it depth: a few TALL towers breaking well up into the frame, mid-height blocks behind them, and a low dense mass at the bottom. The skyline fills the full width edge to edge and continues all the way down to the bottom edge of the frame - the buildings must reach the bottom edge, do not stop them partway.\n- The boundary between the magenta void and the skyline is the ragged rooftop silhouette of the buildings themselves - crisp hard-edged pixels, no blur, no anti-aliased fade, no glow bleeding into the magenta.\n\nThis is a DISTANT city, far away and below - the buildings are small in the frame, densely packed, and hazy with distance. It is a backdrop, not the main subject.\n\nNO rooftop foreground, no fence, no concrete floor, no air-conditioner units in front - those belong to other layers. Distant skyline only.\n\nFull-bleed: the artwork fills the entire image edge to edge. NO black border, NO rounded frame, NO CRT/TV bezel, NO vignette, NO letterboxing.\n\nNO fighters, no people, no characters, no HUD, no UI, no text, no logos.\n\nCrisp chunky pixels, bold cel shading, vivid but limited palette, dusk colour scheme (deep purple-blue buildings, warm orange window lights). Retro 16-bit pixel art, NOT high-resolution comic or 3D.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 3168
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_083745_aaab19d5-5fc4-4b11-b33c-08545a0e0c69.png",
+    "status": "completed"
+  }
+]

@@ -1,0 +1,29 @@
+[
+  {
+    "created_at": "2026-07-17T08:42:21.449116Z",
+    "display_name": "Nano Banana Pro",
+    "id": "16c396d4-8345-4c85-a309-794e6275ae27",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_084221_16c396d4-8345-4c85-a309-794e6275ae27_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "21:9",
+      "batch_size": 1,
+      "height": 1344,
+      "input_image": null,
+      "input_images": [
+        {
+          "id": "74111278-c09c-4893-b110-a8f2aabd05c0",
+          "type": "media_input",
+          "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/74111278-c09c-4893-b110-a8f2aabd05c0_resize.jpg"
+        }
+      ],
+      "prompt": "This is a PALETTE SWAP ONLY. Use the supplied image as the exact reference for composition and geometry. Keep EVERY shape, edge, object, position and silhouette pixel-identical to the reference - same buildings, same fence, same pipes, same layout, same outlines. Do NOT move, add, remove, resize or redraw anything. Change ONLY the colours.\r\n\r\nRecolour from a purple-and-orange DUSK palette to a hot LATE SUNSET palette: deep crimson and scarlet where the reference is purple, glowing gold and yellow where the reference is orange, and warm red-brown shadows where the reference is cool blue-grey. Everything is lit by a low, hot, setting sun - strong warm rim light, long warm highlights, deep red shadows. The overall image reads RED and GOLD, not purple.\r\n\r\nCRITICAL: the flat MAGENTA background in the reference is a transparency key, not part of the artwork. Keep it EXACTLY as it is - pure flat #FF00FF magenta, absolutely uniform, unchanged, in exactly the same shape and area as the reference. Do NOT recolour the magenta. Do NOT tint it. Do NOT paint sky, gradient, clouds or scenery into it. It must stay pure #FF00FF. Only the non-magenta artwork gets recoloured.\r\n\r\nThe concrete roof, chain-link fence, HVAC units and parapet keep their exact shapes but become warm sunlit stone - red-gold highlights on every upward face, deep warm red-brown shadow, hot gold rim light along the top edges.\r\n\r\nFull-bleed, no border, no CRT bezel, no vignette, no letterboxing. NO fighters, no people, no HUD, no UI, no text. SNES 16-bit pixel art, crisp chunky pixels, vivid but limited palette. Retro 16-bit pixel art, NOT high-resolution comic or 3D.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 3168
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_084221_16c396d4-8345-4c85-a309-794e6275ae27.png",
+    "status": "completed"
+  }
+]

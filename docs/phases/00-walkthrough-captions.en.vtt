@@ -1,0 +1,1440 @@
+WEBVTT
+Kind: captions
+Language: en
+
+00:00:00.050 --> 00:00:03.480
+Hey everyone, what you see here
+is a Street Fighter clone that I
+
+00:00:03.509 --> 00:00:06.279
+built using nothing but AI tools.
+
+00:00:06.729 --> 00:00:11.369
+Everything from the animations, the UI,
+the gameplay logic, were all vibe coded.
+
+00:00:11.569 --> 00:00:15.779
+this also includes the special skills
+that you see over here as well.
+
+00:00:15.829 --> 00:00:20.089
+So in today's video, I'll be walking you
+through step-by-step exactly how I went
+
+00:00:20.089 --> 00:00:24.899
+about building this entire game, and
+I did not write a single line of code.
+
+00:00:25.129 --> 00:00:26.809
+I did not draw a single sprite.
+
+00:00:26.919 --> 00:00:28.799
+Everything was AI-generated.
+
+00:00:29.149 --> 00:00:32.109
+for those of you who are new to this
+channel, hi, my name is Chong-U And I
+
+00:00:32.109 --> 00:00:35.859
+believe that anybody, regardless of your
+background… can learn to make games
+
+00:00:36.069 --> 00:00:42.446
+thanks to power of AI I did a majority
+of this game using Cursor and Opus 4.8.
+
+00:00:42.496 --> 00:00:48.063
+However, I did use Codex as well as
+the GPT Images 2.0 model to generate
+
+00:00:48.063 --> 00:00:52.323
+the assets for me because these come as
+part of my ChatGPT subscription as well.
+
+00:00:52.813 --> 00:00:55.933
+I'll show you the workflow that you
+would want to be taking when you're
+
+00:00:55.943 --> 00:00:59.943
+building a game such as this and these
+workflows apply regardless of the type
+
+00:00:59.943 --> 00:01:01.053
+of game that you're trying to build.
+
+00:01:01.243 --> 00:01:04.183
+so if you've ever wanted to learn
+how to make your very own Street
+
+00:01:04.183 --> 00:01:07.693
+Fighter-like game using nothing
+but AI tools, this video is for you
+
+00:01:08.058 --> 00:01:10.528
+Now, if you wanna get a hold of
+the resources from today's video,
+
+00:01:10.548 --> 00:01:13.698
+including the full source code of
+the final game, as well as this
+
+00:01:13.708 --> 00:01:15.038
+cheat sheet that we have here,
+
+00:01:15.428 --> 00:01:17.128
+Check out the links in
+the description below,
+
+00:01:17.228 --> 00:01:20.638
+This will also give you access to my free
+insiders club and mailing list where you
+
+00:01:20.638 --> 00:01:24.128
+can get hold of resources such as prompts,
+source code, templates, and everything
+
+00:01:24.128 --> 00:01:25.528
+else from all of my other videos
+
+00:01:25.848 --> 00:01:27.778
+And if you wanna take things a
+step further, definitely check out
+
+00:01:27.778 --> 00:01:31.236
+vibegamedev.com Where you'll be able to
+find specialized game development agent
+
+00:01:31.236 --> 00:01:36.077
+skills, tutorial projects including a full
+written step-by-step version of today's
+
+00:01:36.127 --> 00:01:38.697
+that you'll be able to walk through
+from start to finish to get a deeper
+
+00:01:38.707 --> 00:01:42.247
+understanding of how to go about building
+games such as these So if you wanna get
+
+00:01:42.247 --> 00:01:44.907
+hold of these different resources, check
+out the links in the description below
+
+00:01:45.156 --> 00:01:48.026
+okay, just to go into a little bit more
+detail about what we'll be building today.
+
+00:01:48.266 --> 00:01:51.646
+there's quite a few different features
+that this game currently allows.
+
+00:01:51.756 --> 00:01:55.266
+each of the characters has a
+light attack and a heavy attack.
+
+00:01:55.316 --> 00:01:59.026
+you can see the same that we have for this
+jujitsu fighter on the right over here.
+
+00:01:59.386 --> 00:02:02.481
+But the other thing that I have
+also implemented is that you'll be
+
+00:02:02.481 --> 00:02:03.616
+able to do things like blocking.
+
+00:02:03.636 --> 00:02:07.456
+So if you try to attack the player
+while he's blocked, then the
+
+00:02:07.456 --> 00:02:11.306
+amount of damage is a lot less,
+and the person is not hurt as much.
+
+00:02:12.026 --> 00:02:14.686
+the other things that we were
+able to create are all of these UI
+
+00:02:14.706 --> 00:02:15.956
+elements that you see over here.
+
+00:02:16.036 --> 00:02:18.906
+so the health, the player portraits,
+as well as the round timers
+
+00:02:18.906 --> 00:02:22.526
+are all showing up on screen
+using custom-generated sprites.
+
+00:02:22.736 --> 00:02:25.946
+I wanted to also highlight that I
+managed to do this energy bar over here.
+
+00:02:25.946 --> 00:02:30.326
+And once the energy bar becomes full,
+you can unleash a special attack that
+
+00:02:30.326 --> 00:02:31.916
+you see over here that has a combo.
+
+00:02:32.476 --> 00:02:33.586
+all right, so let's get started.
+
+00:02:33.616 --> 00:02:35.676
+I knew I wanted to make
+a Street Fighter clone.
+
+00:02:35.866 --> 00:02:40.026
+However, I wanted to have my
+own visual style, characters,
+
+00:02:40.096 --> 00:02:41.866
+as well as different mechanics.
+
+00:02:41.926 --> 00:02:45.726
+so the first thing I did was that I
+did say that I was trying to build a 2D
+
+00:02:45.726 --> 00:02:50.046
+fighting game like Street Fighter, and
+I did start off with my basic Phaser
+
+00:02:50.066 --> 00:02:51.676
+template project that I always use.
+
+00:02:52.026 --> 00:02:56.253
+And I said that "Consider the architecture
+for a fighting game." think about the
+
+00:02:56.283 --> 00:02:59.253
+things that we will need for animation,
+gameplay logic, and collisions.
+
+00:02:59.583 --> 00:03:02.563
+and the main thing that you see in a
+fighting game is that the game is going
+
+00:03:02.563 --> 00:03:05.663
+to be very animation-heavy because of
+the different attacks that you might have
+
+00:03:05.873 --> 00:03:07.653
+and all of the different UI elements.
+
+00:03:07.993 --> 00:03:10.343
+once I had primed that I was
+making a fighting game, Let's
+
+00:03:10.343 --> 00:03:13.973
+focus on generating some concept
+art using the image gen skill.
+
+00:03:14.233 --> 00:03:18.573
+I did say that I wanted this to not
+be too complex, recognize that this
+
+00:03:18.573 --> 00:03:22.093
+is a technical demonstration, and
+I wanted four different versions.
+
+00:03:22.903 --> 00:03:25.723
+all right, and so here you can see
+the four different mock-ups that
+
+00:03:25.813 --> 00:03:27.123
+the image generation came up with.
+
+00:03:27.123 --> 00:03:28.833
+this one is like a dojo.
+
+00:03:29.383 --> 00:03:31.333
+This one is a subway, and
+I really like this one.
+
+00:03:31.493 --> 00:03:36.033
+this one is like a warehouse by the
+docks, and this was the one that I
+
+00:03:36.033 --> 00:03:40.783
+chose to go with, which is a rooftop
+brawler, which is something on top of
+
+00:03:40.823 --> 00:03:44.323
+the rooftop, but it has this really
+nice cityscape in the background.
+
+00:03:44.603 --> 00:03:47.143
+I posted this on X and asked people
+to vote which one they wanted
+
+00:03:47.193 --> 00:03:50.693
+and lots of people voted on this
+so I decided to use this as the
+
+00:03:50.703 --> 00:03:52.343
+mock-up and concept for my game
+
+00:03:52.718 --> 00:03:56.198
+All right, so now that this one was done,
+the first thing that I wanted to do was
+
+00:03:56.198 --> 00:04:01.260
+to extract the backgrounds, from this
+mock-up so what I did was that with this
+
+00:04:01.280 --> 00:04:06.010
+mock-up, I simply prompted, the AI to give
+me simply the background image without
+
+00:04:06.010 --> 00:04:09.830
+the characters and without the UI, I
+also asked it to generate the images that
+
+00:04:09.830 --> 00:04:14.050
+were larger in length than the viewport
+because this gives your characters a
+
+00:04:14.050 --> 00:04:17.060
+little bit of room to move left and
+right so that it doesn't feel so static.
+
+00:04:17.490 --> 00:04:19.380
+and you can see here I actually
+played around with a much
+
+00:04:19.610 --> 00:04:21.450
+wider, background image.
+
+00:04:21.470 --> 00:04:23.750
+But I felt like this was
+just a little bit too long.
+
+00:04:24.000 --> 00:04:25.070
+I just wanted to keep it simple.
+
+00:04:25.080 --> 00:04:27.360
+and this one is just large
+enough to let the characters
+
+00:04:27.440 --> 00:04:29.270
+move a little bit off the screen.
+
+00:04:29.270 --> 00:04:33.630
+So you can see this over here, because we
+have a slightly longer background image
+
+00:04:33.630 --> 00:04:37.170
+than the viewport, it just gives the stage
+a little bit more breathing room and more
+
+00:04:37.170 --> 00:04:41.896
+dynamism so that you are not stuck on a
+single static frame I actually did play
+
+00:04:41.896 --> 00:04:45.696
+around with asking it to separate it out
+into different layers because my goal
+
+00:04:45.756 --> 00:04:49.356
+was to have a bit of parallax effect when
+the players were moving left and right.
+
+00:04:49.546 --> 00:04:52.366
+and you can see my other video
+where I actually showed you how
+
+00:04:52.366 --> 00:04:55.346
+you can make use of parallax
+layers to create a depth effect.
+
+00:04:55.446 --> 00:04:58.066
+but in this case, I didn't have enough
+time and I wanted to focus more on the
+
+00:04:58.326 --> 00:05:01.536
+gameplay mechanics of the combat system,
+so I never got around to doing it.
+
+00:05:01.611 --> 00:05:05.511
+So the next step is to actually create the
+characters that I'll be using in the game.
+
+00:05:05.791 --> 00:05:10.071
+And so the way that I did it was I simply
+went ahead and looked at all of the
+
+00:05:10.071 --> 00:05:14.651
+different images that I had, and I asked
+the AI to extract out just the character.
+
+00:05:14.651 --> 00:05:18.811
+So in this case, I asked for the brawler
+on the left-hand side for this image.
+
+00:05:19.001 --> 00:05:22.721
+I did also play around with
+using this character, but I felt
+
+00:05:22.721 --> 00:05:25.541
+like he looked similar to this
+character in terms of hairstyle.
+
+00:05:25.571 --> 00:05:30.141
+So I, decided to go with this jujitsu
+character that's sitting over here.
+
+00:05:30.231 --> 00:05:34.211
+So with this … So you can very
+simply ask AI to supply this image
+
+00:05:34.211 --> 00:05:36.591
+and say, "I want to extract out
+my characters," because I want
+
+00:05:36.601 --> 00:05:37.981
+to use them as reference images.
+
+00:05:38.231 --> 00:05:41.041
+And for this one I did it within Codex,
+so you can see it's managed to extract the
+
+00:05:41.041 --> 00:05:42.581
+character out of the background over here.
+
+00:05:42.921 --> 00:05:44.581
+and you can see this is the
+green boxer that I managed to
+
+00:05:44.581 --> 00:05:48.581
+extract out along with the jujitsu
+fighter that you see over here.
+
+00:05:48.921 --> 00:05:51.871
+So that's very simple because you
+can make use of image generation as
+
+00:05:51.871 --> 00:05:55.471
+well as these mock-ups to pull all
+of these out as reference images.
+
+00:05:55.811 --> 00:05:58.321
+And the reason why you want to get
+all of these reference images is
+
+00:05:58.321 --> 00:06:02.261
+that these reference images are
+going to form like the basis of
+
+00:06:02.321 --> 00:06:03.651
+all your subsequent animations.
+
+00:06:04.951 --> 00:06:05.891
+All right, so now we have that.
+
+00:06:05.911 --> 00:06:08.831
+Now we go about to animating the
+characters so that we are gonna
+
+00:06:08.831 --> 00:06:10.151
+be able to put them into the game.
+
+00:06:10.401 --> 00:06:13.571
+And for this, I made use of a tool that
+I've been building called Spriterific,
+
+00:06:13.931 --> 00:06:17.341
+And the goal of this tool that you
+see over here is that given a supplied
+
+00:06:17.341 --> 00:06:22.301
+source image, it will process it
+to create a game-ready sprite that
+
+00:06:22.311 --> 00:06:24.241
+you can then use within your game.
+
+00:06:24.501 --> 00:06:27.841
+and I've got several videos on how
+you can do this step-by-step using
+
+00:06:27.861 --> 00:06:32.041
+any image generation model, whether
+it's NanoBanana 2 or Images 2.0.
+
+00:06:32.291 --> 00:06:35.271
+but the whole purpose of building this
+tool is so that I can have a single
+
+00:06:35.271 --> 00:06:38.841
+place that allows me to do this very
+easily and to visualize the results.
+
+00:06:38.951 --> 00:06:42.491
+So let me just show you the prompt
+that I use as part of Spriteriffic.
+
+00:06:42.561 --> 00:06:45.321
+so for example, I said, "Given the
+character reference image, think
+
+00:06:45.321 --> 00:06:48.021
+about the images that we're gonna
+use." And then all I needed to do
+
+00:06:48.021 --> 00:06:51.471
+is say, "Let's use Spriteriffic
+to generate the anchor image."
+
+00:06:51.761 --> 00:06:55.351
+This will go ahead and automatically
+create what we call an anchor
+
+00:06:55.391 --> 00:06:56.571
+image that you have over here.
+
+00:06:56.651 --> 00:07:00.271
+So given a source image, it will
+normalize everything, puts it against
+
+00:07:00.271 --> 00:07:05.581
+a green screen and creates a neutral
+facing anchor that will serve as
+
+00:07:05.581 --> 00:07:09.001
+the basis for image consistency
+for the rest of our animations.
+
+00:07:09.017 --> 00:07:12.217
+and all I have to say is say, "Let's use
+Spriterrific on the chosen anchor for the
+
+00:07:12.217 --> 00:07:16.237
+two attack animations." And what it will
+do is that it will go ahead and generate
+
+00:07:16.247 --> 00:07:17.347
+the animations that you see over here.
+
+00:07:18.087 --> 00:07:22.337
+and how it does so is that, first of
+all, it uses Groq Imagine to create
+
+00:07:22.377 --> 00:07:24.387
+a movie version of the animation.
+
+00:07:24.417 --> 00:07:26.827
+So you can see that this is
+the movie version over here.
+
+00:07:27.087 --> 00:07:30.777
+The next thing it does is that it will
+take out every single frame of this video
+
+00:07:30.777 --> 00:07:32.307
+that you see over here and lay it out,
+
+00:07:32.537 --> 00:07:34.957
+And then after that, it will go
+ahead and pick a subset of these
+
+00:07:34.957 --> 00:07:38.727
+frames and stitch it together into a
+sprite sheet that you see over here.
+
+00:07:39.077 --> 00:07:42.407
+And then that's how you get your
+animation that you use within the game.
+
+00:07:42.807 --> 00:07:46.237
+And Spriterrific is quite useful because
+So you can actually pick the frames that
+
+00:07:46.237 --> 00:07:47.787
+you want rather than using the default.
+
+00:07:48.027 --> 00:07:51.617
+And then you can do some additional
+things, such as aligning your
+
+00:07:51.617 --> 00:07:53.067
+sprite if there's any drift.
+
+00:07:53.347 --> 00:07:56.527
+I find that when you use Groq Imagine,
+you don't actually have much drift
+
+00:07:56.527 --> 00:08:00.407
+because it's all generated from
+a video, and this already ensures
+
+00:08:00.407 --> 00:08:01.697
+that everything looks consistent.
+
+00:08:01.797 --> 00:08:05.157
+But it's always useful to be able to
+have that level of control to be able
+
+00:08:05.157 --> 00:08:06.737
+to adjust your images accordingly.
+
+00:08:08.057 --> 00:08:10.407
+so you can see several
+runs that I did here.
+
+00:08:10.407 --> 00:08:11.617
+this is the heavy kick run.
+
+00:08:11.667 --> 00:08:15.877
+this is the kick animation that was
+generated from this, Groq Imagine video.
+
+00:08:16.207 --> 00:08:19.497
+And then once I knew that it was
+working correctly, I then went ahead
+
+00:08:19.557 --> 00:08:21.807
+and said, "Go ahead and generate
+all the different animations that
+
+00:08:21.807 --> 00:08:25.237
+we would need for this game." So you
+can see we have a blocking animation.
+
+00:08:25.557 --> 00:08:26.477
+We have crouch.
+
+00:08:26.727 --> 00:08:27.597
+we have being hit.
+
+00:08:27.747 --> 00:08:30.387
+We have an idle animation,
+and we have a jump, and then
+
+00:08:30.387 --> 00:08:31.727
+we have a knockdown as well.
+
+00:08:31.927 --> 00:08:37.037
+And you can see here, sometimes if your
+prompt, isn't correct, can result in,
+
+00:08:37.087 --> 00:08:38.447
+animations that don't really look right.
+
+00:08:38.447 --> 00:08:40.927
+So in this case, he shouldn't really
+be falling with his hit on the left.
+
+00:08:41.267 --> 00:08:44.697
+I just went ahead and just re-prompted
+it so that I was able to get the,
+
+00:08:44.837 --> 00:08:45.897
+right animation that I wanted.
+
+00:08:45.974 --> 00:08:49.524
+And you can see here I did the same
+thing, with this, jujitsu fighter,
+
+00:08:49.584 --> 00:08:52.274
+and I did do it for the boxer as
+well, but I just decided not to
+
+00:08:52.274 --> 00:08:53.074
+use this character in the game.
+
+00:08:53.074 --> 00:08:55.194
+But you can see SpriteRefit
+makes it really easy.
+
+00:08:55.244 --> 00:08:57.844
+You can pass in the source image
+and then prompt whatever animations
+
+00:08:57.844 --> 00:09:01.914
+that you need, and it automatically,
+gives you game-ready sprite sheets
+
+00:09:01.954 --> 00:09:03.504
+that you can put into the game
+
+00:09:03.604 --> 00:09:06.554
+I've not released SpriteRefit yet.
+
+00:09:06.554 --> 00:09:06.721
+I'm still working on it.
+
+00:09:06.721 --> 00:09:08.414
+But if you're interested, I put
+a link in the description below
+
+00:09:08.414 --> 00:09:10.894
+where you can register your
+interest, for development updates.
+
+00:09:10.947 --> 00:09:13.557
+So now that we've got all of
+our animations, the thing that
+
+00:09:13.567 --> 00:09:16.827
+I always like to do is to create
+something called a character gem.
+
+00:09:17.267 --> 00:09:19.977
+If you watch some of my previous
+videos, you will know why I do this.
+
+00:09:20.177 --> 00:09:22.657
+but I'm gonna go through
+the key elements of a gem.
+
+00:09:23.137 --> 00:09:27.097
+now the whole purpose of a, of a gem
+is to allow you to visualize and to
+
+00:09:27.097 --> 00:09:30.341
+debug and to troubleshoot the animation
+sprite sheets that you have over
+
+00:09:30.341 --> 00:09:32.661
+here, but in a nice single place.
+
+00:09:32.701 --> 00:09:35.471
+So you can see over here, I can
+choose whichever character I
+
+00:09:35.471 --> 00:09:39.021
+want, and look through any of the
+animations that I want as well.
+
+00:09:39.371 --> 00:09:43.591
+the key elements are I need to see the
+number of frames in the animations,
+
+00:09:43.621 --> 00:09:46.431
+and I should be able to slow it
+down, and pause whenever I want.
+
+00:09:46.771 --> 00:09:49.881
+But the most important thing is that
+we have these thing called bounds.
+
+00:09:50.161 --> 00:09:53.441
+all of the logic is going to
+be based on not on the entire
+
+00:09:53.461 --> 00:09:55.911
+image, but on bounds or hitboxes.
+
+00:09:56.271 --> 00:09:59.101
+in this case, you want separate
+hitboxes for collision.
+
+00:09:59.151 --> 00:10:02.741
+for example, this one will be how
+the character lands on the ground.
+
+00:10:02.841 --> 00:10:05.581
+and the main reason why this is very
+important is that sometimes you will
+
+00:10:05.581 --> 00:10:08.281
+have additional padding below your
+character, and You want to make sure
+
+00:10:08.281 --> 00:10:11.928
+that the collision of the character
+with the ground looks correct so the
+
+00:10:11.928 --> 00:10:15.588
+main bounds that you will need to have
+are your collision bounds, and then
+
+00:10:15.778 --> 00:10:17.318
+you want to have your, hit bounds.
+
+00:10:17.328 --> 00:10:20.778
+So this will mean that as long
+as there's an overlap within
+
+00:10:20.778 --> 00:10:22.588
+this area, a hit will register.
+
+00:10:22.928 --> 00:10:24.688
+But then this is the key one.
+
+00:10:25.508 --> 00:10:27.078
+but this is the key one
+that we have over here.
+
+00:10:27.128 --> 00:10:30.368
+If we take a look at this punch
+animation and this kick, you will
+
+00:10:30.368 --> 00:10:34.558
+notice that the attack bounds only
+becomes active at certain frames.
+
+00:10:34.968 --> 00:10:39.018
+So at the fifth, sixth, and seventh
+frame, this is where the attack bounds
+
+00:10:39.108 --> 00:10:44.188
+actually shows up, because you don't
+want the attack to register before
+
+00:10:44.188 --> 00:10:47.328
+the character has even finished
+animating his leg sticking out, okay?
+
+00:10:47.558 --> 00:10:50.408
+And you don't want it to register
+when he's withdrawing his leg as well.
+
+00:10:50.568 --> 00:10:52.568
+this applies to all of
+the different characters.
+
+00:10:52.568 --> 00:10:56.868
+So you can see here, if I do, a heavy
+kick, it only registers the attack
+
+00:10:56.888 --> 00:10:59.188
+bounds when it is up over here.
+
+00:10:59.208 --> 00:11:00.978
+And this allows me to adjust it slightly.
+
+00:11:01.368 --> 00:11:02.508
+and then I can just save this.
+
+00:11:02.708 --> 00:11:07.098
+And this editor allows you to ensure that
+your characters have the right kind of
+
+00:11:07.098 --> 00:11:11.614
+animations, and the hitboxes that you have
+are activated only at the correct frames.
+
+00:11:11.804 --> 00:11:15.054
+because you're working with spreadsheets
+over here, not every single frame is
+
+00:11:15.094 --> 00:11:18.714
+going to be relevant when it comes to
+particular actions one of the main things
+
+00:11:18.714 --> 00:11:22.424
+I learned about building a fighting
+game is that if you have a blocking
+
+00:11:22.424 --> 00:11:24.594
+mechanic, which reduces the damage,
+
+00:11:24.814 --> 00:11:29.064
+You will want to have an additional type
+of bounds called guard, because this
+
+00:11:29.084 --> 00:11:33.044
+guard box is important because if you have
+different kind of attacks, so for example,
+
+00:11:33.044 --> 00:11:36.884
+if you have a heavy attack that kicks high
+and the person ends up guarding low, you
+
+00:11:36.884 --> 00:11:38.584
+don't want the guard to register, right?
+
+00:11:38.864 --> 00:11:41.454
+vice versa, if you are punching at
+the top and the person's guarding
+
+00:11:41.454 --> 00:11:43.434
+low, you might want the attack to hit.
+
+00:11:44.004 --> 00:11:46.434
+all right, so that's the character
+gym, and once you've gotten hold of
+
+00:11:46.434 --> 00:11:49.444
+that, that's pretty much the key set
+of things that you will really need
+
+00:11:49.574 --> 00:11:51.134
+to be able to get your game working.
+
+00:11:51.524 --> 00:11:55.334
+So the other thing that I always like to
+do is just before I create the main game,
+
+00:11:55.354 --> 00:11:56.734
+is to create something like a playground.
+
+00:11:56.894 --> 00:12:00.804
+And you can see over here, this allows
+me to very quickly ensure that things
+
+00:12:00.884 --> 00:12:03.734
+are working correctly based on what
+I've configured in the character gym.
+
+00:12:04.014 --> 00:12:07.404
+So I'm gonna turn on all the bounds that
+you see over here, and you can see if
+
+00:12:07.404 --> 00:12:12.154
+I try to do an attack here, the attack
+bounce only comes out when the hand has
+
+00:12:12.374 --> 00:12:14.404
+emerged, and the same thing for the kick.
+
+00:12:14.674 --> 00:12:14.984
+Okay?
+
+00:12:15.274 --> 00:12:17.694
+and the other thing that you wanna
+do over here is that you want to
+
+00:12:17.694 --> 00:12:22.184
+take this opportunity to set up
+configurable parameters, so you can
+
+00:12:22.184 --> 00:12:24.004
+just tweak the feel of the character.
+
+00:12:24.024 --> 00:12:26.594
+sometimes you will see that the
+scale of your character may be a
+
+00:12:26.594 --> 00:12:29.824
+little bit off because of the way
+that the sprites get normalized.
+
+00:12:29.934 --> 00:12:32.474
+this allows you to very quickly
+just adjust because I want this
+
+00:12:32.474 --> 00:12:35.954
+character to be a lot larger than
+what, the default scale looks like.
+
+00:12:36.204 --> 00:12:38.114
+The other thing that you can do
+is you can adjust the speed here.
+
+00:12:38.164 --> 00:12:40.484
+I change it to a thousand, you
+can see that I move a lot quicker.
+
+00:12:40.794 --> 00:12:43.744
+And then if I change it to one, you can
+see this character moves very slowly.
+
+00:12:43.744 --> 00:12:46.154
+So this is very important
+as part of game development.
+
+00:12:46.164 --> 00:12:49.244
+AI is not gonna be able to make your
+game feel perfectly right, so you want
+
+00:12:49.244 --> 00:12:52.134
+to ensure that you have the opportunity
+to tweak these parameters as well,
+
+00:12:52.134 --> 00:12:55.934
+because otherwise, you will find
+that it just feels a little bit off.
+
+00:12:56.254 --> 00:12:56.564
+Okay?
+
+00:12:56.774 --> 00:12:59.184
+And the main thing, that you want to
+do over here, whenever you're working
+
+00:12:59.184 --> 00:13:04.144
+with any kind of playground game, is
+I always say that I want to be able
+
+00:13:04.144 --> 00:13:08.174
+to save all of these parameters into
+a JSON file, as you can see over here.
+
+00:13:08.664 --> 00:13:13.404
+And then this JSON file is what is
+loaded when the actual game starts.
+
+00:13:13.974 --> 00:13:14.264
+All right?
+
+00:13:14.414 --> 00:13:17.904
+So you can see all of these values
+that you see over here are loaded
+
+00:13:17.914 --> 00:13:19.584
+in from that same JSON file.
+
+00:13:19.584 --> 00:13:22.224
+So just say you're playing the main
+game now, and you've spot something
+
+00:13:22.224 --> 00:13:25.714
+that is wrong, you can at least tweak
+it straight away, and then you can save
+
+00:13:25.714 --> 00:13:29.454
+it, and you have a consistent place to
+ensure that your experience is correct.
+
+00:13:29.655 --> 00:13:32.735
+one of the things that I realized is
+that when I generated reverse walking
+
+00:13:32.735 --> 00:13:34.995
+animations, it just didn't look right.
+
+00:13:34.995 --> 00:13:38.875
+So I just changed the logic over
+here, and I said play the walking
+
+00:13:38.875 --> 00:13:41.965
+animation in reverse, and this
+gave me a much better result.
+
+00:13:42.145 --> 00:13:45.035
+So this is the reason why you want to
+have a playground, because it allows you
+
+00:13:45.045 --> 00:13:48.185
+to tweak and play around with how your
+characters are gonna look like and how
+
+00:13:48.185 --> 00:13:51.725
+the gameplay is gonna feel like before you
+start wiring it in all within the game.
+
+00:13:51.725 --> 00:13:53.295
+So that's the playground
+that you have over there.
+
+00:13:53.625 --> 00:13:57.805
+the next thing that I did was I just went
+into Codex and said I wanted to generate
+
+00:13:57.805 --> 00:13:59.005
+some portraits of these characters.
+
+00:13:59.095 --> 00:14:01.965
+So you can see here, let's generate
+stylized portraits of the characters
+
+00:14:01.965 --> 00:14:03.165
+based on the reference images.
+
+00:14:03.555 --> 00:14:07.635
+I want it to have their upper body, in
+distinctive poses, and I want to use
+
+00:14:07.635 --> 00:14:09.425
+them in a character selection screen.
+
+00:14:09.775 --> 00:14:12.055
+and then you can see here I'm
+using the Image Gen Skill.
+
+00:14:12.055 --> 00:14:15.535
+And you can see it generated these ones
+that we have over here, and this was
+
+00:14:15.535 --> 00:14:17.265
+fairly simple to integrate into game.
+
+00:14:17.515 --> 00:14:21.075
+so you can see I made use of these
+within the character selection screen.
+
+00:14:21.525 --> 00:14:23.515
+And this was the time where
+I said I wanted to be able to
+
+00:14:23.515 --> 00:14:24.785
+select between different levels.
+
+00:14:25.055 --> 00:14:26.185
+I also wanted a 1v1 versus a one-
+
+00:14:29.475 --> 00:14:29.915
+1vAI, setting.
+
+00:14:30.235 --> 00:14:34.255
+this allows me to play against AI if you
+don't have a second player to play with.
+
+00:14:34.805 --> 00:14:38.235
+And I deliberately asked the AI to
+be fairly naive here, but you can ask
+
+00:14:38.235 --> 00:14:41.455
+your agent to make the AI a lot more
+realistic, and you have a solid result
+
+00:14:41.791 --> 00:14:45.431
+All right, so once you've got the main
+menu set up, the main thing is to go
+
+00:14:45.431 --> 00:14:47.171
+into the core combat loop over here.
+
+00:14:47.481 --> 00:14:50.241
+this one is really just about
+you going ahead and thinking
+
+00:14:50.241 --> 00:14:51.591
+about what goes into the game.
+
+00:14:51.791 --> 00:14:53.331
+So we add a countdown timer.
+
+00:14:53.541 --> 00:14:57.421
+we also say that we want it such that
+we have health for the characters, and
+
+00:14:57.421 --> 00:15:00.391
+when the health depletes, as you see
+over here, it starts a second round,
+
+00:15:00.541 --> 00:15:04.231
+replenishes the health, and you can see in
+this little icon that we have over here,
+
+00:15:04.521 --> 00:15:05.701
+it means that I've won the first round.
+
+00:15:05.701 --> 00:15:07.631
+So this is very typical
+of a fighting game.
+
+00:15:07.761 --> 00:15:10.591
+And I just said that, you know,
+it's best of three matches, before
+
+00:15:10.591 --> 00:15:11.861
+the game goes into game over.
+
+00:15:12.811 --> 00:15:14.541
+So that's the core combat loop.
+
+00:15:14.801 --> 00:15:17.161
+next thing to talk about
+are the UI elements.
+
+00:15:17.204 --> 00:15:19.764
+I just said, "Let's
+generate a UI atlas," right?
+
+00:15:19.764 --> 00:15:21.514
+Using image generation that
+we can use for the game.
+
+00:15:21.704 --> 00:15:24.174
+We need a health bar with appropriate
+transparent areas for the health
+
+00:15:24.174 --> 00:15:26.774
+fill and a portrait base to put
+the character's portrait in.
+
+00:15:27.024 --> 00:15:28.644
+And this is what it generated.
+
+00:15:28.674 --> 00:15:31.804
+You can see, it's already, put
+against a chroma background, so you
+
+00:15:31.804 --> 00:15:34.634
+can then use the image generation
+skill to make this transparent.
+
+00:15:34.834 --> 00:15:37.124
+And you can see that these are
+all the different elements that
+
+00:15:37.124 --> 00:15:38.284
+it uses as part of the game.
+
+00:15:38.644 --> 00:15:41.284
+These are the props that I
+generated because I intended to
+
+00:15:41.284 --> 00:15:43.814
+put, props in the background, but
+I never got around to doing it.
+
+00:15:43.994 --> 00:15:47.764
+And then after that, you can
+simply prompt your agent to
+
+00:15:47.774 --> 00:15:48.924
+integrate this within your game.
+
+00:15:48.924 --> 00:15:49.604
+this was one prompt.
+
+00:15:49.614 --> 00:15:51.334
+I said, "Let's integrate
+UI elements in the game.
+
+00:15:51.334 --> 00:15:53.094
+We should lay out the health
+of the two characters and their
+
+00:15:53.094 --> 00:15:54.254
+portraits, Make it look good.
+
+00:15:54.514 --> 00:15:57.434
+The health bar should be dynamic and
+change color based on the amount of
+
+00:15:57.434 --> 00:16:00.174
+health left, and start blinking." this
+was the effect that you see over here,
+
+00:16:00.484 --> 00:16:04.284
+Once, the health starts depleting,
+it goes from green, and then goes to
+
+00:16:04.284 --> 00:16:08.814
+yellow, and then finally when it's
+red it starts blinking, and then when
+
+00:16:08.814 --> 00:16:11.744
+the health depletes, the character
+loses and plays the death animation.
+
+00:16:12.224 --> 00:16:13.584
+Okay, so it's really good.
+
+00:16:13.634 --> 00:16:16.734
+I find that it does
+really well in using AI.
+
+00:16:16.734 --> 00:16:19.934
+I find that, the models are really
+good at integrating UI elements.
+
+00:16:19.954 --> 00:16:22.824
+Like you can see here, I just used
+a single prompt and it was able to
+
+00:16:22.824 --> 00:16:24.354
+get everything working correctly.
+
+00:16:24.613 --> 00:16:26.293
+all right, so that's pretty much it.
+
+00:16:26.303 --> 00:16:29.533
+Once you've got all of these things, you
+have a complete fighting game over here.
+
+00:16:29.713 --> 00:16:32.083
+and you can see this is a really
+very decent result, and it's really
+
+00:16:32.083 --> 00:16:34.643
+pretty fun to play, and you can
+play this on the same machine.
+
+00:16:34.913 --> 00:16:37.763
+and if you want to make this a fully
+multiplayer game, you can probably use
+
+00:16:37.773 --> 00:16:40.753
+something like Colyseus, and I've got a
+whole video that talks about how you can
+
+00:16:40.753 --> 00:16:44.323
+vibe code multiplayer functionality, very
+quite easily using the Colyseus library.
+
+00:16:44.803 --> 00:16:47.373
+the last thing that I wanted
+to cover is that I wanted to
+
+00:16:47.373 --> 00:16:48.683
+have something called specials.
+
+00:16:48.773 --> 00:16:52.233
+and so this was the final thing that I
+just wanted to have just as a nice way
+
+00:16:52.233 --> 00:16:54.153
+to polish up what we have over here.
+
+00:16:54.453 --> 00:16:56.153
+And in this case it was very simple.
+
+00:16:56.733 --> 00:16:59.323
+I said I wanted to have
+a special move system.
+
+00:16:59.323 --> 00:17:01.943
+This will involve hitting a specials
+button when the meter is filled.
+
+00:17:02.443 --> 00:17:05.463
+And I did say that, I wanted to have
+different specials for different
+
+00:17:05.463 --> 00:17:10.743
+characters, and then, I said you need a
+charging special animation, and then, it
+
+00:17:10.743 --> 00:17:14.656
+should, register multiple hits as opposed
+to just being a single hit, if you're
+
+00:17:14.656 --> 00:17:17.926
+doing a special attack, So let me just
+explain this in a little bit more detail.
+
+00:17:18.086 --> 00:17:21.846
+So if I play as this character,
+and I'm gonna toggle the special.
+
+00:17:22.276 --> 00:17:26.986
+You can see over here, he's gonna do
+something like a spinaroonie, and then you
+
+00:17:26.986 --> 00:17:32.336
+can see that it registers multiple hits,
+in a combo when he's able to perform his
+
+00:17:32.336 --> 00:17:33.776
+special, and that's what I wanted to do.
+
+00:17:34.216 --> 00:17:37.956
+Once I prompted the mechanics, it
+implemented it, and then just made
+
+00:17:37.956 --> 00:17:40.916
+use of Spriteriffic once again
+to, generate all of these special
+
+00:17:40.916 --> 00:17:42.466
+animations that you can see over here.
+
+00:17:42.776 --> 00:17:45.736
+and then it automatically picked the
+best frames stitched them together, and
+
+00:17:45.736 --> 00:17:47.336
+then exported it out as a spreadsheet.
+
+00:17:47.336 --> 00:17:48.546
+so this was very easy to do.
+
+00:17:48.756 --> 00:17:52.556
+I then just tweaked it a little bit saying
+that I wanted, when the specials, happens,
+
+00:17:52.586 --> 00:17:56.166
+I wanted to show the portrait, and then
+I wanted to have this lightbox effect
+
+00:17:56.176 --> 00:17:59.286
+where the portrait comes in from the left
+to give it a bit of a specials effect.
+
+00:18:00.136 --> 00:18:00.896
+so there you have it.
+
+00:18:00.896 --> 00:18:04.356
+That's how you can go ahead and build
+your very own Street Fighter-like game
+
+00:18:04.476 --> 00:18:08.516
+using AI, and you can just follow the
+workflow that I use from start to finish,
+
+00:18:08.616 --> 00:18:09.876
+You just wanna take things step by step.
+
+00:18:09.876 --> 00:18:12.656
+Don't try to single problem and say, "Ah,
+build me a Street Fighter clone." You'll
+
+00:18:12.656 --> 00:18:16.536
+probably get a fairly okay result, but
+whenever you're working on games, you
+
+00:18:16.536 --> 00:18:19.876
+want to take things slowly, build things
+iteratively, make sure that things look
+
+00:18:19.876 --> 00:18:21.946
+right before you move on to the next step.
+
+00:18:22.176 --> 00:18:25.826
+whether you're building a fighting game,
+a platformer, an RPG, or whatever, is to
+
+00:18:25.866 --> 00:18:30.016
+always have gyms, so that you can test
+things like the character animations.
+
+00:18:30.226 --> 00:18:32.446
+You can test things like the
+background, And then always have a
+
+00:18:32.446 --> 00:18:36.006
+playground, so that you're gonna be
+able to test and tweak things like
+
+00:18:36.016 --> 00:18:37.736
+the values of the mechanics as well.
+
+00:18:38.626 --> 00:18:40.366
+All right, so that's it
+for today's tutorial.
+
+00:18:40.396 --> 00:18:44.376
+I hope you enjoyed it and learned how you
+can make your very own Street Fighter-like
+
+00:18:44.376 --> 00:18:46.566
+game using nothing but AI tools.
+
+00:18:47.106 --> 00:18:50.396
+if you enjoyed this video, give it a
+like, hit that subscribe button, and
+
+00:18:50.396 --> 00:18:53.316
+don't forget to turn on notifications
+so that you'll always be the first to
+
+00:18:53.316 --> 00:18:55.056
+know when new content like this drops.
+
+00:18:55.323 --> 00:18:57.906
+And if you haven't seen my other video
+where I take you step-by-step from start
+
+00:18:57.906 --> 00:19:01.726
+to finish of how you can build your very
+own platformer game where you can collect
+
+00:19:01.726 --> 00:19:04.796
+items, fight enemies, and have a level
+progression, you definitely wanna check
+
+00:19:04.796 --> 00:19:06.266
+out this video that you see over here.
+
+00:19:06.616 --> 00:19:06.926
+All right.
+
+00:19:07.106 --> 00:19:08.106
+Till next time, I'll see ya
+

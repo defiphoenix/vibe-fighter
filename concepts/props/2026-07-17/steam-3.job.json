@@ -1,0 +1,29 @@
+[
+  {
+    "created_at": "2026-07-17T14:17:49.592508Z",
+    "display_name": "Nano Banana Pro",
+    "id": "f2a58bd8-f096-4113-ac79-fef3b58d3c2c",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_141749_f2a58bd8-f096-4113-ac79-fef3b58d3c2c_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "2:3",
+      "batch_size": 1,
+      "height": 2528,
+      "input_image": null,
+      "input_images": [
+        {
+          "id": "a38931f9-bc70-4b06-b493-04875adfcc9d",
+          "type": "media_input",
+          "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/a38931f9-bc70-4b06-b493-04875adfcc9d_resize.jpg"
+        }
+      ],
+      "prompt": "Keep this exact pipe: the same stub of metal, the same cap, the same colours, in the same position on\nthe canvas at the same size.\nChange one thing only: the plume is breaking up. Its top has torn into a few chunky separate blobs,\nand a clear gap has opened between the pipe's mouth and the bottom of the cloud. Nothing else moves.\nThe torn pieces stay chunky solid blobs of colour -- they do not thin out into faint mist or wisps.\nThe steam stays a dense OPAQUE cloud of solid colour with hard cel edges -- never translucent, never\nmisty, never airbrushed, and nothing behind it shows through it. It is never pink, never magenta\nand never purple. The whole plume stays well inside the canvas, with a wide band of magenta above it.\n\nFRAMING:\nOne subject only, alone, painted over a completely flat #FF00FF magenta void. There is no ground, no\nsky, no wall and no floor -- only the subject and the magenta. Do not paint scenery, a horizon, a\nskyline, a rooftop, a building, or any second separate subject into the magenta. Nothing casts a\nshadow onto the magenta.\nLeave a clear band of magenta on all four sides: the subject must not touch or run off any edge of\nthe canvas.\nThe magenta is one single uniform colour from edge to edge of the canvas, with no gradient, no\ntexture, no noise and no light falling on it. Do not put a decorative border, a CRT bezel, a\nvignette, scanlines or a matte around the canvas.\nThe camera stands at the eye level of a grown adult on the same rooftop and looks straight across at\nthe subject, neither down onto it nor up at it.\nSTYLE: 16-bit SNES arcade fighting-game stage art, hand-painted, chunky readable shapes, hard cel\nedges, flat blocks of colour, no photographic detail, no 3D render, no airbrush gradient, and no\noutline drawn around the subject. A low dusk sun sits behind and to the left, so the subject is\nmostly in warm shadow with a hot rim of light down its left edge.\nPALETTE: use only these colours, sampled from the locked rooftop-dusk stage -- backlight and hot rim\n#F07830 #F09048 #C04848 #904860; midtones #784860 #604860 #604848 #483060; shadow #483048 #301848\n#300048 #180030; warm highlights on metal #906060 #A86060 #786060 #786078.\nNo text, no letters, no numbers, no signage, no logo, no watermark, no signature, no label.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 1696
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_141749_f2a58bd8-f096-4113-ac79-fef3b58d3c2c.png",
+    "status": "completed"
+  }
+]

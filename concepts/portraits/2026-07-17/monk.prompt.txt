@@ -1,0 +1,58 @@
+Redraw the fighter in the reference image as a character-select portrait. Keep his design
+exactly as it is: the bald shaven head with the small dark ordination dots on his forehead, the
+heavy dark wooden prayer-bead necklace hanging across his chest, the orange robe draped so that one
+shoulder and arm are covered while the opposite shoulder and his muscular chest stay bare exactly
+as in the reference, and the white cloth wraps on his forearms. His face must stay recognisably the
+same person.
+
+TASK: The reference shows him full-body in a wide low horse stance on a flat magenta void. Discard
+the full-body framing, discard that wide low stance, and discard the magenta void completely --
+keep only the character himself, and reframe to his head, shoulders and upper chest as described
+below.
+
+POSE: Serene and completely still, in contrast to the other fighters. He holds the Shaolin salute
+at his upper chest: his right fist covered by his open left palm, forearms horizontal. His head is
+level, his eyes calm and half-lowered, his expression composed.
+
+FRAMING:
+This is a character-select portrait, not a full-body figure. The camera has moved in close, at the
+fighter's own eye level, until only his head, shoulders and upper chest fill the frame. The bottom
+edge of the image cuts straight through his chest: his waist, legs and feet are outside the frame
+and are not drawn at all. Above his hair leave a shallow band of backdrop about a third as tall as
+his own head. His shoulders stay inside the frame with a narrow strip of backdrop down each side.
+He faces the viewer, his body angled slightly, his head and eyes turned to the camera.
+
+BACKDROP:
+Replace the reference image's flat magenta background completely. There must be no magenta anywhere
+in the finished image. Behind him paint a dusk backdrop in these exact colours: a smooth vertical
+gradient running from deep violet #5E3C74 at the top, through rose #8C476A across the middle, to
+warm orange #FD9146 at the bottom edge. Over that gradient lay a symmetrical burst of broad
+straight sunbeam rays radiating outward from directly behind his head, each ray a slightly lighter
+tint of the gradient it crosses, and scatter coarse chunky halftone dots of the same palette in the
+corners. This backdrop is flat graphic decoration only: no buildings, no rooftop, no water tower,
+no chain-link fence, no clouds, no landscape, no floor, no ground, no horizon line, no room, no
+scenery of any kind. It is drawn identically for every fighter.
+
+LIGHTING:
+Neutral, even, frontal light on the fighter so his own colours read true. Do not tint his skin,
+hair or clothing violet or orange to match the backdrop. He reads as a separate element sitting on
+top of the backdrop, separated from it by a crisp dark outline.
+
+NOTHING WRITTEN:
+No text of any kind anywhere in the image. No name plate, no nameplate banner, no name bar, no
+label, no caption, no kanji, no lettering, no numbers, no logo, no emblem, no badge, no crest, no
+flag, no patch, no signature, no watermark, no UI frame, no border box, no health bar, no icon.
+
+UNARMED:
+No weapons and no props of any kind. Nothing in his hands but his own hands.
+
+STYLE:
+A 16-bit SNES arcade fighting-game character-select portrait. Hand-drawn pixel art with visible
+square pixels, a limited flat palette, hard cel-shaded blocks of colour, crisp dithered transitions
+and bold dark outlines. Higher fidelity and more detail than a small in-game sprite, because this
+is the large portrait artwork, but the same chunky pixel-art feel: not smooth digital painting, not
+3D, not anti-aliased vector art, not photorealism.
+
+FULL-BLEED:
+The artwork fills the entire canvas edge to edge. No border, no frame, no CRT bezel, no scanlines,
+no vignette, no rounded corners, no drop shadow, no letterboxing, no margin.

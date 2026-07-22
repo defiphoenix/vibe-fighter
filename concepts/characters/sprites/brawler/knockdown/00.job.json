@@ -1,0 +1,41 @@
+[
+  {
+    "created_at": "2026-07-18T17:02:36.407054Z",
+    "display_name": "Seedance 2.0",
+    "id": "555b8c2d-694d-4b1a-8cb8-de8767bfa98c",
+    "job_type": "seedance_2_0",
+    "min_result_url": null,
+    "params": {
+      "aspect_ratio": "3:4",
+      "bitrate_mode": "standard",
+      "duration": 4,
+      "generate_audio": false,
+      "genre": "auto",
+      "height": 960,
+      "medias": [
+        {
+          "data": {
+            "id": "1f6959b1-cf22-41b3-89df-510e75c4ee5e",
+            "type": "media_input",
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/1f6959b1-cf22-41b3-89df-510e75c4ee5e.png"
+          },
+          "role": "start_image"
+        }
+      ],
+      "mode": "fast",
+      "model": "seedance_2_0_fast",
+      "multi_prompt": [],
+      "multi_shot_mode": "custom",
+      "multi_shots": false,
+      "prompt": "The SAME single brawler fighter from the start image is knocked off his feet and falls backward onto the ground, side view facing RIGHT, centered in place. Keep his exact appearance every frame: red open jacket over a white tank top, blue jeans, red high-top sneakers, black fingerless gloves, spiky brown hair. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt_language": "en",
+      "reference_elements": [],
+      "resolution": "720p",
+      "speedramp": "auto",
+      "width": 720
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_170236_555b8c2d-694d-4b1a-8cb8-de8767bfa98c.mp4",
+    "status": "completed",
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_170236_555b8c2d-694d-4b1a-8cb8-de8767bfa98c_thumbnail.webp"
+  }
+]

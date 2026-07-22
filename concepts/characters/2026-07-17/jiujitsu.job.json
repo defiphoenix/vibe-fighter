@@ -1,0 +1,29 @@
+[
+  {
+    "created_at": "2026-07-17T10:33:18.322642Z",
+    "display_name": "Nano Banana Pro",
+    "id": "527cfd82-3067-4b19-8a65-162bc19871e9",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_103318_527cfd82-3067-4b19-8a65-162bc19871e9_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "3:4",
+      "batch_size": 1,
+      "height": 2400,
+      "input_image": null,
+      "input_images": [
+        {
+          "id": "e33b6527-16ec-4f69-ba7e-e563d3ace1e9",
+          "type": "media_input",
+          "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/e33b6527-16ec-4f69-ba7e-e563d3ace1e9_resize.jpg"
+        }
+      ],
+      "prompt": "Use this image ONLY as a design reference for ONE character: the RIGHT fighter, the jiu-jitsu fighter in the white gi. DO NOT keep the scene.\n\nTASK: Redraw that jiu-jitsu fighter — a focused grappler in a crisp white gi with a blue belt, barefoot, with short dark hair — as an ISOLATED full-body character reference. Keep HIS design faithfully: same white gi, same blue belt, same bare feet, same short dark hair, same face. In the reference he faces to the LEFT; MIRROR him so that he faces to the RIGHT. Everything else in the reference is DISCARDED — the alley, the night sky, the rain, the neon signs, the vending machine, the dumpster, the wooden crates, the fire escape, the brick walls, the wet pavement, the puddles and their reflections, the steam, and the Muay Thai kickboxer on the left. None of it appears.\n\nHIS GI IS COMPLETELY PLAIN WHITE. In the reference there is a small blue-and-yellow flag patch on his shoulder: REMOVE IT. He is an original character and wears no national flag and no insignia. No shoulder patch, no flag, no badge, no emblem, no crest, no club logo, no sleeve stripe, no embroidery, no marking of any kind anywhere on the gi — only the blue belt breaks up the plain white cloth.\n\nFRAMING: This is an isolated character reference sheet, like a page pinned to a studio wall. The camera is level with the character, straight on at his own height — not looking down at him and not looking up at him — and it stands WELL BACK from him. It is far enough back that a band of empty magenta at least as tall as his own head runs right across the top of the image above his hair, and a second band just as tall runs right across the bottom beneath his feet, and there is open magenta to his left and to his right as well. He is a whole small figure standing in a large empty frame, NOT a close-up: do not zoom in, do not crop him, do not let him fill the frame. He stands alone, centred, in a 3/4 side-facing fighting stance, body angled toward the viewer, weight settled, hands up and ready. His whole body is visible from the top of his head to the soles of his feet, and he touches NO edge of the frame. He faces to the RIGHT.\n\nTHE VOID: Every single pixel that is not the character himself is a SOLID FLAT MAGENTA VOID, pure #FF00FF, absolutely uniform — no sky, no ground, no floor, no shadow, no horizon, no wall, no gradient, no texture, no noise, no shading, no glow, no vignette. He casts no shadow and stands on nothing. Do NOT invent scenery, props, furniture, or a ground plane anywhere in the magenta. The magenta runs unbroken to all four edges. The boundary between the magenta and the character is crisp hard-edged pixels — no blur, no anti-aliased fade, no glow bleeding into the magenta.\n\nEXACTLY ONE CHARACTER: One single figure and nothing else. No opponent, no second fighter, no duplicate, no ghost, no echo, no reflection, no silhouette behind him, no inset, no turnaround, no alternate pose, no extra limbs.\n\nLIGHTING: Neutral, even, flat studio lighting from the front. The character wears his OWN local colours only. NO coloured rim light, NO neon glow, NO dusk or sunset cast, NO lantern warmth, NO tint of any kind picked up from the reference's scene — he will be drawn onto many different stages and must read correctly on all of them.\n\nNOTHING WRITTEN: No text, no letters, no words, no numerals, no kanji, no kana, no calligraphy, no scrolls, no banners, no signs, no posters, no labels, no logos, no watermark, no signature, no caption — nowhere in the image, and nothing written on his clothing.\n\nUNARMED: No weapons of any kind. No sword, staff, spear, nunchaku, blade, stick, or held object. His hands are empty.\n\nSTYLE: Chunky readable 16-bit SNES arcade-sprite art in the style of Street Fighter II and Final Fight. Heroic sprite proportions, roughly five and a half heads tall. Bold readable silhouette, clean dark outline around the whole figure, bold cel shading in several distinct flat tone bands, defined muscle anatomy, detailed clothing folds and creases, an expressive shaded face, crisp chunky pixels, vivid but strictly limited palette. Every detail must stay readable when the character is drawn small — no fine rendering that would dissolve at sprite size. Retro 16-bit pixel art, NOT high-resolution comic art, NOT painterly, NOT 3D.\n\nFULL-BLEED: the image fills the frame edge to edge. NO black border, NO rounded frame, NO CRT/TV bezel, NO vignette, NO letterboxing.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 1792
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_103318_527cfd82-3067-4b19-8a65-162bc19871e9.png",
+    "status": "completed"
+  }
+]

@@ -1,0 +1,30 @@
+[
+  {
+    "created_at": "2026-07-18T10:05:59.786286Z",
+    "display_name": "Nano Banana 2",
+    "id": "00e42402-6ec0-4f80-9d5c-07f7e96e0e77",
+    "job_type": "nano_banana_flash",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_100559_00e42402-6ec0-4f80-9d5c-07f7e96e0e77_min.webp",
+    "params": {
+      "aspect_ratio": "3:4",
+      "batch_size": 1,
+      "height": 1200,
+      "medias": [
+        {
+          "data": {
+            "id": "9441cf68-fcb5-4f36-ac66-d9c4ef18f358",
+            "type": "media_input",
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/9441cf68-fcb5-4f36-ac66-d9c4ef18f358_resize.jpg"
+          },
+          "role": "image"
+        }
+      ],
+      "prompt": "Full-body 2D fighting-game character sprite of the SAME muscular brawler shown in the reference image — same face, hair, skin tone, tank top, trousers and wraps. Neutral idle fighting stance, weight centered, fists up in guard, body in a slight 3/4 view but clearly FACING RIGHT (+x). Full body head-to-feet inside the frame with a small margin, feet flat at the bottom. Flat solid #FF00FF magenta background, absolutely no scenery, no shadow, no ground, no text, no border. Clean crisp SNES-era pixel/cel shading matching the reference art style.",
+      "reference_elements": [],
+      "resolution": "1k",
+      "width": 896
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_100559_00e42402-6ec0-4f80-9d5c-07f7e96e0e77.png",
+    "status": "completed"
+  }
+]

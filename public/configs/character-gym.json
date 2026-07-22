@@ -1,0 +1,1032 @@
+{
+  "_doc": "Phase 09 fighter registry. Each entry = { render, data }. render is loader-only (preload + anim registry + sprite frame counts, decoupled from sim frames). data is compact authorable sim config; src/sim/character-builder.ts assembleCharacter() reconstructs the full CharacterConfig, src/sim/validate-character.ts validates it (shared by BootScene + the dev Vite write-back). Boxes are fighter-local: +x forward, +y up from feet. High/low blocking is box geometry, not labels. overrides[state]=[{frame,hurt?,push?,hit?}] are per-frame tweaks the Character Gym (?scene=gym) writes; hit overrides only inside an attack active window. Sprite sheets: 320x256 cells, feet-anchored (0.5,1.0), art faces +x. IDs match public/sprites/<id>/ and concepts/characters/2026-07-17/.",
+  "brawler": {
+    "render": {
+      "frameWidth": 320,
+      "frameHeight": 256,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "sheets": {
+        "idle": {
+          "path": "sprites/brawler/idle.png",
+          "frames": 8,
+          "fps": 10,
+          "loop": true
+        },
+        "walkF": {
+          "path": "sprites/brawler/walkF.png",
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "walkB": {
+          "path": "sprites/brawler/walkB.png",
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "crouch": {
+          "path": "sprites/brawler/crouch.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "jumpRise": {
+          "path": "sprites/brawler/jumpRise.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "jumpFall": {
+          "path": "sprites/brawler/jumpFall.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "attackLight": {
+          "path": "sprites/brawler/attackLight.png",
+          "frames": 6,
+          "fps": 14,
+          "loop": false
+        },
+        "attackHeavy": {
+          "path": "sprites/brawler/attackHeavy.png",
+          "frames": 6,
+          "fps": 12,
+          "loop": false
+        },
+        "hitstun": {
+          "path": "sprites/brawler/hitstun.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "blockstun": {
+          "path": "sprites/brawler/blockstun.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "knockdown": {
+          "path": "sprites/brawler/knockdown.png",
+          "frames": 6,
+          "fps": 8,
+          "loop": false
+        },
+        "ko": {
+          "path": "sprites/brawler/ko.png",
+          "frames": 6,
+          "fps": 8,
+          "loop": false
+        },
+        "airLight": {
+          "path": "sprites/brawler/airLight.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "airHeavy": {
+          "path": "sprites/brawler/airHeavy.png",
+          "frames": 4,
+          "fps": 10,
+          "loop": false
+        },
+        "crouchLight": {
+          "path": "sprites/brawler/crouchLight.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "crouchHeavy": {
+          "path": "sprites/brawler/crouchHeavy.png",
+          "frames": 4,
+          "fps": 10,
+          "loop": false
+        }
+      }
+    },
+    "data": {
+      "stats": {
+        "walkSpeed": 240,
+        "jumpVelocity": 900,
+        "gravity": 2600,
+        "maxHealth": 105,
+        "scale": 1
+      },
+      "boxes": {
+        "pushStand": {
+          "x": -28,
+          "y": 0,
+          "w": 56,
+          "h": 175
+        },
+        "pushCrouch": {
+          "x": -30,
+          "y": 0,
+          "w": 60,
+          "h": 110
+        },
+        "hurtStand": [
+          {
+            "x": -30,
+            "y": 0,
+            "w": 60,
+            "h": 185
+          }
+        ],
+        "hurtCrouch": [
+          {
+            "x": -32,
+            "y": 0,
+            "w": 64,
+            "h": 110
+          }
+        ],
+        "hurtAir": [
+          {
+            "x": -28,
+            "y": 0,
+            "w": 56,
+            "h": 150
+          }
+        ],
+        "knockdown": {
+          "hurt": [
+            {
+              "x": -40,
+              "y": 0,
+              "w": 80,
+              "h": 60
+            }
+          ],
+          "push": {
+            "x": -40,
+            "y": 0,
+            "w": 80,
+            "h": 40
+          }
+        },
+        "ko": {
+          "hurt": [
+            {
+              "x": -40,
+              "y": 0,
+              "w": 80,
+              "h": 50
+            }
+          ],
+          "push": {
+            "x": -40,
+            "y": 0,
+            "w": 80,
+            "h": 40
+          }
+        },
+        "guardStand": [
+          {
+            "x": -32,
+            "y": 70,
+            "w": 90,
+            "h": 105
+          }
+        ],
+        "guardCrouch": [
+          {
+            "x": -32,
+            "y": 0,
+            "w": 90,
+            "h": 80
+          }
+        ]
+      },
+      "attacks": {
+        "light": {
+          "body": "stand",
+          "startup": 4,
+          "active": 3,
+          "recovery": 8,
+          "hit": {
+            "x": 40,
+            "y": 100,
+            "w": 70,
+            "h": 45
+          },
+          "damage": 6,
+          "hitstun": 12,
+          "blockstun": 9,
+          "hitstop": 6,
+          "knockback": {
+            "x": 130,
+            "y": 0
+          },
+          "chip": 1
+        },
+        "heavy": {
+          "body": "stand",
+          "startup": 9,
+          "active": 4,
+          "recovery": 20,
+          "hit": {
+            "x": 45,
+            "y": 95,
+            "w": 110,
+            "h": 48
+          },
+          "damage": 15,
+          "hitstun": 18,
+          "blockstun": 14,
+          "hitstop": 10,
+          "knockback": {
+            "x": 250,
+            "y": -260
+          },
+          "chip": 3
+        },
+        "airLight": {
+          "body": "air",
+          "startup": 6,
+          "active": 3,
+          "recovery": 12,
+          "hit": {
+            "x": 40,
+            "y": 80,
+            "w": 70,
+            "h": 50
+          },
+          "damage": 6,
+          "hitstun": 12,
+          "blockstun": 9,
+          "hitstop": 6,
+          "knockback": {
+            "x": 120,
+            "y": 0
+          },
+          "chip": 1
+        },
+        "airHeavy": {
+          "body": "air",
+          "startup": 8,
+          "active": 4,
+          "recovery": 16,
+          "hit": {
+            "x": 45,
+            "y": 40,
+            "w": 90,
+            "h": 60
+          },
+          "damage": 12,
+          "hitstun": 16,
+          "blockstun": 12,
+          "hitstop": 9,
+          "knockback": {
+            "x": 180,
+            "y": 0
+          },
+          "chip": 3
+        },
+        "crouchLight": {
+          "body": "crouch",
+          "startup": 4,
+          "active": 3,
+          "recovery": 9,
+          "hit": {
+            "x": 38,
+            "y": 18,
+            "w": 66,
+            "h": 40
+          },
+          "damage": 5,
+          "hitstun": 11,
+          "blockstun": 8,
+          "hitstop": 6,
+          "knockback": {
+            "x": 110,
+            "y": 0
+          },
+          "chip": 1
+        },
+        "crouchHeavy": {
+          "body": "crouch",
+          "startup": 8,
+          "active": 4,
+          "recovery": 20,
+          "hit": {
+            "x": 48,
+            "y": 6,
+            "w": 100,
+            "h": 42
+          },
+          "damage": 13,
+          "hitstun": 18,
+          "blockstun": 14,
+          "hitstop": 10,
+          "knockback": {
+            "x": 220,
+            "y": -240
+          },
+          "chip": 3
+        }
+      },
+      "frames": {
+        "idle": 4,
+        "walkF": 6,
+        "walkB": 6,
+        "crouch": 2,
+        "jumpRise": 1,
+        "jumpFall": 1,
+        "hitstun": 1,
+        "blockstun": 1,
+        "knockdown": 1,
+        "ko": 1
+      }
+    }
+  },
+  "jiujitsu": {
+    "render": {
+      "frameWidth": 320,
+      "frameHeight": 256,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "sheets": {
+        "idle": {
+          "path": "sprites/jiujitsu/idle.png",
+          "frames": 8,
+          "fps": 10,
+          "loop": true
+        },
+        "walkF": {
+          "path": "sprites/jiujitsu/walkF.png",
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "walkB": {
+          "path": "sprites/jiujitsu/walkB.png",
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "crouch": {
+          "path": "sprites/jiujitsu/crouch.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "jumpRise": {
+          "path": "sprites/jiujitsu/jumpRise.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "jumpFall": {
+          "path": "sprites/jiujitsu/jumpFall.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "attackLight": {
+          "path": "sprites/jiujitsu/attackLight.png",
+          "frames": 6,
+          "fps": 14,
+          "loop": false
+        },
+        "attackHeavy": {
+          "path": "sprites/jiujitsu/attackHeavy.png",
+          "frames": 6,
+          "fps": 12,
+          "loop": false
+        },
+        "hitstun": {
+          "path": "sprites/jiujitsu/hitstun.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "blockstun": {
+          "path": "sprites/jiujitsu/blockstun.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "knockdown": {
+          "path": "sprites/jiujitsu/knockdown.png",
+          "frames": 6,
+          "fps": 8,
+          "loop": false
+        },
+        "ko": {
+          "path": "sprites/jiujitsu/ko.png",
+          "frames": 6,
+          "fps": 8,
+          "loop": false
+        },
+        "airLight": {
+          "path": "sprites/jiujitsu/airLight.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "airHeavy": {
+          "path": "sprites/jiujitsu/airHeavy.png",
+          "frames": 4,
+          "fps": 10,
+          "loop": false
+        },
+        "crouchLight": {
+          "path": "sprites/jiujitsu/crouchLight.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "crouchHeavy": {
+          "path": "sprites/jiujitsu/crouchHeavy.png",
+          "frames": 4,
+          "fps": 10,
+          "loop": false
+        }
+      }
+    },
+    "data": {
+      "stats": {
+        "walkSpeed": 210,
+        "jumpVelocity": 920,
+        "gravity": 2600,
+        "maxHealth": 100,
+        "scale": 1
+      },
+      "boxes": {
+        "pushStand": {
+          "x": -28,
+          "y": 0,
+          "w": 56,
+          "h": 178
+        },
+        "pushCrouch": {
+          "x": -30,
+          "y": 0,
+          "w": 60,
+          "h": 108
+        },
+        "hurtStand": [
+          {
+            "x": -30,
+            "y": 0,
+            "w": 60,
+            "h": 188
+          }
+        ],
+        "hurtCrouch": [
+          {
+            "x": -32,
+            "y": 0,
+            "w": 64,
+            "h": 108
+          }
+        ],
+        "hurtAir": [
+          {
+            "x": -28,
+            "y": 0,
+            "w": 56,
+            "h": 150
+          }
+        ],
+        "knockdown": {
+          "hurt": [
+            {
+              "x": -40,
+              "y": 0,
+              "w": 80,
+              "h": 60
+            }
+          ],
+          "push": {
+            "x": -40,
+            "y": 0,
+            "w": 80,
+            "h": 40
+          }
+        },
+        "ko": {
+          "hurt": [
+            {
+              "x": -40,
+              "y": 0,
+              "w": 80,
+              "h": 50
+            }
+          ],
+          "push": {
+            "x": -40,
+            "y": 0,
+            "w": 80,
+            "h": 40
+          }
+        },
+        "guardStand": [
+          {
+            "x": -32,
+            "y": 70,
+            "w": 90,
+            "h": 108
+          }
+        ],
+        "guardCrouch": [
+          {
+            "x": -32,
+            "y": 0,
+            "w": 90,
+            "h": 80
+          }
+        ]
+      },
+      "attacks": {
+        "light": {
+          "body": "stand",
+          "startup": 5,
+          "active": 3,
+          "recovery": 8,
+          "hit": {
+            "x": 40,
+            "y": 100,
+            "w": 92,
+            "h": 42
+          },
+          "damage": 6,
+          "hitstun": 12,
+          "blockstun": 9,
+          "hitstop": 6,
+          "knockback": {
+            "x": 130,
+            "y": 0
+          },
+          "chip": 1
+        },
+        "heavy": {
+          "body": "stand",
+          "startup": 9,
+          "active": 4,
+          "recovery": 18,
+          "hit": {
+            "x": 45,
+            "y": 95,
+            "w": 95,
+            "h": 48
+          },
+          "damage": 14,
+          "hitstun": 18,
+          "blockstun": 14,
+          "hitstop": 10,
+          "knockback": {
+            "x": 240,
+            "y": -260
+          },
+          "chip": 3
+        },
+        "airLight": {
+          "body": "air",
+          "startup": 6,
+          "active": 3,
+          "recovery": 12,
+          "hit": {
+            "x": 40,
+            "y": 80,
+            "w": 70,
+            "h": 50
+          },
+          "damage": 6,
+          "hitstun": 12,
+          "blockstun": 9,
+          "hitstop": 6,
+          "knockback": {
+            "x": 120,
+            "y": 0
+          },
+          "chip": 1
+        },
+        "airHeavy": {
+          "body": "air",
+          "startup": 8,
+          "active": 4,
+          "recovery": 16,
+          "hit": {
+            "x": 45,
+            "y": 40,
+            "w": 90,
+            "h": 60
+          },
+          "damage": 12,
+          "hitstun": 16,
+          "blockstun": 12,
+          "hitstop": 9,
+          "knockback": {
+            "x": 180,
+            "y": 0
+          },
+          "chip": 3
+        },
+        "crouchLight": {
+          "body": "crouch",
+          "startup": 4,
+          "active": 3,
+          "recovery": 9,
+          "hit": {
+            "x": 38,
+            "y": 18,
+            "w": 66,
+            "h": 40
+          },
+          "damage": 5,
+          "hitstun": 11,
+          "blockstun": 8,
+          "hitstop": 6,
+          "knockback": {
+            "x": 110,
+            "y": 0
+          },
+          "chip": 1
+        },
+        "crouchHeavy": {
+          "body": "crouch",
+          "startup": 8,
+          "active": 4,
+          "recovery": 20,
+          "hit": {
+            "x": 48,
+            "y": 6,
+            "w": 100,
+            "h": 42
+          },
+          "damage": 13,
+          "hitstun": 18,
+          "blockstun": 14,
+          "hitstop": 10,
+          "knockback": {
+            "x": 220,
+            "y": -240
+          },
+          "chip": 3
+        }
+      },
+      "frames": {
+        "idle": 4,
+        "walkF": 6,
+        "walkB": 6,
+        "crouch": 2,
+        "jumpRise": 1,
+        "jumpFall": 1,
+        "hitstun": 1,
+        "blockstun": 1,
+        "knockdown": 1,
+        "ko": 1
+      }
+    }
+  },
+  "monk": {
+    "render": {
+      "frameWidth": 320,
+      "frameHeight": 256,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "sheets": {
+        "idle": {
+          "path": "sprites/monk/idle.png",
+          "frames": 8,
+          "fps": 10,
+          "loop": true
+        },
+        "walkF": {
+          "path": "sprites/monk/walkF.png",
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "walkB": {
+          "path": "sprites/monk/walkB.png",
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "crouch": {
+          "path": "sprites/monk/crouch.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "jumpRise": {
+          "path": "sprites/monk/jumpRise.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "jumpFall": {
+          "path": "sprites/monk/jumpFall.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "attackLight": {
+          "path": "sprites/monk/attackLight.png",
+          "frames": 6,
+          "fps": 14,
+          "loop": false
+        },
+        "attackHeavy": {
+          "path": "sprites/monk/attackHeavy.png",
+          "frames": 6,
+          "fps": 12,
+          "loop": false
+        },
+        "hitstun": {
+          "path": "sprites/monk/hitstun.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "blockstun": {
+          "path": "sprites/monk/blockstun.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "knockdown": {
+          "path": "sprites/monk/knockdown.png",
+          "frames": 6,
+          "fps": 8,
+          "loop": false
+        },
+        "ko": {
+          "path": "sprites/monk/ko.png",
+          "frames": 6,
+          "fps": 8,
+          "loop": false
+        },
+        "airLight": {
+          "path": "sprites/monk/airLight.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "airHeavy": {
+          "path": "sprites/monk/airHeavy.png",
+          "frames": 4,
+          "fps": 10,
+          "loop": false
+        },
+        "crouchLight": {
+          "path": "sprites/monk/crouchLight.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "crouchHeavy": {
+          "path": "sprites/monk/crouchHeavy.png",
+          "frames": 4,
+          "fps": 10,
+          "loop": false
+        }
+      }
+    },
+    "data": {
+      "stats": {
+        "walkSpeed": 200,
+        "jumpVelocity": 980,
+        "gravity": 2600,
+        "maxHealth": 100,
+        "scale": 1
+      },
+      "boxes": {
+        "pushStand": {
+          "x": -30,
+          "y": 0,
+          "w": 60,
+          "h": 172
+        },
+        "pushCrouch": {
+          "x": -38,
+          "y": 0,
+          "w": 76,
+          "h": 105
+        },
+        "hurtStand": [
+          {
+            "x": -30,
+            "y": 0,
+            "w": 60,
+            "h": 182
+          }
+        ],
+        "hurtCrouch": [
+          {
+            "x": -40,
+            "y": 0,
+            "w": 80,
+            "h": 105
+          }
+        ],
+        "hurtAir": [
+          {
+            "x": -28,
+            "y": 0,
+            "w": 56,
+            "h": 150
+          }
+        ],
+        "knockdown": {
+          "hurt": [
+            {
+              "x": -42,
+              "y": 0,
+              "w": 84,
+              "h": 58
+            }
+          ],
+          "push": {
+            "x": -42,
+            "y": 0,
+            "w": 84,
+            "h": 40
+          }
+        },
+        "ko": {
+          "hurt": [
+            {
+              "x": -42,
+              "y": 0,
+              "w": 84,
+              "h": 50
+            }
+          ],
+          "push": {
+            "x": -42,
+            "y": 0,
+            "w": 84,
+            "h": 40
+          }
+        },
+        "guardStand": [
+          {
+            "x": -32,
+            "y": 70,
+            "w": 90,
+            "h": 102
+          }
+        ],
+        "guardCrouch": [
+          {
+            "x": -32,
+            "y": 0,
+            "w": 90,
+            "h": 80
+          }
+        ]
+      },
+      "attacks": {
+        "light": {
+          "body": "stand",
+          "startup": 4,
+          "active": 3,
+          "recovery": 9,
+          "hit": {
+            "x": 40,
+            "y": 95,
+            "w": 94,
+            "h": 45
+          },
+          "damage": 6,
+          "hitstun": 12,
+          "blockstun": 9,
+          "hitstop": 6,
+          "knockback": {
+            "x": 130,
+            "y": 0
+          },
+          "chip": 1
+        },
+        "heavy": {
+          "body": "stand",
+          "startup": 10,
+          "active": 4,
+          "recovery": 18,
+          "hit": {
+            "x": 45,
+            "y": 95,
+            "w": 112,
+            "h": 50
+          },
+          "damage": 14,
+          "hitstun": 18,
+          "blockstun": 14,
+          "hitstop": 10,
+          "knockback": {
+            "x": 240,
+            "y": -260
+          },
+          "chip": 3
+        },
+        "airLight": {
+          "body": "air",
+          "startup": 6,
+          "active": 3,
+          "recovery": 12,
+          "hit": {
+            "x": 40,
+            "y": 80,
+            "w": 70,
+            "h": 50
+          },
+          "damage": 6,
+          "hitstun": 12,
+          "blockstun": 9,
+          "hitstop": 6,
+          "knockback": {
+            "x": 120,
+            "y": 0
+          },
+          "chip": 1
+        },
+        "airHeavy": {
+          "body": "air",
+          "startup": 8,
+          "active": 4,
+          "recovery": 16,
+          "hit": {
+            "x": 45,
+            "y": 40,
+            "w": 90,
+            "h": 60
+          },
+          "damage": 12,
+          "hitstun": 16,
+          "blockstun": 12,
+          "hitstop": 9,
+          "knockback": {
+            "x": 180,
+            "y": 0
+          },
+          "chip": 3
+        },
+        "crouchLight": {
+          "body": "crouch",
+          "startup": 4,
+          "active": 3,
+          "recovery": 9,
+          "hit": {
+            "x": 38,
+            "y": 18,
+            "w": 74,
+            "h": 40
+          },
+          "damage": 5,
+          "hitstun": 11,
+          "blockstun": 8,
+          "hitstop": 6,
+          "knockback": {
+            "x": 110,
+            "y": 0
+          },
+          "chip": 1
+        },
+        "crouchHeavy": {
+          "body": "crouch",
+          "startup": 8,
+          "active": 4,
+          "recovery": 20,
+          "hit": {
+            "x": 48,
+            "y": 6,
+            "w": 108,
+            "h": 42
+          },
+          "damage": 13,
+          "hitstun": 18,
+          "blockstun": 14,
+          "hitstop": 10,
+          "knockback": {
+            "x": 220,
+            "y": -240
+          },
+          "chip": 3
+        }
+      },
+      "frames": {
+        "idle": 4,
+        "walkF": 6,
+        "walkB": 6,
+        "crouch": 2,
+        "jumpRise": 1,
+        "jumpFall": 1,
+        "hitstun": 1,
+        "blockstun": 1,
+        "knockdown": 1,
+        "ko": 1
+      }
+    }
+  }
+}

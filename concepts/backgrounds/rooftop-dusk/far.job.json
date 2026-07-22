@@ -1,0 +1,23 @@
+[
+  {
+    "created_at": "2026-07-17T07:42:33.918857Z",
+    "display_name": "Nano Banana Pro",
+    "id": "4e4db49a-2064-472a-87bd-44dda84722f7",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_074233_4e4db49a-2064-472a-87bd-44dda84722f7_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "21:9",
+      "batch_size": 1,
+      "height": 1344,
+      "input_image": null,
+      "input_images": [],
+      "prompt": "SNES 16-bit pixel art, side-view 2D fighting game background layer in the style of Street Fighter II and Final Fight. This is the FAR PARALLAX LAYER - the dusk sky behind everything else. It is a backdrop, not a finished scene.\n\nCONTENT: nothing but sky at dusk, filling the entire frame edge to edge. The mood is a WARM GOLDEN-HOUR SUNSET, not night. The frame is dominated by warm orange in its lower half - this is the single most important thing about the image.\n\nFollow this exact vertical colour ramp from top to bottom, as a classic SNES dithered gradient:\n- top edge (0%): muted dusty purple #5E3D74\n- 12%: purple leaning warmer #774270\n- 20%: dusty mauve-rose #8F496B\n- 24%: warm rose #AD525B\n- 32%: strong orange-red #E16647\n- 36%: bright orange #F07843\n- 40% to 50%: the brightest warm ORANGE #FD9146 - a broad glowing orange horizon band\n- from 50% down to the bottom edge: hold that warm orange #FD9146, fading only slightly, staying orange all the way to the bottom edge of the frame.\n\nThe bottom half of the image must read ORANGE, not purple, not magenta, not blue. Only the top quarter is purple.\n\nA scattering of tiny pale stars in the purple region at the very top only. A few long, thin, flat horizontal clouds in dusty purple silhouette catching orange underlight, sitting around 12% to 28% down. Classic SNES dithering and banding in the gradient - visible chunky pixel dither bands rather than a smooth photographic blend.\n\nABSOLUTELY NO buildings, NO skyline, NO city, NO rooftops, NO ground, NO floor, NO fence, NO antennas, NO water towers, NO silhouettes of any structures. Sky and thin clouds ONLY. The bottom edge of the frame is still open orange sky.\n\nFull-bleed: the artwork fills the entire image edge to edge. NO black border, NO rounded frame, NO CRT/TV bezel, NO vignette, NO letterboxing.\n\nNO fighters, no people, no characters, no HUD, no UI, no text, no logos.\n\nCrisp chunky pixels, vivid but limited palette. Retro 16-bit pixel art, NOT high-resolution comic or 3D.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 3168
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_074233_4e4db49a-2064-472a-87bd-44dda84722f7.png",
+    "status": "completed"
+  }
+]

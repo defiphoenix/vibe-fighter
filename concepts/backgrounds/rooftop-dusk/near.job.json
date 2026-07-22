@@ -1,0 +1,23 @@
+[
+  {
+    "created_at": "2026-07-17T07:30:41.523389Z",
+    "display_name": "Nano Banana Pro",
+    "id": "95e10e06-d577-44f5-9f35-43a6a5f86233",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_073041_95e10e06-d577-44f5-9f35-43a6a5f86233_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "21:9",
+      "batch_size": 1,
+      "height": 1344,
+      "input_image": null,
+      "input_images": [],
+      "prompt": "SNES 16-bit pixel art, side-view 2D fighting game background layer in the style of Street Fighter II and Final Fight. This is the NEAR FOREGROUND LAYER - it is drawn IN FRONT of the fighters, so almost all of it must be empty. It is a parallax layer, not a finished scene.\r\n\r\nCOMPOSITION, top to bottom:\r\n- The TOP 95% of the image is a SOLID FLAT MAGENTA VOID, pure #FF00FF, absolutely uniform - no sky, no gradient, no texture, no noise, no shading, no glow. Nothing but flat magenta, all the way to the left and right edges. This region is completely EMPTY.\r\n- The BOTTOM 5% ONLY is a single very thin horizontal strip of very near foreground rooftop clutter, seen close to the camera and heavily in shadow - a dark silhouette. It runs the full width of the frame, from the extreme left edge to the extreme right edge, and touches the bottom edge. In it: a low cracked concrete parapet ledge, a run of thick dark pipes and conduit crossing horizontally, a small vent, and the top corner of a boxy HVAC air-conditioner unit poking up at one end. Along the very front of this strip, a VERY LOW chain-link fence railing - only knee high, a short kerbside railing, diagonal diamond wire mesh with stubby posts - reading in front of everything. The railing is tiny: its posts are no taller than the strip itself. The magenta shows through every diamond gap in the wire mesh.\r\n\r\nCRITICAL RULES:\r\n- SCALE IS CRITICAL: the strip is a THIN CURB hugging the very bottom edge, one twentieth of the image height. It is a sliver, not a band. Picture the image divided into 20 equal horizontal rows: the artwork occupies ONLY the single bottom row. NOTHING may rise above the bottom 5% of the frame. No tall fence, no full-height fence, no posts running to the top, no chimneys, no towers. The entire top 95% is empty magenta with nothing in it whatsoever.\r\n- NO vertical fence bands at the left or right sides of the frame. The sides are empty magenta except for the bottom strip.\r\n- Keep the strip LOW and FLAT and WIDE - a thin band along the bottom, not a wall.\r\n\r\nThe boundary between the magenta and the artwork is crisp hard-edged pixels - no blur, no anti-aliased fade, no glow bleeding into the magenta. The magenta must show through the gaps in the chain-link mesh, not be covered by it.\r\n\r\nFull-bleed: the artwork fills the entire image edge to edge. NO black border, NO rounded frame, NO CRT/TV bezel, NO vignette, NO letterboxing.\r\n\r\nNO fighters, no people, no characters, no HUD, no UI, no text, no logos.\r\n\r\nCrisp chunky pixels, heavy dark silhouette shading, vivid but limited palette, dusk colour scheme. Retro 16-bit pixel art, NOT high-resolution comic or 3D.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 3168
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_073041_95e10e06-d577-44f5-9f35-43a6a5f86233.png",
+    "status": "completed"
+  }
+]

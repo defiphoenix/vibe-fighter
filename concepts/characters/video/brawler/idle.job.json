@@ -1,0 +1,41 @@
+[
+  {
+    "created_at": "2026-07-18T11:04:53.414077Z",
+    "display_name": "Seedance 2.0",
+    "id": "907b5c81-ff95-4359-b479-b637656bd6ac",
+    "job_type": "seedance_2_0",
+    "min_result_url": null,
+    "params": {
+      "aspect_ratio": "3:4",
+      "bitrate_mode": "standard",
+      "duration": 4,
+      "generate_audio": false,
+      "genre": "auto",
+      "height": 960,
+      "medias": [
+        {
+          "data": {
+            "id": "612e8a47-804c-4c80-848b-f8d0e13a6f4f",
+            "type": "media_input",
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/612e8a47-804c-4c80-848b-f8d0e13a6f4f.png"
+          },
+          "role": "start_image"
+        }
+      ],
+      "mode": "fast",
+      "model": "seedance_2_0_fast",
+      "multi_prompt": [],
+      "multi_shot_mode": "custom",
+      "multi_shots": false,
+      "prompt": "The SAME single brawler character from the start image performs a subtle idle fighting-stance bob, breathing and shifting weight slightly, staying centered in place, side view facing RIGHT. Keep his exact outfit (red open jacket over white tank, jeans, red sneakers, gloves) and hair identical every frame. Flat solid #FF00FF magenta background, completely unchanged and uniform. Locked static camera, no zoom, no pan. Exactly ONE character, no other people.",
+      "prompt_language": "en",
+      "reference_elements": [],
+      "resolution": "720p",
+      "speedramp": "auto",
+      "width": 720
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_110453_907b5c81-ff95-4359-b479-b637656bd6ac.mp4",
+    "status": "completed",
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_110453_907b5c81-ff95-4359-b479-b637656bd6ac_thumbnail.webp"
+  }
+]

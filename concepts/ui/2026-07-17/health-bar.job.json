@@ -1,0 +1,23 @@
+[
+  {
+    "created_at": "2026-07-17T13:30:56.019601Z",
+    "display_name": "Nano Banana Pro",
+    "id": "7aedf8e4-5867-4f8c-b956-beb313afec03",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_133056_7aedf8e4-5867-4f8c-b956-beb313afec03_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "21:9",
+      "batch_size": 1,
+      "height": 1344,
+      "input_image": null,
+      "input_images": [],
+      "prompt": "A single health bar from a 16-bit arcade fighting game HUD, drawn face-on: one long shallow\nhorizontal box, about eight times as wide as it is tall.\nIt is a heavy bevelled metal frame with a deep empty channel sunk into it. The channel is the slot\nthe game fills in later with the player's health, so paint the channel flat #FF00FF magenta -- the\nidentical magenta as the void outside the bar -- and keep the metal frame unbroken all the way around\nthe channel on every side: top, bottom, left and right. The channel is therefore a completely\nenclosed hole sitting inside the frame. The channel must not run out to either end of the bar, and\nmust not touch the outside of the bar anywhere.\nThe channel is a plain empty rectangle. There is nothing inside it: no fill, no coloured bar, no\nsegments, no divisions, no notches.\nThe frame is thick warm gunmetal, with a brightly lit bevel along its top and left, a dark shadowed\nbevel along its bottom and right, and one rivet in each of its four corners.\n\nFRAMING:\nOne object only, alone, drawn face-on and flat to the camera with no perspective and no tilt, painted\nover a completely flat #FF00FF magenta void. Do not paint scenery, a background, a character, a\nportrait, or any second object into the magenta. Nothing casts a shadow onto the magenta.\nLeave a clear band of magenta on all four sides: the object must not touch or run off any edge of\nthe canvas.\nThe magenta is one single uniform colour from edge to edge of the canvas, with no gradient, no\ntexture, no noise and no light falling on it. Do not put a decorative border, a CRT bezel, a\nvignette, scanlines or a matte around the canvas.\nSTYLE: 16-bit SNES arcade fighting-game interface art, hand-painted, chunky readable shapes, hard cel\nedges, flat blocks of colour, heavy bevels with a clearly lit edge and a clearly shadowed edge,\nrivets and panel lines, no photographic detail, no 3D render, no airbrush gradient.\nPALETTE: use only these colours, sampled from the locked rooftop-dusk stage -- hot highlight #F07830\n#F09048; warm metal #C04848 #904860 #906060 #A86060 #786060 #786078; midtones #784860 #604860\n#604848 #483060; deep shadow #483048 #301848 #300048 #180030.\nNo text, no letters, no numbers, no digits, no signage, no logo, no watermark, no signature, no name\nplate, no icon, no tick marks, no gauge markings, no scale, no graduations.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 3168
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_133056_7aedf8e4-5867-4f8c-b956-beb313afec03.png",
+    "status": "completed"
+  }
+]

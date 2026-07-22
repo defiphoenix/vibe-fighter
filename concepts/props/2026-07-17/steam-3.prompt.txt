@@ -1,0 +1,29 @@
+Keep this exact pipe: the same stub of metal, the same cap, the same colours, in the same position on
+the canvas at the same size.
+Change one thing only: the plume is breaking up. Its top has torn into a few chunky separate blobs,
+and a clear gap has opened between the pipe's mouth and the bottom of the cloud. Nothing else moves.
+The torn pieces stay chunky solid blobs of colour -- they do not thin out into faint mist or wisps.
+The steam stays a dense OPAQUE cloud of solid colour with hard cel edges -- never translucent, never
+misty, never airbrushed, and nothing behind it shows through it. It is never pink, never magenta
+and never purple. The whole plume stays well inside the canvas, with a wide band of magenta above it.
+
+FRAMING:
+One subject only, alone, painted over a completely flat #FF00FF magenta void. There is no ground, no
+sky, no wall and no floor -- only the subject and the magenta. Do not paint scenery, a horizon, a
+skyline, a rooftop, a building, or any second separate subject into the magenta. Nothing casts a
+shadow onto the magenta.
+Leave a clear band of magenta on all four sides: the subject must not touch or run off any edge of
+the canvas.
+The magenta is one single uniform colour from edge to edge of the canvas, with no gradient, no
+texture, no noise and no light falling on it. Do not put a decorative border, a CRT bezel, a
+vignette, scanlines or a matte around the canvas.
+The camera stands at the eye level of a grown adult on the same rooftop and looks straight across at
+the subject, neither down onto it nor up at it.
+STYLE: 16-bit SNES arcade fighting-game stage art, hand-painted, chunky readable shapes, hard cel
+edges, flat blocks of colour, no photographic detail, no 3D render, no airbrush gradient, and no
+outline drawn around the subject. A low dusk sun sits behind and to the left, so the subject is
+mostly in warm shadow with a hot rim of light down its left edge.
+PALETTE: use only these colours, sampled from the locked rooftop-dusk stage -- backlight and hot rim
+#F07830 #F09048 #C04848 #904860; midtones #784860 #604860 #604848 #483060; shadow #483048 #301848
+#300048 #180030; warm highlights on metal #906060 #A86060 #786060 #786078.
+No text, no letters, no numbers, no signage, no logo, no watermark, no signature, no label.

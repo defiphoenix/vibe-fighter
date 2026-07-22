@@ -1,0 +1,27 @@
+{
+  "_doc": "Phase 08 stage runtime config. key = '<stageId>-<layer>' (matches BootScene load.image keys). scrollFactor + layer order per concepts/backgrounds/README.md. Depth bands: layers 0-2, props 3-8, fighters 9-11. ponytail: the 'near' front occluder (depth 20) is intentionally omitted from render -- its dark dusk-palette edge read as residual purple and its only job was a foreground strip; BootScene still preloads near.png so re-adding a '<stage>-near' entry here restores it. Layers are pre-baked 1697x720 by scripts/copy-stage-layers.py; renderer places them at setScale(1), origin (0,0). Props: atlasFrame is the twilight-atlas prefix ('<frame>-0..3'), x/y is the bottom-center anchor (setOrigin(0.5,1)) on the roof (feet line GROUND_Y=620).",
+  "twilight": {
+    "layers": [
+      { "key": "twilight-far",    "scrollFactor": 0.1, "depth": 0, "occludesFighters": false },
+      { "key": "twilight-medium", "scrollFactor": 0.3, "depth": 1, "occludesFighters": false },
+      { "key": "twilight-main",   "scrollFactor": 1.0, "depth": 2, "occludesFighters": false }
+    ],
+    "props": [
+      { "atlasFrame": "vents",  "x": 280,  "y": 620, "depth": 3, "scale": 0.7 },
+      { "atlasFrame": "steam",  "x": 1420, "y": 620, "depth": 3, "scale": 0.75 },
+      { "atlasFrame": "beacon", "x": 1600, "y": 620, "depth": 4, "scale": 0.7 }
+    ]
+  },
+  "sunset": {
+    "layers": [
+      { "key": "sunset-far",    "scrollFactor": 0.1, "depth": 0, "occludesFighters": false },
+      { "key": "sunset-medium", "scrollFactor": 0.3, "depth": 1, "occludesFighters": false },
+      { "key": "sunset-main",   "scrollFactor": 1.0, "depth": 2, "occludesFighters": false }
+    ],
+    "props": [
+      { "atlasFrame": "vents",  "x": 300,  "y": 620, "depth": 3, "scale": 0.7 },
+      { "atlasFrame": "steam",  "x": 1400, "y": 620, "depth": 3, "scale": 0.75 },
+      { "atlasFrame": "beacon", "x": 120,  "y": 620, "depth": 4, "scale": 0.7 }
+    ]
+  }
+}

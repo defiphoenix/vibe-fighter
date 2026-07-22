@@ -1,0 +1,30 @@
+SNES 16-bit pixel art, side-view 2D fighting game background layer in the style of Street Fighter II and Final Fight. This is the MAIN STAGE LAYER - the rooftop the fighters stand on. It is ONE PARALLAX LAYER out of four, not a finished scene. A separate city-skyline layer is composited BEHIND this one, so every magenta gap in this image must stay magenta for the city to show through.
+
+CAMERA (most important instruction): the camera sits LOW, at the height of a fighter standing on the roof, looking flat ACROSS the rooftop at eye level - NOT looking down at it. Because the view is level, the concrete floor is FORESHORTENED into a THIN horizontal band along the very bottom of the frame. You see almost none of the floor's surface - just a narrow strip. This is a flat side-on 2D fighting-game stage like Street Fighter II, not a 3/4 overhead view. Do NOT tilt the camera down. Do NOT show a big receding floor plane.
+
+SCALE ANCHOR (also critical): a grown adult standing on this roof would be about ONE QUARTER of the image height. Size everything to that person:
+- the air-conditioner units are WAIST-HIGH on them (about half their height),
+- the chain-link fence is slightly TALLER than them,
+- the wooden water tower, including its steel legs, is about TWICE their height.
+Do not make the props bigger than this. They are rooftop clutter, not buildings.
+
+COMPOSITION, top to bottom:
+- The TOP 92% of the image is a SOLID FLAT MAGENTA VOID, pure #FF00FF, absolutely uniform - no sky, no gradient, no clouds, no city, no buildings, no haze. Nothing but flat magenta. The ONLY things allowed to break into this magenta are the few rooftop props listed below, standing up from the roof floor. Everything between and around those props stays pure magenta.
+- The BOTTOM 8% ONLY is the flat concrete roof floor, seen from the side, at dusk. It MUST run UNBROKEN from the extreme LEFT edge to the extreme RIGHT edge - end to end, no gaps, touching both side edges and the bottom edge. Weathered grey concrete with tar seams, patches, gravel and cracks, lit warm from the left by the low sun. Keep it a THIN band along the very bottom.
+
+STANDING ON THE ROOF FLOOR, rising up into the magenta (these are the only exceptions to the magenta):
+- RIGHT side: a tall wooden water tower on splayed steel legs - the hero prop, twice a person's height - and next to it a satellite dish on a small mount, and a chain-link fence running along the roof's back edge with visible posts. The fence is see-through: pure magenta shows through every diamond gap in the mesh.
+- LEFT side: two SMALL boxy air-conditioner units with fan grilles, only waist-high on a person, sitting low and close to the floor. A thin TV antenna mast.
+- The MIDDLE of the roof stays clear and open - just floor and magenta above it.
+
+CRITICAL:
+- The roof floor is FULL WIDTH. Do not inset it, do not float it, do not leave magenta at the left or right ends of the floor. Concrete touches both side edges.
+- Do NOT fill the magenta with a city, a skyline, distant buildings, haze or sky. That is a different layer. The magenta is a transparency key.
+- Keep the props sparse and low. The magenta must dominate the image.
+- Boundaries between magenta and artwork are crisp hard-edged pixels - no blur, no anti-aliased fade, no glow bleeding into the magenta.
+
+Full-bleed: the artwork fills the entire image edge to edge. NO black border, NO rounded frame, NO CRT/TV bezel, NO vignette, NO letterboxing.
+
+NO fighters, no people, no characters, no HUD, no UI, no text, no logos.
+
+Crisp chunky pixels, bold cel shading, vivid but limited palette, dusk colour scheme (cool grey-blue concrete, warm orange rim light from the left). Retro 16-bit pixel art, NOT high-resolution comic or 3D.

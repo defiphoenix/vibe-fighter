@@ -1,0 +1,19 @@
+# deps / build output
+node_modules/
+dist/
+.vercel/
+
+# test + tool artifacts
+test-results/
+e2e/__artifacts__/
+playwright-report/
+.playwright-cli/
+.deepeval/
+
+# gameplay captures (not part of the build); also covers concepts/ Seedance clips
+*.mp4
+
+# concepts/ is art AUTHORING, not shipped. Keep the provenance trail
+# (*.prompt.txt, *.job.json, README.md); drop the raw pixels/video.
+concepts/**/*.png
+concepts/**/*.gif

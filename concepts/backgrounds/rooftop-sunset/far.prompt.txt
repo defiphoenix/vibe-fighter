@@ -1,0 +1,7 @@
+This is a PALETTE SWAP ONLY. Use the supplied image as the exact reference for composition and geometry. Keep EVERY shape, edge, object, position and silhouette pixel-identical to the reference - same buildings, same fence, same pipes, same layout, same outlines. Do NOT move, add, remove, resize or redraw anything. Change ONLY the colours.
+
+Recolour from a purple-and-orange DUSK palette to a hot LATE SUNSET palette: deep crimson and scarlet where the reference is purple, glowing gold and yellow where the reference is orange, and warm red-brown shadows where the reference is cool blue-grey. Everything is lit by a low, hot, setting sun - strong warm rim light, long warm highlights, deep red shadows. The overall image reads RED and GOLD, not purple.
+
+This layer is the SKY ONLY. Keep it sky only - no buildings, no ground, no structures. The gradient runs deep crimson #7A2E4A at the top, through scarlet #C43B32, into a broad glowing gold #FFC24A horizon band in the lower half, holding gold to the bottom edge. Keep the same thin horizontal clouds and the same stars, recoloured.
+
+Full-bleed, no border, no CRT bezel, no vignette, no letterboxing. NO fighters, no people, no HUD, no UI, no text. SNES 16-bit pixel art, crisp chunky pixels, vivid but limited palette. Retro 16-bit pixel art, NOT high-resolution comic or 3D.

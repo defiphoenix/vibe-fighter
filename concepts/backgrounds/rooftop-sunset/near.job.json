@@ -1,0 +1,29 @@
+[
+  {
+    "created_at": "2026-07-17T07:58:21.817886Z",
+    "display_name": "Nano Banana Pro",
+    "id": "2e9a4c3f-358c-45ae-92fd-40eed6a161d9",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_075821_2e9a4c3f-358c-45ae-92fd-40eed6a161d9_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "21:9",
+      "batch_size": 1,
+      "height": 1344,
+      "input_image": null,
+      "input_images": [
+        {
+          "id": "42ea84b1-25e1-4548-97c8-567cba77ae3b",
+          "type": "media_input",
+          "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/42ea84b1-25e1-4548-97c8-567cba77ae3b_resize.jpg"
+        }
+      ],
+      "prompt": "This is a PALETTE SWAP ONLY. Use the supplied image as the exact reference for composition and geometry. Keep EVERY shape, edge, object, position and silhouette pixel-identical to the reference - same buildings, same fence, same pipes, same layout, same outlines. Do NOT move, add, remove, resize or redraw anything. Change ONLY the colours.\r\n\r\nRecolour from a purple-and-orange DUSK palette to a hot LATE SUNSET palette: deep crimson and scarlet where the reference is purple, glowing gold and yellow where the reference is orange, and warm red-brown shadows where the reference is cool blue-grey. Everything is lit by a low, hot, setting sun - strong warm rim light, long warm highlights, deep red shadows. The overall image reads RED and GOLD, not purple.\r\n\r\nCRITICAL: the flat MAGENTA background in the reference is a transparency key, not part of the artwork. Keep it EXACTLY as it is - pure flat #FF00FF magenta, absolutely uniform, unchanged, in exactly the same shape and area as the reference. Do NOT recolour the magenta. Do NOT tint it. Do NOT paint sky, gradient, clouds or scenery into it. It must stay pure #FF00FF. Only the non-magenta artwork gets recoloured.\r\n\r\nThe foreground parapet, pipes, vent, HVAC corner and low chain-link railing keep their exact shapes and stay a DARK near-silhouette, but the shadow colour shifts from cool purple-black to deep warm red-black, with hot gold rim light catching their top edges.\r\n\r\nFull-bleed, no border, no CRT bezel, no vignette, no letterboxing. NO fighters, no people, no HUD, no UI, no text. SNES 16-bit pixel art, crisp chunky pixels, vivid but limited palette. Retro 16-bit pixel art, NOT high-resolution comic or 3D.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 3168
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_075821_2e9a4c3f-358c-45ae-92fd-40eed6a161d9.png",
+    "status": "completed"
+  }
+]

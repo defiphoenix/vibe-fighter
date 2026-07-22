@@ -1,0 +1,21 @@
+{
+  "created_at": "2026-07-17T13:37:32.121056Z",
+  "display_name": "Nano Banana Pro",
+  "id": "628e9654-8b53-456f-aa35-3fadc7b522cc",
+  "job_type": "nano_banana_pro",
+  "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_133732_628e9654-8b53-456f-aa35-3fadc7b522cc_min.webp",
+  "params": {
+    "application": null,
+    "aspect_ratio": "3:4",
+    "batch_size": 1,
+    "height": 2400,
+    "input_image": null,
+    "input_images": [],
+    "prompt": "A single empty portrait plate from a 16-bit arcade fighting game character-select screen, drawn\nface-on: one upright rectangular frame, taller than it is wide.\nIt is an ornamental bevelled metal border running unbroken all the way around a large empty window.\nThe window is the slot the game drops a character portrait into later, so paint the window flat\n#FF00FF magenta -- the identical magenta as the void outside the plate -- and keep the border\nunbroken all the way around the window on every side: top, bottom, left and right. The window is\ntherefore a completely enclosed hole sitting inside the border. The window must not touch the outside\nof the plate anywhere.\nThe window is a plain empty upright rectangle, about three units wide for every four units tall.\nThere is nothing inside it: no portrait, no face, no person, no silhouette, no colour, no pattern.\nThe border is thick warm gunmetal, with a brightly lit bevel along its top and left, a dark shadowed\nbevel along its bottom and right, one rivet in each of its four corners, and the same thickness of\nborder on all four sides.\n\nFRAMING:\nOne object only, alone, drawn face-on and flat to the camera with no perspective and no tilt, painted\nover a completely flat #FF00FF magenta void. Do not paint scenery, a background, a character, a\nportrait, or any second object into the magenta. Nothing casts a shadow onto the magenta.\nLeave a clear band of magenta on all four sides: the object must not touch or run off any edge of\nthe canvas.\nThe magenta is one single uniform colour from edge to edge of the canvas, with no gradient, no\ntexture, no noise and no light falling on it. Do not put a decorative border, a CRT bezel, a\nvignette, scanlines or a matte around the canvas.\nSTYLE: 16-bit SNES arcade fighting-game interface art, hand-painted, chunky readable shapes, hard cel\nedges, flat blocks of colour, heavy bevels with a clearly lit edge and a clearly shadowed edge,\nrivets and panel lines, no photographic detail, no 3D render, no airbrush gradient.\nPALETTE: use only these colours, sampled from the locked rooftop-dusk stage -- hot highlight #F07830\n#F09048; warm metal #C04848 #904860 #906060 #A86060 #786060 #786078; midtones #784860 #604860\n#604848 #483060; deep shadow #483048 #301848 #300048 #180030.\nNo text, no letters, no numbers, no digits, no signage, no logo, no watermark, no signature, no name\nplate, no icon, no tick marks, no gauge markings, no scale, no graduations.",
+    "resolution": "2k",
+    "surface": null,
+    "width": 1792
+  },
+  "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_133732_628e9654-8b53-456f-aa35-3fadc7b522cc.png",
+  "status": "completed"
+}

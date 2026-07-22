@@ -1,0 +1,23 @@
+[
+  {
+    "created_at": "2026-07-18T09:38:15.219764Z",
+    "display_name": "AutoSprite Animation",
+    "id": "a99af60c-8d94-4aff-8660-27662e6a2511",
+    "job_type": "autosprite",
+    "min_result_url": null,
+    "params": {
+      "frame_count": 25,
+      "frame_size": 256,
+      "image_url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/8fc90011-d4b2-4f66-a3a8-8a7e4ea0e915.png",
+      "is_humanoid": true,
+      "kind": "idle",
+      "name": null,
+      "prompt": null,
+      "remove_bg": "ultra",
+      "video_tier": "turbo",
+      "with_sound": false
+    },
+    "result_url": null,
+    "status": "failed"
+  }
+]

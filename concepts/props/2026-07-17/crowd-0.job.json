@@ -1,0 +1,23 @@
+[
+  {
+    "created_at": "2026-07-17T13:43:42.159221Z",
+    "display_name": "Nano Banana Pro",
+    "id": "534d1430-1cc8-4f22-9401-4e3f3c8cf688",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_134342_534d1430-1cc8-4f22-9401-4e3f3c8cf688_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "16:9",
+      "batch_size": 1,
+      "height": 1536,
+      "input_image": null,
+      "input_images": [],
+      "prompt": "One crowd of distant onlookers watching a fight from the parapet of a neighbouring rooftop: a single\ntight huddle of about nine grown adults seen from the chest up, packed shoulder to shoulder in one\nhorizontal row, much wider than it is tall. They are near-solid dark silhouettes carrying only a hot\nrim of dusk light along the tops of their heads and shoulders -- no faces, no features, no clothing\ndetail. The whole huddle reads as one bumpy dark band.\nEvery one of them has both arms down at their sides.\n\nFRAMING:\nOne subject only, alone, painted over a completely flat #FF00FF magenta void. There is no ground, no\nsky, no wall and no floor -- only the subject and the magenta. Do not paint scenery, a horizon, a\nskyline, a rooftop, a building, or any second separate subject into the magenta. Nothing casts a\nshadow onto the magenta.\nLeave a clear band of magenta on all four sides: the subject must not touch or run off any edge of\nthe canvas.\nThe magenta is one single uniform colour from edge to edge of the canvas, with no gradient, no\ntexture, no noise and no light falling on it. Do not put a decorative border, a CRT bezel, a\nvignette, scanlines or a matte around the canvas.\nThe camera stands at the eye level of a grown adult on the same rooftop and looks straight across at\nthe subject, neither down onto it nor up at it.\nSTYLE: 16-bit SNES arcade fighting-game stage art, hand-painted, chunky readable shapes, hard cel\nedges, flat blocks of colour, no photographic detail, no 3D render, no airbrush gradient, and no\noutline drawn around the subject. A low dusk sun sits behind and to the left, so the subject is\nmostly in warm shadow with a hot rim of light down its left edge.\nPALETTE: use only these colours, sampled from the locked rooftop-dusk stage -- backlight and hot rim\n#F07830 #F09048 #C04848 #904860; midtones #784860 #604860 #604848 #483060; shadow #483048 #301848\n#300048 #180030; warm highlights on metal #906060 #A86060 #786060 #786078.\nNo text, no letters, no numbers, no signage, no logo, no watermark, no signature, no label.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 2752
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260717_134342_534d1430-1cc8-4f22-9401-4e3f3c8cf688.png",
+    "status": "completed"
+  }
+]
