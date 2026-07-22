@@ -19,3 +19,9 @@ concepts/**/*.png
 concepts/**/*.gif
 
 .vercel
+
+# secrets. No .env exists today and none was ever committed — this is here so one can never be
+# committed by ACCIDENT, which matters precisely because a push to main is a production deploy.
+.env
+.env.*
+!.env.example

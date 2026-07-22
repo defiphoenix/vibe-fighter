@@ -12,7 +12,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "types": ["vitest/globals", "vite/client"]
+    "types": ["vite/client"]
   },
   "include": ["src"]
 }

@@ -28,13 +28,32 @@ export function gymSavePlugin(): Plugin {
           res.end(JSON.stringify({ error }));
         };
         if (req.method !== "POST") return fail(405, "POST only");
-        // same-origin: reject an explicit cross-site marker, AND reject a mismatched Origin (closes
-        // the hole where Sec-Fetch-Site is simply omitted but a foreign Origin is supplied). A
-        // legitimate same-origin browser fetch sends both matching; non-browser localhost tooling
-        // sends neither, which is fine for a dev-only endpoint.
+        // Same-origin enforcement. The ONE legitimate caller is the Gym/Playground panel in this page,
+        // whose fetch() always carries an Origin — Fetch appends it to every non-GET/HEAD request. REQUIRING
+        // Origin is what closes the hole: the previous version only rejected a *mismatched* one, so a client
+        // that simply OMITTED both headers sailed through and rewrote the registry.
+        //
+        // Sec-Fetch-Site is checked only WHEN PRESENT, deliberately. Fetch Metadata is attached only for
+        // potentially-trustworthy URLs, so a browser reaching this dev server over a LAN IP (`vite --host`,
+        // e.g. testing on a phone) sends no Sec-Fetch-Site at all — making it mandatory would 403 the real
+        // panel.
+        //
+        // Neither header AUTHENTICATES: curl forges both in one line. This closes CSRF and casual
+        // non-browser writes, nothing more, which is why the finding is low severity. A per-server token
+        // would be the real answer if this endpoint ever needed one — it doesn't, because `apply: "serve"`
+        // keeps it out of every build.
         if (req.headers["sec-fetch-site"] && req.headers["sec-fetch-site"] !== "same-origin") return fail(403, "cross-origin blocked");
         const origin = req.headers["origin"];
-        if (origin && req.headers.host && new URL(origin).host !== req.headers.host) return fail(403, "cross-origin blocked");
+        const host = req.headers.host;
+        if (!origin || !host) return fail(403, "cross-origin blocked");
+        let originUrl: URL;
+        // `new URL("null")` — and any malformed value — THROWS. Unhandled that is a 500 (or a dead
+        // middleware) where a controlled 403 belongs; `Origin: null` is what a sandboxed iframe sends.
+        try { originUrl = new URL(origin); } catch { return fail(403, "cross-origin blocked"); }
+        // Compare the FULL origin, not just `.host` — scheme matters as well as host+port.
+        if (originUrl.host !== host || (originUrl.protocol !== "http:" && originUrl.protocol !== "https:")) {
+          return fail(403, "cross-origin blocked");
+        }
         if (!String(req.headers["content-type"] ?? "").includes("application/json")) return fail(415, "JSON only");
 
         let size = 0;
