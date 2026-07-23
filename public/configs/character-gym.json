@@ -745,8 +745,7 @@
           "path": "sprites/monk/attackLight.png",
           "frames": 6,
           "fps": 14,
-          "loop": false,
-          "hit": 2
+          "loop": false
         },
         "attackHeavy": {
           "path": "sprites/monk/attackHeavy.png",
@@ -796,14 +795,15 @@
           "path": "sprites/monk/crouchLight.png",
           "frames": 4,
           "fps": 12,
-          "loop": false
+          "loop": false,
+          "hit": 1
         },
         "crouchHeavy": {
           "path": "sprites/monk/crouchHeavy.png",
           "frames": 4,
           "fps": 10,
           "loop": false,
-          "hit": 2
+          "hit": 1
         }
       }
     },

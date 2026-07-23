@@ -1,8 +1,8 @@
 [
   {
-    "created_at": "2026-07-18T11:45:23.611638Z",
+    "created_at": "2026-07-23T15:31:35.072792Z",
     "display_name": "Seedance 2.0",
-    "id": "20e7a223-2675-45c3-91b1-360835190468",
+    "id": "bde08035-4028-458e-82b6-4dd844fec7bf",
     "job_type": "seedance_2_0",
     "min_result_url": null,
     "params": {
@@ -15,9 +15,9 @@
       "medias": [
         {
           "data": {
-            "id": "de649604-1c78-409e-918d-0762f9642008",
+            "id": "ec0ac9cc-49eb-4952-9f5c-5fffe9a67f64",
             "type": "media_input",
-            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/de649604-1c78-409e-918d-0762f9642008_resize.jpg"
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/ec0ac9cc-49eb-4952-9f5c-5fffe9a67f64_resize.jpg"
           },
           "role": "start_image"
         }
@@ -27,15 +27,15 @@
       "multi_prompt": [],
       "multi_shot_mode": "custom",
       "multi_shots": false,
-      "prompt": "The SAME single jiujitsu fighter from the start image holds a neutral fighting idle stance and subtly bobs, breathing and shifting weight, staying in place, side view facing RIGHT, centered in place. Keep his exact appearance every frame: white judo gi with a blue belt, barefoot, short dark navy hair (hair colour identical every frame). Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt": "The SAME single jiujitsu fighter from the start image stands in a fighting idle stance and bobs up and down, dipping at the knees and rising again, exactly TWICE during the clip — one complete down-and-up about every two seconds, evenly paced. The dip is large and unmistakable, and his chest and shoulders visibly rise and fall with it. He is never still for a single instant, but his feet stay planted on the same spot, side view facing RIGHT, centered in place. Keep his exact appearance every frame: white judo gi with a blue belt, barefoot, short dark navy hair (hair colour identical every frame). Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
       "prompt_language": "en",
       "reference_elements": [],
       "resolution": "720p",
       "speedramp": "auto",
       "width": 720
     },
-    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_114523_20e7a223-2675-45c3-91b1-360835190468.mp4",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_153135_bde08035-4028-458e-82b6-4dd844fec7bf.mp4",
     "status": "completed",
-    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_114523_20e7a223-2675-45c3-91b1-360835190468_thumbnail.webp"
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_153135_bde08035-4028-458e-82b6-4dd844fec7bf_thumbnail.webp"
   }
 ]

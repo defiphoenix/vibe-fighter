@@ -1,8 +1,8 @@
 [
   {
-    "created_at": "2026-07-18T11:49:37.394645Z",
+    "created_at": "2026-07-23T15:22:48.588907Z",
     "display_name": "Seedance 2.0",
-    "id": "9c66198a-f22f-4aef-99cd-cfc3f2d8acf5",
+    "id": "cb50e318-2a02-4992-87ba-d55cc29518a8",
     "job_type": "seedance_2_0",
     "min_result_url": null,
     "params": {
@@ -15,9 +15,9 @@
       "medias": [
         {
           "data": {
-            "id": "dd8ad6d6-5804-4dce-8f57-059bb788a53b",
+            "id": "286ef636-3842-4cc0-a99b-b5e9955494fe",
             "type": "media_input",
-            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/dd8ad6d6-5804-4dce-8f57-059bb788a53b_resize.jpg"
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/286ef636-3842-4cc0-a99b-b5e9955494fe_resize.jpg"
           },
           "role": "start_image"
         }
@@ -27,15 +27,15 @@
       "multi_prompt": [],
       "multi_shot_mode": "custom",
       "multi_shots": false,
-      "prompt": "The SAME single jiujitsu fighter from the start image backpedals, stepping backward with guard up, side view facing RIGHT, centered in place. Keep his exact appearance every frame: white judo gi with a blue belt, barefoot, short dark navy hair (hair colour identical every frame). Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt": "The SAME single jiujitsu fighter from the start image walks backward with a complete and clearly visible walking cycle, repeated steadily for the whole clip: he lifts one foot right off the ground, swings that leg back behind him and plants it, then does the same with the other leg, over and over. The legs alternate continuously and are never both planted still at the same time. Guard stays up and his torso stays upright and facing right, side view facing RIGHT, centered in place. Keep his exact appearance every frame: white judo gi with a blue belt, barefoot, short dark navy hair (hair colour identical every frame). Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
       "prompt_language": "en",
       "reference_elements": [],
       "resolution": "720p",
       "speedramp": "auto",
       "width": 720
     },
-    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_114937_9c66198a-f22f-4aef-99cd-cfc3f2d8acf5.mp4",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_152248_cb50e318-2a02-4992-87ba-d55cc29518a8.mp4",
     "status": "completed",
-    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_114937_9c66198a-f22f-4aef-99cd-cfc3f2d8acf5_thumbnail.webp"
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_152248_cb50e318-2a02-4992-87ba-d55cc29518a8_thumbnail.webp"
   }
 ]
