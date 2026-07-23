@@ -55,7 +55,12 @@ declare -A MOTION=(
   # bob puts every sample at nearly the same phase. The brawler's sheet is the best of the three purely
   # because it happens to run ~2.5 cycles (steps 0.01/0.13/0.12 repeating). So name the COUNT as well
   # as the size — two cycles over 8 samples is four samples per cycle, and it loops seamlessly.
-  [idle]="stands in a fighting idle stance and bobs up and down, dipping at the knees and rising again, exactly TWICE during the clip — one complete down-and-up about every two seconds, evenly paced. The dip is large and unmistakable, and his chest and shoulders visibly rise and fall with it. He is never still for a single instant, but his feet stay planted on the same spot"
+  # ...and then the AMPLITUDE half was over-corrected: "the dip is large and unmistakable, dipping at
+  # the knees" gave the brawler a full squat-and-rise every 0.4s, which reads as doing squats rather
+  # than holding a stance ("why can the characters not stay idle by standing"). The cycle COUNT is the
+  # part that fixed the sampling; the size was never what was wrong. Keep the count, shrink the motion,
+  # and forbid the knee dip by name — the head must stay at nearly one height.
+  [idle]="holds a READY FIGHTING STANCE and stays standing in it the whole time — knees only slightly bent, exactly as they are in the start image, and his head staying at very nearly the same height throughout. He must NEVER squat, NEVER dip down at the knees, and NEVER crouch. Within that stance he is subtly but continuously alive: he settles and rises again very slightly, exactly TWICE during the clip (one small, evenly paced cycle about every two seconds), breathing so his chest and shoulders rise and fall, his guard hands drifting and his weight easing from one foot to the other. His feet stay planted on the same spot"
   [walkF]="walks forward with a smooth full walk cycle, legs striding, arms in a light guard"
   # "backpedals, stepping backward" measured 0.14 on jiujitsu (vs 0.56-0.79 for walkF) — he slid
   # backward without moving his legs, and brawler froze for the first 4 of 8 frames. Name the cycle.

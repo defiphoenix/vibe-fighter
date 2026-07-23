@@ -1,8 +1,8 @@
 [
   {
-    "created_at": "2026-07-23T15:37:42.715393Z",
+    "created_at": "2026-07-23T15:56:09.89667Z",
     "display_name": "Seedance 2.0",
-    "id": "6ddef58a-d69e-4fb3-9da6-6bd19bc218c1",
+    "id": "e271ff6d-fbe3-4e21-ac26-7074118bbee5",
     "job_type": "seedance_2_0",
     "min_result_url": null,
     "params": {
@@ -15,9 +15,9 @@
       "medias": [
         {
           "data": {
-            "id": "c6e0bdea-d555-408d-81e8-8c688718b892",
+            "id": "f0b1a599-eee4-4e08-a790-b861b798c410",
             "type": "media_input",
-            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/c6e0bdea-d555-408d-81e8-8c688718b892_resize.jpg"
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/f0b1a599-eee4-4e08-a790-b861b798c410_resize.jpg"
           },
           "role": "start_image"
         }
@@ -27,15 +27,15 @@
       "multi_prompt": [],
       "multi_shot_mode": "custom",
       "multi_shots": false,
-      "prompt": "The SAME single brawler fighter from the start image stands in a fighting idle stance and bobs up and down, dipping at the knees and rising again, exactly TWICE during the clip — one complete down-and-up about every two seconds, evenly paced. The dip is large and unmistakable, and his chest and shoulders visibly rise and fall with it. He is never still for a single instant, but his feet stay planted on the same spot, side view facing RIGHT, centered in place. Keep his exact appearance every frame: red open jacket over a white tank top, blue jeans, red high-top sneakers, black fingerless gloves, spiky brown hair. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt": "The SAME single brawler fighter from the start image holds a READY FIGHTING STANCE and stays standing in it the whole time — knees only slightly bent, exactly as they are in the start image, and his head staying at very nearly the same height throughout. He must NEVER squat, NEVER dip down at the knees, and NEVER crouch. Within that stance he is subtly but continuously alive: he settles and rises again very slightly, exactly TWICE during the clip (one small, evenly paced cycle about every two seconds), breathing so his chest and shoulders rise and fall, his guard hands drifting and his weight easing from one foot to the other. His feet stay planted on the same spot, side view facing RIGHT, centered in place. Keep his exact appearance every frame: red open jacket over a white tank top, blue jeans, red high-top sneakers, black fingerless gloves, spiky brown hair. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
       "prompt_language": "en",
       "reference_elements": [],
       "resolution": "720p",
       "speedramp": "auto",
       "width": 720
     },
-    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_153742_6ddef58a-d69e-4fb3-9da6-6bd19bc218c1.mp4",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_155609_e271ff6d-fbe3-4e21-ac26-7074118bbee5.mp4",
     "status": "completed",
-    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_153742_6ddef58a-d69e-4fb3-9da6-6bd19bc218c1_thumbnail.webp"
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_155609_e271ff6d-fbe3-4e21-ac26-7074118bbee5_thumbnail.webp"
   }
 ]

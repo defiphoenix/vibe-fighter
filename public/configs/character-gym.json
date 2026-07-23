@@ -12,7 +12,7 @@
         "idle": {
           "path": "sprites/brawler/idle.png",
           "frames": 8,
-          "fps": 10,
+          "fps": 5,
           "loop": true
         },
         "walkF": {
@@ -360,7 +360,7 @@
         "idle": {
           "path": "sprites/jiujitsu/idle.png",
           "frames": 8,
-          "fps": 10,
+          "fps": 5,
           "loop": true
         },
         "walkF": {
@@ -708,7 +708,7 @@
         "idle": {
           "path": "sprites/monk/idle.png",
           "frames": 8,
-          "fps": 10,
+          "fps": 5,
           "loop": true
         },
         "walkF": {

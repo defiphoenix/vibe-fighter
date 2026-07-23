@@ -64,7 +64,15 @@ def change(a: np.ndarray, b: np.ndarray, area: int) -> float:
 
 
 def amplitude(ms: list[np.ndarray]) -> float:
-    """Peak change vs frame 0 — 'does the strike happen at all'. Same metric check-sprites.py gates on."""
+    """Peak change vs frame 0 — 'does the strike happen at all'. Same metric check-sprites.py gates on.
+
+    It measures SILHOUETTE AREA, so it under-reads motion that happens inside the outline, and that
+    makes it the wrong metric for an idle: a good fighting idle deliberately keeps its silhouette,
+    moving arms, torso and weight while the head stays at one height. Chasing a higher number here
+    produced a brawler who squatted twice a second ("why can the characters not stay idle by
+    standing"), and the honest version scores 0.15. Only the ATTACK sheets are gated on this; for
+    idle, read the steps and LOOK at the contact sheet.
+    """
     area = int(ms[0].sum())
     return max((change(c, ms[0], area) for c in ms[1:]), default=0.0)
 
