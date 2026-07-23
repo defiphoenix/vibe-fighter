@@ -13,26 +13,60 @@ export interface SheetTiming {
 }
 
 /**
- * Frame rate for one state's animation.
+ * Frame rate for one state's animation, for the states whose duration is known when the animation is
+ * REGISTERED — i.e. fixed per fighter. See `stunFrameRate` for the ones only known at play time.
  *
- * An ATTACK animation must span exactly as long as the move itself, so derive its rate from the sim
- * duration (startup + active + recovery ticks) rather than trusting the authored `fps`. The authored
- * numbers had drifted badly and it was VISIBLE, not cosmetic: every fighter's `attackLight` needed
- * 0.43s of animation but the move only lasts 0.25-0.27s, so playback was cut off at ~60% — the sprite
- * showed the wind-up and snapped back to idle before it ever struck, which reads as "the light attack
- * does nothing". `crouchHeavy` had the opposite skew (0.40s of art over a 0.53s move), finishing early
- * and then freezing on its last frame — "the move runs too quickly".
+ * An animation must span exactly as long as the move it depicts, so derive its rate from the sim
+ * rather than trusting the authored `fps`. The authored numbers had drifted badly and it was VISIBLE,
+ * not cosmetic: every fighter's `attackLight` needed 0.43s of animation but the move only lasts
+ * 0.25-0.27s, so playback was cut off at ~60% — the sprite showed the wind-up and snapped back to idle
+ * before it ever struck, which reads as "the light attack does nothing". `crouchHeavy` had the opposite
+ * skew (0.40s of art over a 0.53s move), finishing early and then freezing on its last frame — "the
+ * move runs too quickly".
  *
- * Only attacks are derived: their duration is fixed and authored. Looping states (idle/walk) have no
- * duration to match, and the physics/stun-driven ones (jump, hitstun, knockdown) have no fixed tick
- * count either, so both keep their authored fps.
+ * - ATTACK: startup + active + recovery, all authored.
+ * - JUMP: the arc is `jumpVelocity / gravity` seconds to the apex, and the same again back down, so
+ *   both halves are one constant per fighter. Every sheet was authored at a flat `fps: 8` = 500ms of
+ *   art over a 346-377ms arc, so the last frame — the landing extension on `jumpFall` — never drew.
+ *   ponytail: `jumpFall` can be entered mid-arc (an air normal's recovery, a knockback) and is then
+ *   shorter than a clean apex-to-ground fall; deriving per-play off `vy` would fix that and is not
+ *   worth the coupling for a 4-frame sheet.
+ *
+ * Looping states (idle/walk) have no duration to match and keep their authored fps.
  */
-export function attackFrameRate(state: StateName, meta: SheetTiming, data: CharacterData): number {
+export function stateFrameRate(state: StateName, meta: SheetTiming, data: CharacterData): number {
+  if (state === "jumpRise" || state === "jumpFall") {
+    const { jumpVelocity, gravity } = data.stats;
+    return gravity > 0 && jumpVelocity > 0 ? meta.frames / (jumpVelocity / gravity) : meta.fps;
+  }
   if (!isAttackState(state)) return meta.fps;
   const a = data.attacks[ATTACK_STATE_TO_KEY[state]];
   const simTicks = a.startup + a.active + a.recovery;
   if (simTicks <= 0) return meta.fps; // validator forbids it; don't divide by zero if it ever happens
   return (meta.frames * TICK_HZ) / simTicks;
+}
+
+/** States the sim holds for a tick count it only decides when the fighter ENTERS them. */
+const STUN_TIMED: ReadonlySet<StateName> = new Set(["hitstun", "blockstun", "knockdown"]);
+
+/**
+ * Playback rate override for a stun state, or `null` to keep the registered rate.
+ *
+ * `stateFrameRate` can't cover these: how long a fighter is stunned is a property of the attack that
+ * hit them (`hitstun` 11-18t, `blockstun` 8-14t across the shipped roster) and `knockdown` is set by
+ * `Fighter.onLand`, so the number exists only once the state has been entered. Every one of these
+ * sheets was authored at a flat `fps: 8` that matched none of those windows, and `knockdown` was the
+ * bad one: 750ms of art over a 300ms state, so playback was cut at frame 2 of 6 — and the fall is
+ * frames 3-5. The fighter stood upright through his whole knockdown and popped back to idle. Same
+ * class as the `attackLight` defect above, in the states that pass never re-checked.
+ *
+ * `stunTicks` is `Fighter.stunTimer` read on the frame the state changed. It can be one tick short of
+ * what the sim set (`advanceTimers` may already have run), which is under a fifth of a frame here.
+ */
+export function stunFrameRate(state: StateName, meta: SheetTiming, stunTicks: number): number | null {
+  if (!STUN_TIMED.has(state)) return null;
+  if (!Number.isFinite(stunTicks) || stunTicks <= 0) return null;
+  return (meta.frames * TICK_HZ) / stunTicks;
 }
 
 /**

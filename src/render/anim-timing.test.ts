@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { attackFrameRate, attackFrameDurations } from "./anim-timing";
+import { stateFrameRate, stunFrameRate, attackFrameDurations } from "./anim-timing";
 import { ATTACK_STATE_TO_KEY, isAttackState } from "../sim/types";
 import type { CharacterData, StateName } from "../sim/types";
 import { TICK_HZ } from "../sim/constants";
@@ -31,19 +31,21 @@ describe("attack animations span their move exactly", () => {
         const meta = render.sheets[state];
         const a = data.attacks[ATTACK_STATE_TO_KEY[state]];
         const simSec = (a.startup + a.active + a.recovery) / TICK_HZ;
-        const animSec = meta.frames / attackFrameRate(state, meta, data);
+        const animSec = meta.frames / stateFrameRate(state, meta, data);
         // Exact by construction; a tolerance only to allow float noise.
         expect(animSec, `${id}.${state}`).toBeCloseTo(simSec, 6);
       }
     });
   }
 
-  it("leaves non-attack states on their authored fps (no fixed duration to match)", () => {
+  it("leaves the genuinely open-ended states on their authored fps", () => {
+    // Only the looping ones: idle/walk repeat until the player stops, so there is no duration to
+    // match. Everything else in STATE_NAMES is timed against the sim by one of the two functions.
     const { data, render } = reg[FIGHTERS[0]];
-    for (const state of STATE_NAMES as StateName[]) {
-      if (isAttackState(state)) continue;
+    for (const state of ["idle", "walkF", "walkB", "crouch", "ko"] as StateName[]) {
       const meta = render.sheets[state];
-      expect(attackFrameRate(state, meta, data)).toBe(meta.fps);
+      expect(stateFrameRate(state, meta, data), state).toBe(meta.fps);
+      expect(stunFrameRate(state, meta, 20), state).toBeNull();
     }
   });
 
@@ -58,7 +60,48 @@ describe("attack animations span their move exactly", () => {
   });
 });
 
-// The companion defect, one layer in: `attackFrameRate` fixes the animation's LENGTH but not its
+// The same defect, in the states the attack fix never covered. Every non-attack sheet ships at a flat
+// `fps: 8`, which matched no sim window: knockdown gave 750ms of art to a 300ms state, so playback was
+// cut at frame 2 of 6 — and the FALL is frames 3-5. The fighter stood upright through his knockdown.
+describe("stun and jump animations span their state", () => {
+  it("a stun animation lasts exactly as long as the stun", () => {
+    for (const id of FIGHTERS) {
+      const { render } = reg[id];
+      for (const [state, ticks] of [["hitstun", 14], ["blockstun", 9], ["knockdown", 18]] as const) {
+        const meta = render.sheets[state];
+        const rate = stunFrameRate(state, meta, ticks);
+        expect(rate, `${id}.${state}`).not.toBeNull();
+        expect(meta.frames / rate!, `${id}.${state}`).toBeCloseTo(ticks / TICK_HZ, 6);
+      }
+    }
+  });
+
+  it("would have caught the old drift: 8fps ran way past every real stun window", () => {
+    // Not vacuous — the shipped `fps` is what the defect was, so assert it is still wrong on its own.
+    const { render } = reg[FIGHTERS[0]];
+    const kd = render.sheets.knockdown;
+    expect(kd.frames / kd.fps).toBeGreaterThan((18 / TICK_HZ) * 2); // 750ms of art, 300ms of state
+  });
+
+  it("refuses a rate it cannot derive rather than guessing", () => {
+    const meta = reg[FIGHTERS[0]].render.sheets.hitstun;
+    for (const bad of [0, -1, NaN, Infinity]) expect(stunFrameRate("hitstun", meta, bad)).toBeNull();
+  });
+
+  it("a jump animation spans the arc to the apex", () => {
+    for (const id of FIGHTERS) {
+      const { data, render } = reg[id];
+      const apexSec = data.stats.jumpVelocity / data.stats.gravity;
+      for (const state of ["jumpRise", "jumpFall"] as StateName[]) {
+        const meta = render.sheets[state];
+        expect(meta.frames / stateFrameRate(state, meta, data), `${id}.${state}`).toBeCloseTo(apexSec, 6);
+      }
+    }
+  });
+
+});
+
+// The companion defect, one layer in: `stateFrameRate` fixes the animation's LENGTH but not its
 // PHASE. Measured on the shipped sheets, 13 of 18 attacks had the hit box go live about one render
 // frame before the sprite reached full extension. `attackFrameDurations` redistributes the time so
 // the measured contact frame starts on the first ACTIVE tick. The suite above cannot see this — it

@@ -1,0 +1,3 @@
+# Shell scripts must keep LF in the working tree — Git Bash reads a CRLF script as
+# `set -euo pipefail` and dies on line 7.
+*.sh text eol=lf

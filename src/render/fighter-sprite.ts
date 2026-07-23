@@ -1,7 +1,7 @@
 import * as Phaser from "phaser";
 import type { Fighter } from "../sim/fighter";
 import type { CharacterData, StateName } from "../sim/types";
-import { attackFrameRate, attackFrameDurations, PLAY_LAG_TICKS } from "./anim-timing";
+import { stateFrameRate, stunFrameRate, attackFrameDurations, PLAY_LAG_TICKS } from "./anim-timing";
 import { TICK_HZ } from "../sim/constants";
 import { textureKey, type RenderMeta } from "./characters";
 import { STATE_NAMES } from "../sim/validate-character";
@@ -47,7 +47,7 @@ export class FighterSprite {
       scene.anims.create({
         key,
         frames,
-        frameRate: attackFrameRate(state, meta, data),
+        frameRate: stateFrameRate(state, meta, data),
         repeat: meta.loop ? -1 : 0,
       });
     }
@@ -80,7 +80,15 @@ export class FighterSprite {
     }
 
     if (f.state !== this.lastState) {
-      this.sprite.play(textureKey(this.id, f.state));
+      const key = textureKey(this.id, f.state);
+      // A stun's length is decided by the attack that caused it, so it isn't known until the state is
+      // entered and can't be baked into the registered animation (see stunFrameRate). Overriding the
+      // rate here DISABLES the per-frame durations — Animation.getNextTick only honours them while
+      // `state.frameRate === currentAnim.frameRate` — which is safe because only ATTACK sheets carry
+      // durations and stunFrameRate returns null for every attack state.
+      const rate = stunFrameRate(f.state, this.render.sheets[f.state], f.stunTimer);
+      if (rate === null) this.sprite.play(key);
+      else this.sprite.play({ key, frameRate: rate });
       this.lastState = f.state;
       this.paused = false;
       // Catch the animation up to where the SIM already is. `World.advance` runs a whole batch of

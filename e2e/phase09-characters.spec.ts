@@ -275,3 +275,54 @@ test("the strike frame is still correct when one render frame spans several sim 
   // The animation must have caught up: at least the contact frame, never still on the wind-up.
   expect(atContact!.shown, `stateFrame ${atContact!.stateFrame} showed a wind-up frame`).toBeGreaterThanOrEqual(r.hit);
 });
+
+// A stun's length is decided by the attack that caused it, so its playback rate is set on the play()
+// call rather than baked into the registered animation. The arithmetic is unit-tested; what only a
+// browser can prove is that the override actually reaches Phaser's animation clock. It nearly didn't
+// matter and then did: every non-attack sheet shipped at a flat `fps: 8`, giving knockdown 750ms of
+// art for a 300ms state, so playback was cut at frame 2 of 6 — and the fall is frames 3-5. The
+// fighter stood bolt upright through his entire knockdown and popped back to idle.
+test("a stun animation is retimed to the stun the sim actually gave it", async ({ page }) => {
+  await ready(page);
+  const r = await page.evaluate(() => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const w = window as any;
+    const g = w.__game;
+    let t = g.loop?.now ?? performance.now();
+    const step = () => { t += 1000 / 60; g.step(t, 1000 / 60); };
+
+    w.__world.match.phase = "fight";
+    w.__world.match.introTicks = 0;
+    const victim = w.__world.fighters[1];
+
+    // Drive the victim into hitstun with a stun window the sim chose, then read the animation clock.
+    // applyHit(damage, stun, kbx, kby, blocked) — 14 ticks is mid-range for the shipped roster.
+    victim.applyHit(1, 14, 0, 0, false);
+    const givenTicks = victim.stunTimer;
+    step();
+    const anims = w.__sprites[1].anims;
+    return {
+      state: victim.state,
+      givenTicks,
+      // What the sprite could actually see. In real play `applyHit` runs at tick step 7 and the
+      // render pass reads it in the same tick, so this equals `givenTicks`; here the hit is injected
+      // by hand BEFORE the step, so that step's `advanceTimers` (step 3b) burns one tick first.
+      remainingTicks: victim.stunTimer as number,
+      key: anims.currentAnim?.key as string,
+      frames: anims.currentAnim?.frames.length as number,
+      playRate: anims.frameRate as number,      // the AnimationState's rate — the override lands here
+      registered: anims.currentAnim?.frameRate as number, // the animation's own registered rate
+    };
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
+  expect(r.state).toBe("hitstun");
+  expect(r.givenTicks, "the sim must have set a real stun window").toBe(14);
+  expect(r.remainingTicks, "one tick of the injected stun is spent by the pumped step").toBe(13);
+  // The animation spans exactly the stun the sprite can still display, to within float noise.
+  expect(r.frames / r.playRate).toBeCloseTo(r.remainingTicks / 60, 4);
+  // And it is NOT the authored rate — that is the defect this pins. 4 frames over 13 ticks is
+  // ~18.5fps against the 8fps every non-attack sheet ships with.
+  expect(r.registered).toBe(8);
+  expect(r.playRate).toBeGreaterThan(r.registered * 2);
+});
