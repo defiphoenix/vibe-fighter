@@ -18,7 +18,14 @@ START="concepts/characters/sprites/$FID/idle/00.png"
 # monk/crouchLight: four prompt variants each produced the crouch OR the punch, never both — whichever
 # constraint led, the other collapsed.
 declare -A START_OVERRIDE=(
-  [monk/crouchLight]="concepts/characters/monk-crouch-start.png"
+  # The monk has never visually crouched in ANY crouch state (measured 92-99% of his standing height
+  # against the brawler's 67-89%), because no crouched monk frame existed to start from — so every
+  # gen had to invent the stance AND the motion, and always dropped one. This is a still generated
+  # for the purpose (nano_banana_pro from the Phase 05 ref, "discard the standing pose", phantom
+  # second head removed by keeping the largest connected component): aspect 0.78 vs 0.45 standing.
+  [monk/crouch]="concepts/characters/crouch-refs/monk-crouch.png"
+  [monk/crouchLight]="concepts/characters/crouch-refs/monk-crouch.png"
+  [monk/crouchHeavy]="concepts/characters/crouch-refs/monk-crouch.png"
 )
 
 # per-fighter outfit clause so every state keeps the exact same look
@@ -48,7 +55,9 @@ declare -A MOTION=(
 # Motion text used only when a START_OVERRIDE supplies the stance: the pose is already correct in the
 # start frame, so the prompt asks for the ARM ALONE and explicitly freezes everything else.
 declare -A MOTION_FROM_START=(
-  [monk/crouchLight]="stays in exactly the low crouched position of the start image without moving his legs, hips or head at all, and punches: his lead arm shoots straight forward until the elbow is completely straight and the fist is far out in front of him, then pulls back to his chest. ONLY the arm moves"
+  [monk/crouch]="holds exactly the low crouched position of the start image, breathing and shifting his weight very slightly. He stays down the whole time and never rises"
+  [monk/crouchLight]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and punches: his lead arm shoots straight forward until the elbow is completely straight and the fist is far out in front of him, then pulls back to his chest. ONLY the arm moves"
+  [monk/crouchHeavy]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and sweeps one heavy low attack forward along the floor, the striking arm or leg extending far out in front of him and then returning. His hips stay down the whole time"
 )
 STATES=("$@"); [ ${#STATES[@]} -eq 0 ] && STATES=(walkF walkB crouch jumpRise jumpFall attackLight attackHeavy airLight airHeavy crouchLight crouchHeavy hitstun blockstun knockdown ko)
 
