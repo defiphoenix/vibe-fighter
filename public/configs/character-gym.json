@@ -398,7 +398,7 @@
           "frames": 6,
           "fps": 14,
           "loop": false,
-          "hit": 1
+          "hit": 2
         },
         "attackHeavy": {
           "path": "sprites/jiujitsu/attackHeavy.png",
@@ -746,7 +746,7 @@
           "frames": 6,
           "fps": 14,
           "loop": false,
-          "hit": 3
+          "hit": 2
         },
         "attackHeavy": {
           "path": "sprites/monk/attackHeavy.png",

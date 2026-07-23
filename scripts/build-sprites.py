@@ -28,6 +28,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from scipy import ndimage
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -97,7 +98,30 @@ def clean_rgba(rgba: np.ndarray) -> np.ndarray:
     fringe = (a < 1.0) & (rgb[:, :, 0] > 200) & (rgb[:, :, 2] > 200) & (rgb[:, :, 1] < 80)
     a = np.where((d < KEY_HI) | family | fringe, 0.0, a)
     rgb = np.where(a[:, :, None] > 0, rgb, 0.0)
-    return np.dstack([rgb / 255.0, a])
+    return drop_specks(np.dstack([rgb / 255.0, a]))
+
+
+def drop_specks(rgba: np.ndarray, frac: float = 0.005) -> np.ndarray:
+    """Delete opaque blobs detached from the figure.
+
+    Video-derived frames carry a few stray pixels the chroma key leaves behind (measured: 21-29px
+    across 5-11 components on a monk crouchLight frame). They render as floating dots, and — worse —
+    they silently corrupt any metric that uses the alpha bounding box: those ~25px made the figure
+    measure 128% of standing height when the body is really 92%. A fighter is one connected blob, so
+    anything under `frac` of the largest component is noise by construction."""
+    a = rgba[:, :, 3]
+    mask = a > 0.05
+    if not mask.any():
+        return rgba
+    lab, n = ndimage.label(mask)
+    if n <= 1:
+        return rgba
+    sizes = ndimage.sum(mask, lab, range(1, n + 1))
+    keep = np.isin(lab, 1 + np.flatnonzero(sizes >= sizes.max() * frac))
+    out = rgba.copy()
+    out[:, :, 3] = np.where(keep, a, 0.0)
+    out[:, :, :3] = np.where(keep[:, :, None], out[:, :, :3], 0.0)
+    return out
 
 
 def place_cell(rgba: np.ndarray) -> np.ndarray:
@@ -151,6 +175,17 @@ def build_fighter(fid: str, sheets: dict) -> list[str]:
 
 
 def selftest() -> None:
+    # drop_specks: a big blob survives, detached dust does not
+    fig = np.zeros((64, 64, 4), np.float32)
+    fig[20:60, 20:40, 3] = 1.0          # the figure
+    fig[2, 2, 3] = 1.0                  # a speck
+    fig[5, 50:52, 3] = 1.0              # another speck
+    out = drop_specks(fig)
+    assert out[20:60, 20:40, 3].all(), "selftest: drop_specks ate the figure"
+    assert out[2, 2, 3] == 0 and out[5, 50, 3] == 0, "selftest: drop_specks left dust behind"
+    ys = np.where((out[:, :, 3] > 0).any(axis=1))[0]
+    assert ys.min() == 20, "selftest: bounding box still polluted by specks"
+
     # a magenta-framed red square keys to a clean feet-anchored cell with NO magenta.
     raw = np.full((100, 100, 3), KEY_RGB, np.float32)
     raw[20:90, 40:60] = [200, 60, 60]

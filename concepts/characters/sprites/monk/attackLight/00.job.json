@@ -1,8 +1,8 @@
 [
   {
-    "created_at": "2026-07-18T12:24:25.269754Z",
+    "created_at": "2026-07-23T13:56:59.714111Z",
     "display_name": "Seedance 2.0",
-    "id": "597b1def-689a-4500-a95a-e31959302929",
+    "id": "2b26ba5b-8179-4af7-87d6-8518aadb0d19",
     "job_type": "seedance_2_0",
     "min_result_url": null,
     "params": {
@@ -15,9 +15,9 @@
       "medias": [
         {
           "data": {
-            "id": "ad70fd2b-233d-4dc9-9a62-5685c0793d73",
+            "id": "17a2379c-d990-475b-8d66-6b896c405f6a",
             "type": "media_input",
-            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/ad70fd2b-233d-4dc9-9a62-5685c0793d73_resize.jpg"
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/17a2379c-d990-475b-8d66-6b896c405f6a.png"
           },
           "role": "start_image"
         }
@@ -27,15 +27,15 @@
       "multi_prompt": [],
       "multi_shot_mode": "custom",
       "multi_shots": false,
-      "prompt": "The SAME single monk fighter from the start image throws one fast straight jab punch forward, then snaps the fist back to guard, side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt": "The SAME single monk fighter from the start image throws one fast straight jab: the lead arm shoots forward until the elbow is completely straight and the fist is far out in front of his chest, then snaps back to guard. The arm fully extending is the single biggest movement in the clip, side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
       "prompt_language": "en",
       "reference_elements": [],
       "resolution": "720p",
       "speedramp": "auto",
       "width": 720
     },
-    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_122425_597b1def-689a-4500-a95a-e31959302929.mp4",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_135659_2b26ba5b-8179-4af7-87d6-8518aadb0d19.mp4",
     "status": "completed",
-    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_122425_597b1def-689a-4500-a95a-e31959302929_thumbnail.webp"
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_135659_2b26ba5b-8179-4af7-87d6-8518aadb0d19_thumbnail.webp"
   }
 ]

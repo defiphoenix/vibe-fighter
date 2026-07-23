@@ -12,6 +12,15 @@ FID="${1:?fighter id required}"; shift || true
 START="concepts/characters/sprites/$FID/idle/00.png"
 [ -f "$START" ] || START="concepts/characters/2026-07-17/$FID.png"
 
+# Per-<fighter>/<state> start-image override. `--start-image` DOMINATES the prompt, so when a clip
+# needs both an unusual STANCE and a motion, supplying the stance as the start frame and asking the
+# prompt for the motion alone is far more reliable than asking for both. Found the hard way on
+# monk/crouchLight: four prompt variants each produced the crouch OR the punch, never both — whichever
+# constraint led, the other collapsed.
+declare -A START_OVERRIDE=(
+  [monk/crouchLight]="concepts/characters/monk-crouch-start.png"
+)
+
 # per-fighter outfit clause so every state keeps the exact same look
 declare -A OUTFIT=(
   [brawler]="red open jacket over a white tank top, blue jeans, red high-top sneakers, black fingerless gloves, spiky brown hair"
@@ -25,7 +34,7 @@ declare -A MOTION=(
   [crouch]="ducks down low into a compact crouching guard and holds it"
   [jumpRise]="crouches slightly then leaps straight up, rising into the air with legs tucking up"
   [jumpFall]="falls downward from the peak of a jump, legs extending toward a landing"
-  [attackLight]="throws one fast straight jab punch forward, then snaps the fist back to guard"
+  [attackLight]="throws one fast straight jab: the lead arm shoots forward until the elbow is completely straight and the fist is far out in front of his chest, then snaps back to guard. The arm fully extending is the single biggest movement in the clip"
   [attackHeavy]="winds up and throws one powerful heavy lunging punch, then recovers to stance"
   [hitstun]="recoils backward as if struck hard, head and torso snapping back, staggering"
   [blockstun]="raises both forearms into a tight defensive block and braces in place"
@@ -33,8 +42,13 @@ declare -A MOTION=(
   [ko]="collapses to the ground and lies there motionless, knocked out"
   [airLight]="leaps into the air and throws one fast jumping jab punch angled downward, staying airborne"
   [airHeavy]="leaps into the air and throws one heavy diving punch angled downward, staying airborne"
-  [crouchLight]="is squatting all the way down in a deep full crouch the entire time, buttocks near his heels and thighs parallel to the ground, torso upright, and flicks one quick low jab straight forward at knee height. He NEVER stands up tall and NEVER lies down"
+  [crouchLight]="is squatting all the way down in a deep full crouch the entire time, buttocks near his heels and thighs parallel to the ground, torso upright. He NEVER stands up tall and NEVER lies down. From that deep squat he throws one fast straight punch: the lead arm shoots forward at knee height until the elbow is completely straight and the fist is far out in front of his knees, then snaps back. The legs stay folded in the deep squat while only the arm moves"
   [crouchHeavy]="is squatting all the way down in a deep full crouch the entire time, thighs parallel to the ground, and swings one heavy low sweeping attack along the floor at ankle height. He NEVER stands up tall and NEVER lies down"
+)
+# Motion text used only when a START_OVERRIDE supplies the stance: the pose is already correct in the
+# start frame, so the prompt asks for the ARM ALONE and explicitly freezes everything else.
+declare -A MOTION_FROM_START=(
+  [monk/crouchLight]="stays in exactly the low crouched position of the start image without moving his legs, hips or head at all, and punches: his lead arm shoots straight forward until the elbow is completely straight and the fist is far out in front of him, then pulls back to his chest. ONLY the arm moves"
 )
 STATES=("$@"); [ ${#STATES[@]} -eq 0 ] && STATES=(walkF walkB crouch jumpRise jumpFall attackLight attackHeavy airLight airHeavy crouchLight crouchHeavy hitstun blockstun knockdown ko)
 
@@ -44,11 +58,13 @@ for ST in "${STATES[@]}"; do
   have=$(ls "$DIR"/[0-9][0-9].png 2>/dev/null | wc -l)
   if [ "$have" -ge "$N" ]; then echo "skip $FID/$ST (have $have/$N)"; continue; fi
   mkdir -p "$DIR" "concepts/characters/video/$FID"
-  PROMPT="The SAME single $FID fighter from the start image ${MOTION[$ST]}, side view facing RIGHT, centered in place. Keep his exact appearance every frame: ${OUTFIT[$FID]}. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons."
+  SI="$START"; [ -n "${START_OVERRIDE[$FID/$ST]:-}" ] && [ -f "${START_OVERRIDE[$FID/$ST]}" ] && SI="${START_OVERRIDE[$FID/$ST]}"
+  MOT="${MOTION[$ST]}"; [ "$SI" != "$START" ] && MOT="${MOTION_FROM_START[$FID/$ST]:-$MOT}"
+  PROMPT="The SAME single $FID fighter from the start image ${MOT}, side view facing RIGHT, centered in place. Keep his exact appearance every frame: ${OUTFIT[$FID]}. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons."
   echo "$PROMPT" > "$DIR/00.prompt.txt"
   ok=0
   for try in 1 2; do
-    if higgsfield generate create seedance_2_0 --start-image "$START" --prompt "$PROMPT" \
+    if higgsfield generate create seedance_2_0 --start-image "$SI" --prompt "$PROMPT" \
         --aspect_ratio 3:4 --resolution 720p --duration 4 --mode fast --generate_audio false \
         --wait --wait-timeout 12m --json > "$DIR/00.job.json" 2>/dev/null; then
       URL=$(node -e "const j=require('./$DIR/00.job.json');const a=Array.isArray(j)?j[0]:j;process.stdout.write((a&&a.result_url)||'')" 2>/dev/null)

@@ -117,6 +117,41 @@ viewport** and had been clipped at both ends for several phases — including th
 across two lines. The end menu also needed a plate behind it; the winner usually stands exactly
 where those two lines sit.
 
+## Follow-up, same day: "the monk can't do all the moves"
+
+Reported after the gate passed. It was **not** the Phase 11 focus-guard bug (re-verified: the
+dropdown still blurs, the keyboard stays enabled, all 8 monk states fire on real keys) and **not** a
+Phase 12 regression. It was the source ART: `monk/crouchLight` was four identical squat frames with
+no strike in them at all, so the sim ran the move with a live hit box for 16 ticks while the sprite
+sat still. Phase 12's contact-frame measurement had already *detected* it — that sheet is exactly why
+INDETERMINATE exists — but nothing failed on it.
+
+**New gate:** `check-sprites.py` now measures each attack sheet's peak silhouette change against
+frame 0 and fails under 20%. Nothing had ever checked that an animation animates.
+
+**Fixed:** `monk/attackLight`, `jiujitsu/attackLight` and `monk/crouchLight` regenerated
+(`jiujitsu/crouchLight` was already fine and was restored unchanged). Roster motion now runs
+0.22–1.27; the dead sheet measured 0.14.
+
+**The lever that finally worked, after four failed prompt variants.** For `monk/crouchLight` every
+prompt produced the crouch OR the punch and never both — stance-led gave 14% motion at a 91% crouch,
+strike-led gave 33% motion but standing at 100%, and "both must be visible" gave neither. The fix was
+not a fifth prompt: `--start-image` **dominates** the prompt (CLAUDE.md has said so since Phase 05),
+so supplying the STANCE as the start frame and asking the prompt for the MOTION alone isolates the
+variable. `gen-sprite-videos.sh` gained a per-`<fighter>/<state>` `START_OVERRIDE` + a matching
+arm-only motion line, and the result is a real crouched punch at 22% motion and 92% of standing
+height.
+
+**Two measurement traps on the way:**
+- Stray chroma-key pixels (21–29 px per frame, 5–11 components) made the figure measure **128% of
+  standing height** when the body was really 92%. `build-sprites.py` now drops components under 0.5%
+  of the largest one — 73 px of real dust across the roster, while keeping the legitimately-detached
+  parts (fists, beads, sash).
+- The motion threshold was first set at 25% from a sample that still *contained* the defect. With it
+  fixed, the boundary between "no strike in the art" (0.14) and "a subtle but real strike" (0.22) is
+  lower, so it is 20% — recorded in the source with the measured distribution rather than quietly
+  tuned to make a sheet pass.
+
 ## Known and deliberately not fixed
 
 - **No two fighters can physically cross.** The QA agent computed and then confirmed with real ticked
@@ -124,9 +159,16 @@ where those two lines sit.
   short of the continuous apex, which erases even the monk's small margin). `spatial.ts`'s
   "a jump-over won't push" branch is therefore unreachable in play. Changing it is jump-height
   balance, not this phase.
-- 4 of 18 attack sheets have no measurable contact frame (`monk/crouchLight` is literally flat;
-  `jiujitsu/crouchHeavy` and `monk/airHeavy` peak on the final frame). They keep uniform timing. The
-  honest fix is re-shooting those clips with follow-through, not guessing a number.
+- 4 of 18 attack sheets have no measurable contact frame and keep uniform timing. For the
+  regenerated `monk/crouchLight` the reason changed: its reach profile is `[72, 72, 67]`, i.e. the
+  strike plateaus across two frames rather than peaking on one, so the gate declines to pick. The
+  extended arm is on screen for 2 of the 3 active ticks; recovering the third would mean loosening
+  the flatness guard to suit one sheet, which is not worth one tick.
+- **Neither the monk nor the jiu-jitsu fighter visually crouches in ANY crouch state** (`crouch`,
+  `crouchLight`, `crouchHeavy` all measure 98-101% of standing height; the brawler manages 67-89%).
+  Crouch attacks are LOWS, so the art contradicts the block rule for two thirds of the roster. This
+  is pre-existing and much larger than the reported bug; it needs a re-shoot of ~6 clips, and the
+  start-image technique above is the tool for it.
 - The zoom lerp is frame-rate dependent (render-only, never feeds the sim), marked `ponytail:`.
 
 ## Gate

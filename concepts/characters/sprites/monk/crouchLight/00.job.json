@@ -1,8 +1,8 @@
 [
   {
-    "created_at": "2026-07-18T17:41:31.789416Z",
+    "created_at": "2026-07-23T14:26:32.532871Z",
     "display_name": "Seedance 2.0",
-    "id": "dddf5e2a-7ff6-490b-a67d-c43d770017d8",
+    "id": "fd59802c-cd88-4326-89cf-118a055fd3ce",
     "job_type": "seedance_2_0",
     "min_result_url": null,
     "params": {
@@ -15,9 +15,9 @@
       "medias": [
         {
           "data": {
-            "id": "3d911baf-e49a-4f95-85e1-e91e087dac06",
+            "id": "15cfcdc9-d96e-4d67-b251-05a4c3f556b4",
             "type": "media_input",
-            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/3d911baf-e49a-4f95-85e1-e91e087dac06.png"
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/15cfcdc9-d96e-4d67-b251-05a4c3f556b4.png"
           },
           "role": "start_image"
         }
@@ -27,15 +27,15 @@
       "multi_prompt": [],
       "multi_shot_mode": "custom",
       "multi_shots": false,
-      "prompt": "The SAME single monk fighter from the start image stays in a deep low crouch the entire time, hips dropped near the floor and both knees fully bent, and flicks one quick low jab straight forward at ground level WITHOUT ever standing up, side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt": "The SAME single monk fighter from the start image stays in exactly the low crouched position of the start image without moving his legs, hips or head at all, and punches: his lead arm shoots straight forward until the elbow is completely straight and the fist is far out in front of him, then pulls back to his chest. ONLY the arm moves, side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
       "prompt_language": "en",
       "reference_elements": [],
       "resolution": "720p",
       "speedramp": "auto",
       "width": 720
     },
-    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_174131_dddf5e2a-7ff6-490b-a67d-c43d770017d8.mp4",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_142632_fd59802c-cd88-4326-89cf-118a055fd3ce.mp4",
     "status": "completed",
-    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_174131_dddf5e2a-7ff6-490b-a67d-c43d770017d8_thumbnail.webp"
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_142632_fd59802c-cd88-4326-89cf-118a055fd3ce_thumbnail.webp"
   }
 ]

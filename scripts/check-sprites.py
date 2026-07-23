@@ -29,6 +29,20 @@ CELL_W, CELL_H = 320, 256
 UPRIGHT = ("idle", "walkF", "walkB", "blockstun", "hitstun")  # bodies that should share a height
 HEIGHT_TOL = 30  # px spread allowed among a fighter's upright states
 
+# An ATTACK sheet is a claim that a strike happens. Nothing checked that until 2026-07-22, and a
+# sheet shipped where all four frames were the same squat: the sim ran `crouchLight` with a live hit
+# box for 16 ticks and the sprite never moved, which reads to a player as "this character can't do
+# the move". Measured as the peak symmetric pixel difference against frame 0, as a fraction of the
+# figure's own area — scale-free, so it doesn't care how big the fighter is.
+ATTACK_STATES = ("attackLight", "attackHeavy", "airLight", "airHeavy", "crouchLight", "crouchHeavy")
+MOTION_MIN = 0.20
+# Threshold placement, measured rather than guessed. The sheet that triggered this check was a still
+# image at 0.14. With it regenerated, the roster runs 0.22 -> 1.27 and every sheet in that range has a
+# visible strike. So the real boundary between "the strike is missing" and "the strike is subtle" sits
+# between 0.14 and 0.22, and 0.20 is the honest place for it. The margin over the weakest real sheet
+# (monk/crouchLight, 0.22 — an arm-only jab from a wide stance, which changes little AREA) is thin;
+# widen it only with evidence, and prefer looking at the contact sheet over nudging this number.
+
 
 def cells(arr: np.ndarray, frames: int) -> list[np.ndarray]:
     return [arr[:, i * CELL_W:(i + 1) * CELL_W, :] for i in range(frames)]
@@ -76,6 +90,18 @@ def check_cell(cell: np.ndarray, where: str, errs: list[str]) -> tuple[int, int]
     return (fig_h, feet)
 
 
+def motion_amplitude(frame_cells: list[np.ndarray]) -> float:
+    """How much the silhouette actually MOVES: peak symmetric difference vs frame 0, over frame 0's
+    own opaque area. 0 = every frame identical to the first (a still image dressed as an animation)."""
+    if len(frame_cells) < 2:
+        return 0.0
+    base = opaque_mask(frame_cells[0])
+    area = int(base.sum())
+    if area == 0:
+        return 0.0
+    return max(float((opaque_mask(c) ^ base).sum()) / area for c in frame_cells[1:])
+
+
 def check_registry(errs: list[str]) -> None:
     reg = json.loads((ROOT / "public" / "configs" / "character-gym.json").read_text())
     for fid, entry in reg.items():
@@ -93,10 +119,19 @@ def check_registry(errs: list[str]) -> None:
             if arr.shape[0] != CELL_H or arr.shape[1] != CELL_W * frames:
                 errs.append(f"{fid}/{state}: size {arr.shape[1]}x{arr.shape[0]} != {CELL_W * frames}x{CELL_H} ({frames} frames)")
                 continue
-            for i, cell in enumerate(cells(arr, frames)):
+            frame_cells = cells(arr, frames)
+            for i, cell in enumerate(frame_cells):
                 fig_h, _ = check_cell(cell, f"{fid}/{state}#{i}", errs)
                 if state in UPRIGHT and i == 0:
                     upright_heights.append(fig_h)
+            if state in ATTACK_STATES:
+                amp = motion_amplitude(frame_cells)
+                if amp < MOTION_MIN:
+                    errs.append(
+                        f"{fid}/{state}: the animation barely moves ({amp:.0%} peak silhouette change, "
+                        f"need {MOTION_MIN:.0%}): the strike is not in the art, so the move looks like "
+                        f"nothing happens. Regenerate the clip (scripts/gen-sprite-videos.sh {fid} {state})."
+                    )
         if len(upright_heights) >= 2:
             spread = max(upright_heights) - min(upright_heights)
             if spread > HEIGHT_TOL:
@@ -122,6 +157,23 @@ def selftest() -> None:
     e = []
     check_cell(purple, "purple", e)
     assert any("magenta-family" in m for m in e), "selftest: dark-purple hue not caught"
+
+    # motion amplitude: identical frames score 0, a moved limb scores well above the threshold
+    still = np.zeros((CELL_H, CELL_W, 4), np.uint8)
+    still[CELL_H - 140:CELL_H, 150:170] = [200, 60, 60, 255]
+    assert motion_amplitude([still, still.copy()]) == 0.0, "selftest: identical frames must score 0"
+    punch = still.copy()
+    punch[CELL_H - 130:CELL_H - 110, 170:260] = [200, 60, 60, 255]  # an arm extends
+    amp = motion_amplitude([still, punch])
+    assert amp > MOTION_MIN, f"selftest: a real strike must clear the threshold, got {amp:.2f}"
+    # and the peak is taken across ALL frames, not just the last (a jab returns to guard)
+    assert motion_amplitude([still, punch, still.copy()]) == amp, "selftest: must take the PEAK frame"
+    assert motion_amplitude([still]) == 0.0, "selftest: a single frame cannot animate"
+    # the defect this gate exists for: a sheet whose frames are the same pose with a 1px jitter
+    jitter = still.copy()
+    jitter[CELL_H - 140:CELL_H, 151:171] = [200, 60, 60, 255]
+    jitter[CELL_H - 140:CELL_H, 150:151] = 0
+    assert motion_amplitude([still, jitter]) < MOTION_MIN, "selftest: a still image must FAIL the gate"
 
     floating = np.zeros((CELL_H, CELL_W, 4), np.uint8)
     floating[40:80, 150:170] = [200, 60, 60, 255]  # opaque but not touching the bottom row
