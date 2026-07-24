@@ -33,6 +33,18 @@
           "fps": 12,
           "loop": false
         },
+        "block": {
+          "path": "sprites/brawler/block.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "blockCrouch": {
+          "path": "sprites/brawler/blockCrouch.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
         "jumpRise": {
           "path": "sprites/brawler/jumpRise.png",
           "frames": 4,
@@ -339,6 +351,8 @@
         "walkF": 6,
         "walkB": 6,
         "crouch": 2,
+        "block": 4,
+        "blockCrouch": 4,
         "jumpRise": 1,
         "jumpFall": 1,
         "hitstun": 1,
@@ -379,6 +393,18 @@
           "path": "sprites/jiujitsu/crouch.png",
           "frames": 4,
           "fps": 12,
+          "loop": false
+        },
+        "block": {
+          "path": "sprites/jiujitsu/block.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "blockCrouch": {
+          "path": "sprites/jiujitsu/blockCrouch.png",
+          "frames": 4,
+          "fps": 8,
           "loop": false
         },
         "jumpRise": {
@@ -687,6 +713,8 @@
         "walkF": 6,
         "walkB": 6,
         "crouch": 2,
+        "block": 4,
+        "blockCrouch": 4,
         "jumpRise": 1,
         "jumpFall": 1,
         "hitstun": 1,
@@ -727,6 +755,18 @@
           "path": "sprites/monk/crouch.png",
           "frames": 4,
           "fps": 12,
+          "loop": false
+        },
+        "block": {
+          "path": "sprites/monk/block.png",
+          "frames": 4,
+          "fps": 8,
+          "loop": false
+        },
+        "blockCrouch": {
+          "path": "sprites/monk/blockCrouch.png",
+          "frames": 4,
+          "fps": 8,
           "loop": false
         },
         "jumpRise": {
@@ -1034,6 +1074,8 @@
         "walkF": 6,
         "walkB": 6,
         "crouch": 2,
+        "block": 4,
+        "blockCrouch": 4,
         "jumpRise": 1,
         "jumpFall": 1,
         "hitstun": 1,

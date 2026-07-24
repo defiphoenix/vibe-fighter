@@ -4,58 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**Vibe Fighter** — a local two-player Street Fighter–style game. Vite + TypeScript + Phaser 4 (`^4.2.1`). The gameplay is a deterministic 60 Hz simulation; Phaser is only a rendering/input adapter on top of it. Rendering uses **default LINEAR antialiasing — no `pixelArt`** — because the art is photographic (video-derived sprites + painted backgrounds), not pixel art. **Both fighters render real, animated, per-state sprites** driven by sim state, loaded from a data-driven registry (Phase 09). `prompts.pdf` holds the original spec.
+**Vibe Fighter** — a local two-player Street Fighter–style game. Vite + TypeScript + Phaser 4
+(`^4.2.1`). The gameplay is a deterministic 60 Hz simulation; Phaser is only a rendering/input adapter
+on top of it. Rendering uses **default LINEAR antialiasing — no `pixelArt`** — because the art is
+photographic (video-derived sprites + painted backgrounds).
 
-The game is built in phases — see [`docs/phases/`](docs/phases/) (specs + per-phase `*-log.md` gate results). Progress lives in the memory index (see below), not here. Phases 00–09 are done; a **gameplay resolution pass** (2026-07-18) then shipped on top — freed the fighters' feet, dropped the front `near` layer (the "residual purple" was measured to be real dusk palette, 0 magenta spill), made block a **dedicated key** (P1 `Q` / P2 `/`, plant-on-block), added **air + crouch attacks** (fighter states 12→16), and generated real Seedance sprites for the new + idle-derived states across all three fighters; Codex reviewed the plan and the diff. **Phase 10 shipped** (2026-07-19) — a dev-only **Fighter Playground** (`?scene=playground`): controllable fighter + inert dummy on the twilight stage, live per-character stat tuning saved back to `character-gym.json`, a keyboard-focus guard so typing in a debug panel neither drives the fighter nor gets swallowed, per-bound debug toggles with faint-inactive/solid-active rendering, and `stats.scale` finally wired to both art and boxes. See [`docs/phases/10-fighter-playground-log.md`](docs/phases/10-fighter-playground-log.md). **Phase 11 shipped** (2026-07-19) — the game now boots into a **`FlowScene`** (title → mode → stage → character select) that hands `MatchScene` a `MatchConfig`; `1v1` or `1vCPU` at three difficulties, a **pure seeded `CpuController` in `src/sim/cpu.ts`** driven by a new per-TICK `CpuSeam` on `World.advance` (never sampled per render frame), the Phase 06 portraits baked to `public/ui/portraits/` by `npm run copy:portraits`, and per-bound debug toggles (`1`–`4`, default off) in the real match. See [`docs/phases/11-menus-modes-versus-cpu-log.md`](docs/phases/11-menus-modes-versus-cpu-log.md). A **difficulty + bugfix pass** (2026-07-20) then shipped on top: the CPU was unbeatable even on easy, so it gained a `reactionTicks` window and a `DAMAGE_SCALE` handicap (details under `cpu.ts` below); the **ground heavy stopped being a low** once its boxes were measured against its own sprite (it is a standing punch, not a sweep — see `config.ts` below); and **`Esc` now works in every phase** with a mid-match confirm. A **2026-07-21 fix pass** then shipped on top: **attacks were silently dropped** when pressed during your own move — the render latch cleared on any fight tick, but `World.tick()` returns "a fight tick ran `think`", NOT "the edge was consumed"; fixed with per-edge consumption tracking (`Fighter.consumed` → `World.consumedInputs` → `EdgeLatch.consume`, plus same-batch masking) so a press buffers until the fighter can act (light→heavy is now reliable). The reported **"monk can't do moves" was the FOCUS GUARD, not the monk** — picking a fighter from the Playground dropdown left the `<select>` focused so the keyboard stayed disabled; the dropdown now blurs on change. **Off-screen fighters** are fixed by a sim-side `MAX_SEPARATION=1040` cap (camera zoom was rejected — the stage art is exactly viewport-height, so uniform zoom bands the top/bottom). Also: a **DEV Playground button** on the FlowScene title, and the **background props shrunk** via a new `PropConfig.scale`. **Phase 12 shipped** (2026-07-22) — a **zoom-in-only group camera** with a second, non-zooming camera for the HUD; z-order now follows the most recent MOVER, not only the attacker; attack animations are **phase-aligned** to the sim's active window via a measured contact frame; and a selectable REMATCH / MAIN MENU at match end. Also raised `STAGE_MARGIN` 90→116 (a cornered KO was cropped) and un-clipped the control legend (it measured 1535px in a 1280 viewport). See [`docs/phases/12-core-combat-camera-integration-log.md`](docs/phases/12-core-combat-camera-integration-log.md). **Phase 13 is next.**** The **locked art direction is rooftop-dusk** (`concepts/mockups/2026-07-16/`, chosen in Phase 03) drove the art phases 04–07, which are now all shipped. Phase 04 split it into parallax layers — two stages, four layers each, in [`concepts/backgrounds/`](concepts/backgrounds/); **Phase 08 turned them into a scrolling stage** — a world wider than the viewport (`STAGE_WIDTH=1696` world vs `VIEW_WIDTH=1280` camera), per-layer parallax with `near` occluding fighters, a midpoint follow-camera, animated props, two config-selectable variants (`public/configs/stages.json`), and a dev `StagePreviewScene` (`?scene=preview`). Camera **zoom/group-framing was deferred to Phase 12 and has now shipped there** (zoom IN only, 1.0–1.25). The far-apart case is still solved by the separation cap, not by zooming out: the 2026-07-21 pass caps fighter separation at `MAX_SEPARATION=1040` (< the 1280 viewport) so the single follow-camera always frames both — the SF-style screen rule. Zoom was rejected because the stage art is exactly 720 tall (= viewport height), so any uniform zoom-out exposes empty top/bottom bands and un-covers the parallax edges. Phase 05 pulled the three fighters out of the mockups into isolated references in [`concepts/characters/`](concepts/characters/) — the roster is **brawler / jiujitsu / monk** (Phase 03 dropped the recipe's green boxer and scrapped its subway stage), and those ids are canonical through to `public/sprites/<id>/`. Phase 06 reframed those refs into select portraits in [`concepts/portraits/`](concepts/portraits/) — 1792×2400, bust bleeding off the bottom, on a **baked** backdrop, so unlike every other art phase's output **there is no void and nothing to key**; that geometry is the contract Phases 07/11/14/15 build against. Phase 07 built the two shipped atlases — `public/ui/hud-atlas.png` (health bar + portrait base) and `public/props/twilight-atlas.png` (16 animated prop frames) — via `scripts/build-atlases.py` (`npm run build:atlases`), and extracted the shared provenance gate into `scripts/art_gate.py`. **Phase 08 consumes the prop atlas; Phase 14 the HUD atlas** (read the bar's height from the frame, don't hardcode 34). **Phase 09 made fighters data-driven**: three fighters in `public/configs/character-gym.json` (each `{ render, data }`), a pure `assembleCharacter` rebuilds the sim `CharacterConfig`, a shared `validate-character` gates both BootScene and the dev Gym write-back, and BOTH fighters now animate per-state (16 states: the resolution pass added airLight/airHeavy/crouchLight/crouchHeavy) from real sprites in `public/sprites/<id>/`. The optional **Character Gym** (`?scene=gym`, DEV-only) has Q/W translate/scale box gizmos that save back to the JSON via a dev-only Vite middleware. The **held/one-shot states (crouch, jumpRise, jumpFall, knockdown, ko) now have real per-state Seedance motion** (the resolution pass regenerated them — they no longer start from the standing idle).
+Built in phases. **Phases 00–13 are shipped; Phase 14 is next.** Specs and gate
+results in [`docs/phases/`](docs/phases/); the narrative of what shipped when, including the fix passes
+between phases, is in [`docs/history.md`](docs/history.md). `prompts.pdf` holds the original spec.
 
-**The repo is live and PRIVATE at [`roiizchak/vibe-fighter`](https://github.com/roiizchak/vibe-fighter), and every push to `main` auto-deploys to production** (2026-07-22 — this supersedes the old "never push" rule, which the user lifted). So commit and push normally, but **say what you are deploying** — a push is a release, not a save. What survives of the old rule: **do not make the repo public and do not announce or share the game anywhere until the user says it's finished.** See the Deploying section below.
-
-## Generating art (Phases 03–09)
-
-The recipe's Codex `$imagegen` is **not wired** (Codex CLI has no image-generation subcommand) — art is generated with the **Higgsfield CLI**, model `nano_banana_pro`:
-
-```bash
-higgsfield generate create nano_banana_pro --prompt "$(cat X.prompt.txt)" --aspect_ratio 21:9 --wait --json > X.job.json
-# then: result_url from the JSON -> curl -o X-raw.png
-```
-
-**Character sprites (Phase 09) are generated differently — image-to-VIDEO, not stills.** Independent per-pose still gens DRIFT badly across a roster (outfit vanishes, hair recolors, knockdown/ko hallucinate a second figure), and `autosprite` (AutoSprite Animation) failed opaquely on every input. The working pipeline: **Seedance 2.0 image-to-video**, one clip per state from the locked Phase 05 reference (`--start-image`) with a per-state motion prompt that re-states the exact outfit, then `ffmpeg` samples N frames and `scripts/build-sprites.py` packs them. Video is temporally consistent *by construction*, which is what fixes the drift. Driver: `scripts/gen-sprite-videos.sh <fighter> [states…]` (skips already-complete states; `set -u` needs every state in its `MOTION` map — now all **16** states). The old still-image `gen-real-sprites.sh` is **retired** (hard-exits; it drifted and lacked the new states). Resolution-pass gotcha: **crouch attacks need a forceful "squatting all the way down, thighs parallel to the ground, NEVER stands up, NEVER lies down" prompt** — the default came out standing (jiujitsu's upright judo prior especially resisted "low", and "low"/"diving" can drift a fighter onto the ground); drift is per-subject, so review contact sheets before accepting.
-
-**The sampling rate is a prompt variable, and it is the one that is always forgotten.** `ffmpeg` samples N frames EVENLY across the whole 4s clip, so what matters is not "does the motion happen" but "does the motion still be happening at every sample". Two distinct failures, two distinct fixes, both in `gen-sprite-videos.sh`:
-- **One-shot motions finish early** and the remaining samples repeat a held pose — a 6-frame sheet carrying 3 distinct poses (`monk/attackLight` measured steps `0.00 0.33 0.01 0.32 0.09`). Fixed by the shared **`SPAN_CLIP`** clause: perform the single motion slowly enough to fill the entire clip, extending through the first half and returning through the second, never holding still and never repeating.
-- **Cyclic motions run too FEW cycles.** Three idles measured 0.05–0.12 peak change and read as frozen photographs. "Subtly bobs" was the first cause (the model reads "subtle" as "do not move") but raising the amplitude alone only reached 0.10 — with ONE slow bob across 4s, 8 evenly-spaced samples all land at nearly the same phase. **Name the cycle COUNT**: "bobs … exactly TWICE during the clip, one complete down-and-up about every two seconds" took all three idles to 0.35–0.44 with zero duplicate frames, first try on each. The tell was in the numbers beforehand — the least-bad idle scored best purely because it happened to run ~2.5 cycles (steps `0.01/0.13/0.12` repeating).
-
-**A fighter's own earlier clip is a free start image, and a better one.** `jiujitsu/crouchLight` needed a genuinely crouched stance; rather than generate a still for it, the last frame of his own `crouch` clip (`concepts/characters/sprites/jiujitsu/crouch/03.png`) was already deep (aspect 0.85 vs 0.69 at the start), already on the magenta void, and already at the right scale — 0 credits, and the two animations now agree pixel-for-pixel at the moment the player presses the button. Only generate a fresh still (as the monk needed) when no existing clip reaches the pose.
-
-Higgsfield CLI gotchas that cost credits: the CLI name **`nano_banana_2` resolves to Nano Banana PRO** — the real "Nano Banana 2" job type is **`nano_banana_flash`**; `--image`/`--start-image` take a local **path or UUID, never a URL**; Seedance fast 720p 4s ≈ **14 credits/clip** (failed jobs cost 0); `higgsfield account status` shows balance, `higgsfield model list` the true job types.
-
-Save the exact prompt (`X.prompt.txt`) and job record (`X.job.json`: model, flags, job id, result URL) beside every PNG — a prompt alone doesn't say what produced it. Redirect **stdout only**; `2>&1` merges the CLI's `Error:` line into the JSON and corrupts it. Jobs fail transiently — check `status`, retry.
-
-Gotchas, each of which cost credits to find. Full detail in the project memory (`phase-03-done`, `phase-04-done`, `phase-05-done` in the `MEMORY.md` index under `~/.claude/projects/c--Claude-Street-Fighter/memory/`); background-specific ones in [`concepts/backgrounds/README.md`](concepts/backgrounds/README.md), character-specific ones in [`concepts/characters/2026-07-17/README.md`](concepts/characters/2026-07-17/README.md).
-
-- **No Higgsfield image model emits alpha** — all 30 job types checked (`gpt_image_2` doesn't surface OpenAI's `background:"transparent"`; `recraft_v4_1`'s `background_color` is explicitly "no alpha"). Paint art over a flat `#FF00FF` void and key it locally — `npm run key:layers`.
-- **…but the PNG's mode lies about it.** Phase 06 got `RGBA` on 2 of 3 portraits and `RGB` on the third from *identical* model and params, with alpha 255 on every pixel of all three. The container mode is non-deterministic and carries no information: **never test `mode == "RGBA"` to decide "is this keyed / does this have alpha?"** — read the alpha channel.
-- **The void is never literally `#FF00FF`.** Ask for flat magenta and you get ~`(252,1,252)`, with only **0.004%** of pixels exactly `(255,0,255)` (measured on the Phase 05 refs). **Key by L1 tolerance, never by `== #FF00FF`** — an exact-equality key erases nothing. Reuse `key-layers.py`'s `key()`/`despill()` (`KEY_LO=40`/`KEY_HI=120`).
-- **Aspect labels lie.** `16:9` returns 2752×1536 = 1.7917:1, which at the sim's 720 height leaves *10px* of scroll room; `3:4` returns 1792×2400 = 0.7467:1. Read `params.width/height` from the job JSON; don't trust the label.
-- **`--image` dominates the prompt** (no reference-strength knob), so generate **fresh** to change a look. It also **invents scenery inside the magenta void**, and the API JPEG-ises + resizes the reference (~1px edge jitter everywhere). **But it will discard a whole scene if you name what to discard** — Phase 05 pulled single fighters out of dense mockups in 10/10 gens (stage, second fighter, every kanji scroll gone) by listing the elements by name ("the water tower, the chain-link fence, … and the bald rival on the right"). Use `--image` when the *subject* must survive and only the scene must go; the old "only to keep a scene and swap one thing" rule was too narrow.
-- **`--image` also imports details you never mentioned.** The mockup jiu-jitsu wore a blue-and-yellow flag patch; a generic "no logos, no labels" clause failed twice, naming it explicitly worked. Read the source art and forbid by name.
-- **Discard-by-name works on anything, not just scenery — including a colour and a crop.** Phase 06 reframed full-body refs to busts and replaced their magenta void with a painted backdrop, 3/3 first try, by naming *both* as discards: "Discard the full-body framing … reframe to his head, shoulders and upper chest", and "Replace the reference image's flat magenta background completely. There must be no magenta anywhere" (result: **0 px** of magenta). Paint-a-backdrop alone would leave the void a plausible answer, since the ref *is* one and `--image` dominates. Reference dominance is steerable — name what to drop.
-- **Set-consistency goes in the shared block; per-subject identity goes in the head.** Phase 05 used a byte-identical block for *style*; Phase 06 generalised it — the backdrop lives in the shared block (the only reason three cards read as a set) and the poses live in the per-fighter heads (the only reason they aren't the same man three times). Corollary: **design the differences before generating** — a shared framing block actively fights "distinctive", so write the poses down first.
-- **Apply a per-subject fix preventively.** The monk's wide low stance cost two gens in Phase 05; naming it as a discard in Phase 06's first prompt cost one sentence and he landed first try. Same for the jiu-jitsu patch, forbidden by name even though the ref was already clean.
-- **Describe the CAMERA, not the percentage.** If the model ignores a dimension, the prompt is naming the wrong variable. `main`'s floor band would not shrink through three rewrites (22%→39%, 8%→40%) because the model was drawing a *downward* camera; one sentence putting the camera at fighter eye level fixed it in a single gen. Same for figures: "spans two thirds of the image height" → 91.6%, but a camera pulled back far enough to leave *a band as tall as his own head* above and below → 76.1% in one gen.
-- **The wrong variable can be per-subject even under a shared prompt.** The monk got *worse* under that camera fix (89.4%→95.1%); one sentence naming his **wide low stance** as the cause fixed him in a single gen (→77.0%).
-- **Never contradict your own prompt — the model resolves it by maximising.** A nudge saying a fighter's head should "nearly touch" the margin band collided with "do not let him fill the frame" and produced 100% full-bleed. Tighten or replace a constraint; don't argue with it.
-- **Anchor scale to a person** ("an adult on this roof is one quarter of the image height") or props come out ~2× oversized — these prompts forbid figures, which removes the model's only scale reference. When the subject *is* the person, anchor to his own head.
-- **Match palettes by sampling hex** from the target, not by describing them ("dusk sky" produced a purple night).
-- Always add a **"full-bleed, no border/CRT bezel/vignette"** clause.
-- **`higgsfield generate list --json` recovers a job you overwrote locally**; `generate get <id>` then restores its record + result URL for free. Note the two shapes: `create --wait --json` emits a 1-object *array*, `generate get` a bare *object*. The job record **never names the source `--image` file** — only an opaque upload id — so provenance-by-filename isn't machine-checkable.
-- **Drive the higgsfield CLI from bash, never Python `subprocess`.** `higgsfield` on PATH is a `.cmd` shim; subprocess routes it through cmd.exe, whose arg quoting mangles a multi-line `--prompt` so the flags never arrive and the job **silently runs at the default aspect (`1:1`)**. Cost a credit in Phase 07 to find. Redirect **stdout only** and write the `.job.json` only *after* the call succeeds, or a failed launch truncates a good record.
-
-Review/tooling gotchas that generalise beyond art:
-- **A `codex:rescue` review DOES run inside plan mode** (corrected in Phase 10; Phase 08's "it's blocked" note was wrong). The launch Bash call goes through and the job runs to completion. Two real constraints, neither about plan mode: (1) the forwarding subagent **hard-refuses any prompt that mentions relayed authorization** ("the user confirmed…") — phrase the task plainly, describe the design, ask the questions, say "read-only, do not edit files"; (2) that subagent is scoped to a single `task` call, so it **cannot poll or return its own result** — it just hands back a task id. Fetch the result yourself: `node ~/.claude/plugins/marketplaces/openai-codex/plugins/codex/scripts/codex-companion.mjs result <task-id>` (`… status` lists jobs, `… status <task-id>` shows live phase). A review takes several minutes; poll in a background Bash loop rather than blocking.
-- **A `codex:rescue` review of a file OUTSIDE the workspace root (`C:\Claude\Street-Fighter`) hangs silently** (Phase 07) — the plan lives in `~/.claude/plans/`, and Codex sat 9 minutes frozen mid-read with no error. **Inline the file's text into the prompt** instead of passing its path, or copy it in-tree. In-tree files read fine.
-- **`taskkill /PID` from the Bash tool needs `MSYS_NO_PATHCONV=1`** — Git Bash rewrites the leading `/PID` into a path and the kill silently fails. Same MSYS translation this file already documents for ctx7; it generalises to any Windows tool taking a `/FLAG` argument.
-- **The repo has real git history since 2026-07-22** (initial commit = Phases 00–11 + the fix passes; before that `.git/` was an empty directory and every `git` command failed — older notes saying so are stale). `git stash`/`git diff`/`git log` all work now. **One gap in the safety net: `concepts/` `.png`/`.gif`/`.mp4` are gitignored** (483 MB of art authoring), so generated art exists ONLY on this machine — a deleted sprite source is not recoverable from git, only re-generatable at credit cost. The prompts and `*.job.json` records ARE committed.
+Art direction is **rooftop-dusk**, locked in Phase 03. Roster is **brawler / jiujitsu / monk** — those
+ids are canonical from `concepts/characters/` through to `public/sprites/<id>/`. Generating art is its
+own discipline with its own expensive lessons: [`docs/art-pipeline.md`](docs/art-pipeline.md).
 
 ## Commands
 
@@ -65,102 +25,392 @@ npm run build      # tsc --noEmit typecheck, then vite build
 npm run typecheck  # tsc --noEmit only
 npm test           # vitest run (all *.test.ts under src/) — sim unit tests, node env
 npm run test:e2e   # Playwright browser acceptance for the render layer (e2e/, headed)
-npm run gen:placeholder  # regenerate 16 states × 3 fighters of placeholder sheets, reading frame counts from character-gym.json (stdlib PNG writer)
-npm run build:sprites    # Phase 09: pack raw character frames (concepts/characters/sprites/<id>/<state>/NN.png) → public/sprites/<id>/<state>.png (sampled-bg chroma key + despill, single per-fighter 185px scale, feet-anchor; Python/Pillow+numpy)
-npm run check:sync       # Phase 12 gate: measure each attack sheet's CONTACT frame (moved-pixels metric, self-tested) and check it against render.sheets.<state>.hit; `--write` records the measurements
-npm run check:sprites    # Phase 09 gate: cell size, frame count == JSON, feet-anchored, height consistency, NO-PURPLE hue, attack MOTION_MIN (self-tests first)
-# ORDER MATTERS: build-sprites.py derives each fighter's ONE scale from `idle` frame 0 (scale = 185/figure),
-# so regenerating an IDLE silently rescales every other sheet for that fighter and moves its measured
-# contact frames by a pixel — enough to flip a sheet between ALIGNED and INDETERMINATE. Regenerate idle
-# FIRST, then build:sprites, then check:sync --write. The build itself is deterministic (same md5).
-npm run audit:anim       # roster-wide animation REPORT (advisory, always exit 0): per sheet the peak silhouette change, the per-adjacent-pair steps, dead pairs, and art-vs-sim length. The peak alone mis-ranks a wide-silhouette fighter and cannot see a frozen tail; read the steps
-npm run key:layers       # re-key + validate the Phase 04 parallax layers (Python/Pillow; art only)
-npm run copy:portraits   # Phase 11: downscale the Phase 06 portrait masters (1792x2400) to public/ui/portraits/<id>.png at 448x600 (Pillow LANCZOS; NO art gate -- these are baked, there is nothing to key). Self-tests 5 assertions first
-npm run copy:stages      # Phase 08: pre-bake keyed layers to runtime 1697×720 into public/backgrounds (premult resize + magenta-fringe flood; Python/Pillow+numpy)
-npm run check:characters # validate the Phase 05 character refs (Python/Pillow; art only)
-npm run check:portraits  # validate the Phase 06 select portraits (Python/Pillow; art only)
-npm run build:atlases    # key + measure + pack the Phase 07 UI/prop atlases into public/ (needs scipy)
-python scripts/art_gate.py            # the shared art gate's own fixtures, standalone
-python scripts/build-atlases.py --selftest  # the atlas gate's fixtures, without needing the art
 ```
 
 Run one test file: `npx vitest run src/sim/combat.test.ts`
 Filter by name: `npx vitest run -t "corner"`
 Watch mode: `npx vitest` (no `run`)
 
-TypeScript is strict with `noUnusedLocals`/`noUnusedParameters`/`noImplicitReturns` — an unused import or param fails the build.
+TypeScript is strict with `noUnusedLocals`/`noUnusedParameters`/`noImplicitReturns` — an unused import
+or param fails the build.
 
-The art pipeline is the one non-Node corner: `scripts/art_gate.py`, `key-layers.py`, `check-characters.py`, `check-portraits.py` and `build-atlases.py` need Python + Pillow + numpy, and **`build-atlases.py` also needs scipy** (1.16; `ndimage.label` — Phase 07 was the first real need, which `check-characters.py:92-97` had pre-authorised). There's still no `requirements.txt`/`pyproject.toml`, so every Python dep here is ambient and undeclared. None ship in the bundle. They chain by `importlib` (a hyphenated filename blocks a plain import) so they can't drift apart, and since Phase 07 the chain is one hop for everyone: **`art_gate.py` owns the provenance gate (`check_job`), the shared-block check (`check_blocks`) and the re-exported `key-layers` thresholds**; `check-characters.py`, `check-portraits.py` and `build-atlases.py` all import from it. Editing `art_gate.py` therefore edits all three gates' behaviour — `check_job` is parameterised by directory/aspect/resolution/job_type/refs for exactly this reason. `npm run check:characters` + `check:portraits` passing proves a change stayed a no-op for Phases 05/06, but that is **necessary, not sufficient**: both callers pass the old `3:4`/`2k` defaults, so `art_gate.py`'s own fixtures are what exercise the parameters. **`convert` on PATH is Windows NTFS `convert.exe`, not ImageMagick** — never call it.
+### Asset + art scripts
 
-## Deploying (GitHub + Vercel, since 2026-07-22)
+```bash
+npm run build:sprites    # pack raw frames (concepts/characters/sprites/<id>/<state>/NN.png) -> public/sprites/<id>/<state>.png
+npm run check:sprites    # gate: cell size, frame count == JSON, feet-anchored, height, NO-PURPLE hue, attack MOTION_MIN
+npm run check:sync       # gate: measure each attack sheet's CONTACT frame, check against render.sheets.<state>.hit; --write records it
+npm run audit:anim       # roster-wide animation REPORT (advisory, always exit 0)
+npm run gen:placeholder  # regenerate 18 states x 3 fighters of placeholder sheets
+npm run key:layers       # re-key + validate the Phase 04 parallax layers
+npm run copy:stages      # pre-bake keyed layers to runtime 1697x720 into public/backgrounds
+npm run copy:portraits   # downscale Phase 06 portrait masters (1792x2400) -> public/ui/portraits/<id>.png at 448x600
+npm run build:atlases    # key + measure + pack the Phase 07 UI/prop atlases into public/
+npm run check:characters # validate the Phase 05 character refs
+npm run check:portraits  # validate the Phase 06 select portraits
+python scripts/art_gate.py                  # the shared art gate's own fixtures, standalone
+python scripts/build-atlases.py --selftest  # the atlas gate's fixtures, without needing the art
+```
 
-GitHub `roiizchak/vibe-fighter` (**private**) → Vercel project `vibe-fighter` (org `rois-projects-f9d9895d`), wired by Vercel's **git integration**. Live at **https://vibe-fighter-dusky.vercel.app**.
+**Sprite rebuild ORDER MATTERS.** `build-sprites.py` derives each fighter's ONE scale from `idle` frame
+0 (`scale = 185/figure`), so regenerating an IDLE silently rescales every other sheet for that fighter
+and moves its measured contact frames by a pixel — enough to flip a sheet between ALIGNED and
+INDETERMINATE. Always:
 
-- **A push to `main` IS a production deploy.** There is no staging step and no approval gate. Push deliberately.
-- Vercel runs **`npm run build`** — the same `tsc --noEmit && vite build` you run locally, on Node 24.x with the Vite preset, output `dist/`. **A red typecheck fails the deploy**, so `npm run build` green locally is the pre-push check that matters. Python art scripts never run there; only what's committed under `public/` ships.
-- `vercel --prod` deploys the working directory manually (uploads local files, skipping anything `.gitignore`d) — useful to test a change without pushing. `vercel logs <url>` and `vercel inspect <url>` debug a deployment; `vercel rollback <url>` reverts one.
-- `.vercel/` is local link state and is gitignored. `.gitignore` also excludes `node_modules/`, `dist/`, test artifacts, `*.mp4`, and `concepts/**/*.png|gif` (the art *provenance* — `*.prompt.txt`, `*.job.json`, `README.md` — IS committed).
-- **Prod is a real build, so `import.meta.env.DEV` is false**: `?scene=gym|playground|preview` do not exist there (BootScene routes to `Flow`), and `window.__game`/`__world`/`__flow` are absent. Verified on the live URL — a dev route falls through to the menu with no console error. Any e2e/debug seam you add is dev-only by construction; don't reach for one to diagnose production.
+1. regenerate `idle` first,
+2. `npm run build:sprites`,
+3. `npm run check:sync --write`.
+
+The build itself is deterministic (same md5).
+
+**Python deps are declared in `requirements.txt`** (Pillow, numpy, scipy — scipy only for
+`build-atlases.py`'s `ndimage.label`). None ship in the bundle. The scripts chain by `importlib` (a
+hyphenated filename blocks a plain import) so they can't drift apart: **`art_gate.py` owns the
+provenance gate (`check_job`), the shared-block check (`check_blocks`) and the re-exported `key-layers`
+thresholds**, and `check-characters.py`, `check-portraits.py` and `build-atlases.py` all import from it.
+Editing `art_gate.py` therefore edits all three gates — `check_job` is parameterised by
+directory/aspect/resolution/job_type/refs for exactly that reason. `check:characters` + `check:portraits`
+passing proves a change stayed a no-op for Phases 05/06, but that is **necessary, not sufficient**: both
+callers pass the old `3:4`/`2k` defaults, so `art_gate.py`'s own fixtures are what exercise the
+parameters.
+
+**`convert` on PATH is Windows NTFS `convert.exe`, not ImageMagick** — never call it.
+
+## Deploying (GitHub + Vercel)
+
+GitHub `roiizchak/vibe-fighter` (**private**) → Vercel project `vibe-fighter` (org
+`rois-projects-f9d9895d`), wired by Vercel's git integration. Live at
+**https://vibe-fighter-dusky.vercel.app**.
+
+- **A push to `main` IS a production deploy.** No staging step, no approval gate. Commit and push
+  normally, but **say what you are deploying** — a push is a release, not a save.
+- Still in force: **do not make the repo public and do not announce or share the game anywhere until the
+  user says it's finished.**
+- Vercel runs **`npm run build`** — the same `tsc --noEmit && vite build`, on Node 24.x, output `dist/`.
+  **A red typecheck fails the deploy**, so `npm run build` green locally is the pre-push check that
+  matters. Python art scripts never run there; only what's committed under `public/` ships.
+- `vercel --prod` deploys the working directory manually (uploads local files, skipping anything
+  `.gitignore`d) — useful to test a change without pushing. `vercel logs <url>` / `vercel inspect <url>`
+  debug a deployment; `vercel rollback <url>` reverts one.
+- **Prod is a real build, so `import.meta.env.DEV` is false**: `?scene=gym|playground|preview` do not
+  exist there (BootScene routes to `Flow`), and `window.__game`/`__world`/`__flow` are absent. Any
+  e2e/debug seam you add is dev-only by construction; don't reach for one to diagnose production.
+- **A Vercel PREVIEW deploy can't gate a CSP** — Deployment Protection 302s every route to SSO. Mirror
+  `vercel.json` onto `vite preview.headers` instead.
+- `.gitignore` excludes `node_modules/`, `dist/`, `.vercel/`, test artifacts, `*.mp4`, and
+  `concepts/**/*.png|gif`. **That last one is a real gap in the safety net**: 483 MB of art authoring
+  exists ONLY on this machine — a deleted sprite source is not recoverable from git, only re-generatable
+  at credit cost. The prompts and `*.job.json` records ARE committed.
 
 ## Architecture
 
-The hard rule that everything else follows: **`src/sim/` is pure and imports NO Phaser.** It's a self-contained deterministic simulation; the render layer (`src/scenes/`, `src/render/`, `src/main.ts`) reads sim state and draws it. Vitest runs the sim in the `node` environment precisely because it has no DOM/Phaser dependency (see `vite.config.ts`). Keep it that way — anything you add under `sim/` must stay Phaser-free and deterministic (no `Date.now`, no `Math.random`).
+The hard rule everything else follows: **`src/sim/` is pure and imports NO Phaser.** It's a
+self-contained deterministic simulation; the render layer (`src/scenes/`, `src/render/`, `src/main.ts`)
+reads sim state and draws it. Vitest runs the sim in the `node` environment precisely because it has no
+DOM/Phaser dependency. Anything you add under `sim/` must stay Phaser-free and deterministic (no
+`Date.now`, no `Math.random`). Consolidated note: [`docs/architecture.md`](docs/architecture.md).
 
-See [`docs/architecture.md`](docs/architecture.md) for the consolidated Phase-01 architecture note (layering boundary + verified first-pass constraints + accepted gap list).
+Layout is discoverable — `world.ts` owns the sim, `fighter.ts` is one fighter, `MatchScene.ts` is the
+bridge. What follows is only what you cannot learn by opening the file.
 
-### The simulation (`src/sim/`)
+### Sim invariants
 
-- `world.ts` — `World` owns the whole sim: two `Fighter`s + a `MatchState` (defined in `match.ts` — phase/round/timer/win bookkeeping). `advance(dt, inputs)` runs a fixed-timestep accumulator loop calling `tick()` at 60 Hz and returns how many fight ticks ran `think`. **CAUTION: that bool means "a fight tick ran `think`", NOT "the buffered edge was acted on"** — `think` early-returns inside itself when the fighter is locked in an attack/stun, so a tick can run and consume nothing. WHICH edges were actually consumed is reported separately per fighter via **`Fighter.consumed{up,light,heavy}`, OR-accumulated across the batch into `World.consumedInputs[2]`** (reset each `advance`), and THAT — not the bool — is what the render latch clears (`EdgeLatch.consume`). This 2026-07-21 fix stopped attacks pressed during your own move from being dropped. `advance` also keeps a mutable working copy of the human snapshots and **masks a consumed edge out of the rest of the batch**, so one press can't fire twice inside a multi-tick advance (an air normal that lands mid-batch used to replay as a grounded normal). The render adapter latches input edges until they're consumed, so a press buffered during intro/roundEnd/hitstop OR during your own attack/stun survives until the fighter can act. (`matchEnd` is also non-actionable, but its only exit is `Enter` rematch, which clears the latch — see `MatchScene`.) `tick()` is the authoritative order of operations — it's documented as numbered steps (phase management, input gating/hitstop, FSM `think`, physics `integrate`, spatial resolve, facing/depth, combat resolve, round-over, timers, clock). **Preserve that step order** when editing; the tests encode subtle ordering guarantees (e.g. clamp-before-measure, clock must not tick on the hitstop frame).
-- `fighter.ts` — one fighter: a state machine (`think`), physics (`integrate`), timers (`advanceTimers`), and `applyHit`. `activeBoxes()` resolves the current frame's boxes. State transitions go through `setState` (resets `stateFrame`). **There are SIX attack states** (resolution pass): ground `attackLight/attackHeavy`, air `airLight/airHeavy`, crouch `crouchLight/crouchHeavy` — the single source of truth mapping each state to its data slot is `ATTACK_STATE_TO_KEY` + `isAttackState()` in `types.ts`; every consumer (FSM lock/advance, `combat.ts` spec lookup, `world.ts` facing+depth, builder, validator) keys off it, never hardcoded literals. `startAttack` picks the variant by stance: **crouch (grounded+down) > air (!grounded) > ground**, and the attack check in `think` runs before the airborne gate. **Block is a dedicated key**, not hold-back: `guardIntent = input.block && grounded` and holding block PLANTS the fighter (no walk); high/low still chosen by `crouchIntent`. Use the **`guarding` getter** (block held AND in an actionable/blockstun state) for any guard cue — `guardIntent` alone is set even in hitstun/attack where no guard box exists. **`damageScale`** (default 1) multiplies the damage this fighter DEALS — a match-long handicap the scene sets for a CPU opponent, deliberately NOT cleared by `reset()`. **`ACTIONABLE`** (idle/walkF/walkB/crouch) is exported for `cpu.ts`. **`consumed{up,light,heavy}`** records which input EDGES `think` actually acted on this tick (set at each act site, reset at the top of `world.tick`); the render latch clears only these (see `world.ts`).
-- `combat.ts` — `resolveCombat` snapshots both fighters' active boxes, then resolves all contacts together so simultaneous trades both land. `hasHit` dedups one attack to one connect.
-- `spatial.ts` — `resolveSpatial` couples pushbox separation with stage bounds; iterates, clamping to walls first so corner penetration transfers to the other fighter. **A final `MAX_SEPARATION` cap** (2026-07-21) runs AFTER the wall clamp: if the pair is more than `MAX_SEPARATION` (=`VIEW_WIDTH-240`=1040) apart it pulls both symmetrically to the midpoint so the 1:1 follow-camera always frames both. It only ever REDUCES a gap far larger than any pushbox, so it can't create overlap; a midpoint near a wall just clamps back in. This is the SF-style off-screen fix (camera zoom was rejected — the stage art is exactly viewport-height).
-- `geometry.ts` — `toWorld` converts a fighter-local box to a world AABB; `overlaps`/`xOverlapDepth`. **All boxes are fighter-local**: `+x` = forward (facing direction), `+y` = up from the feet. Everything downstream depends on this convention.
-- `config.ts` — only the symmetric `TEST_DUMMY` that `FIGHTER_A`/`FIGHTER_B` are assembled from (for sim unit tests); the SHIPPED roster lives in `public/configs/character-gym.json`. Its `attacks` has all **six** slots (`light/heavy/airLight/airHeavy/crouchLight/crouchHeavy`; air/crouch bodies are validated to match). **High/low blocking is decided by box geometry, not labels**: a high attack's hit box only overlaps the standing guard box; a low (**the two crouch normals only**) overlaps the crouch guard box; the air normals come down from above and are **overheads** (standing guard covers the whole reachable jump arc, crouch guard stops covering from ~80px up). Change box positions to change what blocks what — but **only the guard boxes' `y` band encodes high/low. Their `x` span must cover the BODY (`x -32, w 90`), not sit as a thin forward slab**: a forward-only guard box left every attack unblockable at the separations where the pushboxes touch — i.e. exactly where the match is played — while still passing every test that measured blocking from poking range. `registry.test.ts` now sweeps the shipped geometry from contact range outward for exactly this reason. **The ground heavy used to be a low** and was wrong twice over: its `body` was `"crouch"` (hurt box `h:110`) and its hit box sat at `y 8..56` — but the art is a **standing straight punch**, silhouette 162–185 tall with the fist 113–126px above the feet on the impact frame, so the top ~40% of the attacker was invulnerable mid-heavy and the block rule contradicted the animation. Both boxes now match the art (`body: "stand"`, hit `y 95`), making it a HIGH. Lesson: **`body` does NOT control high/low** — it's the attacker's own vulnerability profile — and neither box was ever checked against the sprite it belongs to. `scripts/` has no gate for box-vs-art agreement; measure the silhouette before trusting authored geometry.
-- `character-builder.ts` — pure `assembleCharacter(id, data)` rebuilds a `CharacterConfig` from compact `CharacterData` (frame builders `fb/seq/simpleState/attackState` live here; clones per frame so no boxes alias). **`stats.scale` rescales the whole fighter — art AND collision geometry** (Phase 10; it had zero readers before): every assembled box is multiplied **last, after overrides**, in one traversal, so authoring stays in unscaled space. `FighterSprite` takes a **required** `scale` arg (a missed call site must be a typecheck error, not a silent art/box desync). Knockback/walkSpeed are NOT scaled. The validator enforces `scale > 0` — `0` collapses every box and divides by zero in the Gym's inverse, and a negative gives negative `w`/`h`, which `toWorld` normalises horizontally but **not** vertically. Also exports `allHitBoxes(cfg, state)` for the debug overlay. `validate-character.ts` — the ONE shared validator (`validateFighterEntry`/`validateRegistry` + `STATE_NAMES`), used by BootScene AND the dev Gym write-back. Both are pure (sim/ stays Phaser- and I/O-free); JSON is parsed at the render edge and injected via `new World(cfgA,cfgB)`.
-- `cpu.ts` — Phase 11's CPU opponent: a pure, **seeded** (xorshift32 — no `Math.random`, no `Date.now`) `InputSnapshot` producer implementing `world.ts`'s `CpuSeam`. `World.advance(dt, inputs, cpu?)` calls `cpu.next(this)` **once per TICK, inside the fixed-timestep loop** — a CPU sampled once per render frame acts at the display's rate (3 identical decisions on a slow frame, none on a short one) and is not reproducible. It skips `EdgeLatch` deliberately: it re-derives its edges every tick, so a non-actionable tick costs it nothing. Difficulty is three parameter sets at the top of the file (`attackCooldown`, `cooldownJitter`, `reactionTicks`, `blockChance`, `approachBias`, `jumpChance`, `heavyChance`) plus an exported `DAMAGE_SCALE` table. **`reactionTicks` is what makes a difficulty beatable**: without it the CPU swings the exact tick you enter its reach, and a 4-frame light is unreactable — the counter it gates on must only run on **`ACTIONABLE`** ticks (exported from `fighter.ts`), or a stunned CPU banks reaction it can't use and spends the swing on a press `think()` swallows. `DAMAGE_SCALE` is applied by MatchScene to `Fighter.damageScale` (a multiplier on the damage that fighter DEALS, default 1, **not** reset per round); `combat.ts` floors a scaled hit at 1 and lets chip floor at 0, and puts the **scaled** number in the `hit` event because the camera shake reads it. The controller outlives every round AND the `Enter` rematch, so **`CpuSeam` has an optional `reset()` that `world.resetRound()` calls** — the render layer can't own this, because the automatic round transition happens inside `tick()` where it never sees it. The RNG is deliberately NOT re-seeded there (that would make every round identical).
-- `constants.ts` — timing in ticks (60 Hz), space in pixels. **`STAGE_WIDTH=1696` is the WORLD** (sim playfield: `spatial.ts` MAX_X, `world.ts` CENTER); **`VIEW_WIDTH=1280` is the camera/canvas** (render-only: `main.ts`, `hud.ts`). Splitting them is what gives the Phase 08 camera room to scroll. **`MAX_SEPARATION = VIEW_WIDTH-240` (=1040)** caps the gap between the two fighters so the follow-camera keeps both on-screen (see `spatial.ts`). `types.ts` — pure types, no logic.
+- **`world.ts` `tick()` is the authoritative order of operations** — documented as numbered steps (phase
+  management, input gating/hitstop, FSM `think`, physics `integrate`, spatial resolve, facing/depth,
+  combat resolve, round-over, timers, clock). **Preserve that step order** when editing; the tests
+  encode subtle ordering guarantees (clamp-before-measure; the clock must not tick on the hitstop frame).
+- **`World.advance` returns "a fight tick ran `think`", NOT "the buffered edge was acted on".** `think`
+  early-returns inside itself when the fighter is locked in an attack or stun, so a tick can run and
+  consume nothing. WHICH edges were consumed is reported separately per fighter via
+  **`Fighter.consumed{up,light,heavy}`, OR-accumulated into `World.consumedInputs[2]`** (reset each
+  `advance`), and THAT is what the render latch clears (`EdgeLatch.consume`). Clearing on the bool
+  dropped attacks pressed during your own move. `advance` also masks a consumed edge out of the rest of
+  the batch, so one press can't fire twice inside a multi-tick advance.
+- **All boxes are fighter-local**: `+x` = forward (facing direction), `+y` = up from the feet
+  (`geometry.ts` `toWorld`). Everything downstream depends on this.
+- **High/low blocking is decided by box geometry, not labels.** A high attack's hit box only overlaps
+  the standing guard box; a low (**the two crouch normals only**) overlaps the crouch guard box; the air
+  normals come down from above and are **overheads**. **Only the guard boxes' `y` band encodes high/low —
+  their `x` span must cover the BODY (`x -32, w 90`), not sit as a thin forward slab**: a forward-only
+  guard box left every attack unblockable at the separations where the pushboxes touch, i.e. exactly
+  where the match is played, while still passing every test that measured blocking from poking range.
+  `registry.test.ts` now sweeps the shipped geometry from contact range outward.
+- **Guard boxes are PER-FRAME data** (Phase 13): `FrameBoxes` carries `guardStand` **and**
+  `guardCrouch`, and `CharacterConfig` has no guard arrays at all. `CharacterData.boxes.guard*` is the
+  authoring TEMPLATE that seeds every frame of a state `isGuardableState()` accepts. **Phase 13b made
+  block a real state**, so that set is now **`block/blockCrouch/blockstun`** — a guarding fighter is
+  planted in the dedicated held-guard states `block` (high) / `blockCrouch` (low) by the FSM guard
+  branch, and idle/walk/crouch dropped out (a fighter never guards while in them). Both stances are
+  carried per frame rather than one resolved array because **`crouchIntent`, not the state, picks the
+  stance** — `blockstun` has one body and no stance of its own, so that is the only thing keeping a
+  crouch-blocker's low guard up while stunned. **`block`/`blockCrouch` are also in `ACTIONABLE`** — not
+  for jab-out (the attack edge is checked before the guard branch, independent of `ACTIONABLE`) but so
+  `cpu.ts`'s reaction timer keeps ticking through a guard episode, exactly as when the plant used
+  idle/crouch.
+  **`isGuardableState` is enforced in the BUILDER, not just the validator**: `guarding` is derived from
+  box data now, so a guard override on an attack frame would make a fighter blockable mid-punch, and
+  `config.ts` assembles with no validator in front of it.
+- **`body` does NOT control high/low** — it's the attacker's own vulnerability profile. The ground heavy
+  shipped for two phases with `body: "crouch"` and a shin-height hit box on top of a *standing punch*
+  animation, so the top ~40% of the attacker was invulnerable mid-heavy. Both now match the art
+  (`body: "stand"`, hit `y 95`). `config.ts`'s `TEST_DUMMY` still authors its heavy low **on purpose**
+  (it's the fixture that exercises the low path) — don't "fix" it to match the roster.
+- **Six attack states**: ground `attackLight/attackHeavy`, air `airLight/airHeavy`, crouch
+  `crouchLight/crouchHeavy`. The single source of truth is `ATTACK_STATE_TO_KEY` + `isAttackState()` in
+  `types.ts`; every consumer keys off it, never hardcoded literals. `startAttack` picks the variant by
+  stance: **crouch (grounded+down) > air (!grounded) > ground**, and the attack check in `think` runs
+  before the airborne gate.
+- **Block is a dedicated key**, not hold-back: `guardIntent = input.block && grounded`, and holding block
+  PLANTS the fighter. Use the **`guarding` getter** (block held, grounded, and the current FRAME carries
+  a guard box) for any guard cue — `guardIntent` alone is set even in hitstun/attack where no guard box
+  exists.
+- **`stats.scale` rescales the whole fighter — art AND collision geometry.** Boxes are multiplied
+  **last, after overrides**, in one traversal, so authoring stays in unscaled space. `FighterSprite`
+  takes a **required** `scale` arg so a missed call site is a typecheck error, not a silent desync. The
+  validator enforces `scale > 0`: `0` collapses every box and divides by zero in the Gym's inverse, and a
+  negative gives negative `w`/`h`, which `toWorld` normalises horizontally but **not** vertically.
+  Knockback and walkSpeed are NOT scaled.
+- **`spatial.ts` clamps to walls first** so corner penetration transfers to the other fighter, then a
+  final **`MAX_SEPARATION` cap** (=`VIEW_WIDTH-240`=1040) pulls the pair symmetrically to the midpoint so
+  the follow-camera always frames both. It only ever REDUCES a gap far larger than any pushbox, so it
+  can't create overlap; a midpoint near a wall just clamps back in. This is the SF-style off-screen fix;
+  camera zoom-out was rejected because the stage art is exactly viewport-height.
+- **`cpu.ts` is sampled once per TICK, inside the fixed-timestep loop** (`CpuSeam` on `World.advance`).
+  A CPU sampled once per render frame acts at the display's rate and is not reproducible. It skips
+  `EdgeLatch` deliberately (it re-derives its edges every tick). **`reactionTicks` is what makes a
+  difficulty beatable**, and its counter must only run on **`ACTIONABLE`** ticks — otherwise a stunned
+  CPU banks reaction it can't use and spends the swing on a press `think()` swallows. `DAMAGE_SCALE`
+  becomes `Fighter.damageScale` (a multiplier on damage DEALT, default 1, deliberately **not** reset by
+  `reset()`); `combat.ts` floors a scaled hit at 1, lets chip floor at 0, and puts the **scaled** number
+  in the `hit` event because the camera shake reads it. The controller outlives every round and the
+  `Enter` rematch, so **`CpuSeam` has an optional `reset()` that `world.resetRound()` calls** — the
+  render layer can't own this, because the automatic round transition happens inside `tick()`. The RNG
+  is deliberately NOT re-seeded there (that would make every round identical).
+- **`STAGE_WIDTH=1696` is the WORLD; `VIEW_WIDTH=1280` is the camera/canvas.** Splitting them is what
+  gives the camera room to scroll. Timing is in ticks (60 Hz), space in pixels.
 
-### The render adapter (`src/scenes/`, `src/render/`)
+### Render adapter
 
-- `main.ts` — Phaser game config, `width: VIEW_WIDTH`. Scene list `[BootScene, FlowScene, MatchScene]` (FlowScene **ships** — it's the front door), **plus the tuning scenes in DEV only** (so `?scene=preview|gym|playground` can't reach them in a prod build). Exposes `window.__game` in DEV.
-- `BootScene.ts` — preloads the placeholder spritesheet + **Phase 08 stage assets** (`stages.json`, `twilight-atlas`, and the 8 pre-baked layer PNGs keyed `<stage>-<layer>`), then in its **create pass** queues every fighter sheet AND every `portrait-<id>` (Phase 11 — the ids come from the registry, which is only cached after preload, so this can't happen in `preload()`; riding the same queue means a missing portrait trips the existing failed/missing guard). Then **picks the scene from the `?scene=` query param** — `preview`/`gym`/`playground`/`match` in DEV, otherwise **`Flow`**.
-- `FlowScene.ts` — **Phase 11, shipped**: the Play flow (title → mode → stage → characters) that ends in `scene.start("Match", cfg)`. Every branching rule lives in the Phaser-free **`flow-state.ts`** (pure, unit-tested in node — same trick as `edge-latch.ts`): step transitions, the two-player cursor with its **swap-on-move / skip-a-locked-opponent** lockout, and `toMatchConfig`. The scene is the adapter: cards, portraits, the lock-in flash, and a DEV `window.__flow` (`state()`, `press()`) that the e2e drives — `press()` is the ONE door both the real keyboard and the spec go through. **Sequencing hangs off `Time.Clock` (`delayedCall`), never a tween's `onComplete`** (see the conventions note), and the menu container must sit **above** the backdrop scrim's depth. **A DEV-only "▶ PLAYGROUND (dev)" button** on the title (2026-07-21) — click or `P` — routes through one guarded `startPlayground()` → `scene.start("Playground")`; kept OFF the mode carousel so pure `flow-state.ts` is untouched, and the `P` key is bound only under `import.meta.env.DEV`.
-- `MatchScene.ts` — the bridge. **`init(data?: Partial<MatchConfig>)`** takes the flow's chosen mode/difficulty/stage/pair and merges it over a default (`1v1`/`twilight`/brawler+jiujitsu) so `?scene=match` still boots; the stage id is validated against `stages.json` (`_`-prefixed keys are metadata, not stages). In `cpu` mode P2 comes from a `CpuController` passed to `advance` as the per-tick seam — **not** through `EdgeLatch`. `Esc` returns to `Flow` from **any** phase — instantly at `matchEnd`, but mid-match the first press only arms a `QUIT_CONFIRM_MS` prompt and the second one inside that window actually quits (a stray key must not throw away a live match). The window is closed by a `Time.Clock` `delayedCall`, never a tween. `1`–`4` toggle debug bound kinds (default **off**, unlike the Playground). Reads input, calls `world.advance()`, drains `world.events` and turns each batch's `hit`/`ko`/`block` into juice (`applyHitFeedback`: `hit` → `cameras.main.shake`, `ko` → `flash` + a **forced** shake that overrides a same-batch hit shake, `block` → `FighterSprite.flashBlock()` on the defender + a small shake when the batch has no hit/ko). **A block flash can only be set THROUGH the sprite** — `applyHitFeedback` runs before `render()`, and `FighterSprite.update` rewrites the tint every frame, so tinting from the event loop is overwritten the same frame; `Enter` rematch calls `clearFx()` so a flash can't outlive the round. **Builds the twilight stage via `buildStage()`, sets `cameras.main.setBounds(0,0,STAGE_WIDTH,STAGE_HEIGHT)` and follows the fighters' midpoint with `centerOnX` each frame** (`// ponytail:` no zoom → Phase 12). Draws **both fighters as `FighterSprite`s** (feet-centered origin `(0.5,1)`, `setFlipX` by facing, depth `11/9` by `frontIndex` since Phaser sorts by numeric depth only). Input **edge presses are latched** in `pending[]` until a sim tick consumes them (held fields like `block` pass straight through) — **plus the `down` held at press time, surfaced as `InputSnapshot.downAtPress`**, so a buffered crouch normal doesn't come out standing when the player releases `down` before an actionable tick lands. `Enter` = rematch (rising-edge, any phase). The control legend names the dedicated block keys and the high/low rule. In DEV exposes `window.__world`/`__holdP1`/`__holdP2`/`__sprites`/`__stage` for acceptance tests.
-- `StagePreviewScene.ts` — **dev-only** tuning tool (`?scene=preview`): builds a stage with no sim, arrow-pans the camera, keys 1/2 switch twilight↔sunset via the `buildStage()` destroy handle. Exposes `window.__preview`.
-- `render/characters.ts` — `loadRegistry(jsonCache)` (validate + fail-fast), `buildConfig`, `eachSheet`, `textureKey(id,state)`. `render/fighter-sprite.ts` — `FighterSprite`: idempotent per-state anims (`${id}-${state}`), play-on-state-change, **pause on hitstop**, **attack frame rates DERIVED from the sim duration** via the Phaser-free `render/anim-timing.ts` (`attackFrameRate`; takes the fighter's `CharacterData` as a 5th constructor arg) so an attack's animation spans exactly its move — the authored `fps` had drifted and cut `attackLight` off at ~60%, hiding the strike entirely (see the conventions note; looping + physics/stun states keep their authored fps), a blue **guard-armed tint driven by `Fighter.guarding`** (not `guardIntent`), a white `flashBlock()` pop that outranks it, `clearFx()`, `showFrame` (sim→visual frame map for the Gym). **In Phaser 4 tint COLOR and tint MODE are separate and `setTintFill()` is a deprecated no-op** — a white MULTIPLY tint is invisible, so the flash must `setTint(0xffffff).setTintMode(Phaser.TintModes.FILL)` and switch the mode back, or the fighter stays a white silhouette. `update()` is the ONLY writer of the tint. **BootScene is two-phase**: `load.json` in preload → validate in create → queue every sheet → `this.load.start()` → on COMPLETE refuse routing if `failed>0` OR any expected texture is missing (a 404 AND a corrupt-200 both blocked). MatchScene drives BOTH fighters as `FighterSprite`s; DEV exposes `window.__sprites`.
-- `GymScene.ts` — **dev-only** Character Gym (`?scene=gym`): a real `Fighter` drives the box overlay, `Q` translate / `W` scale gizmos, `Tab` cycles the box, `[`/`]` steps frame; edits persist as per-frame overrides. DOM sidebar is built in-scene (prod never gets `#gym-panel`). Saves via `saveRegistry()` → `vite/gym-save-plugin.ts` `configureServer` middleware (**dev-server only**, same-origin + Origin check, 256 KB limit, shared `validate-character`, atomic temp+rename write — the repo has no VCS safety net). Its boxes come off the **assembled** config, so `persist()` **divides by `stats.scale`** and both persist and display round to **2dp, never integers** (`applyFromPanel` rewrites all four fields when one is edited, so an integer display re-authors the untouched three at a fractional scale). `main.ts` registers StagePreview + Gym + Playground in DEV only.
-- `PlaygroundScene.ts` — **dev-only** Fighter Playground (`?scene=playground`, Phase 10): one controllable fighter + an **inert dummy** on the twilight stage, for feeling a fighter while tuning it. Drives a real `World` (the tick order is never re-implemented) but overrides the match *lifecycle* in exactly two safe ways: `pinClock()` holds `timerTicks` full and zeroes `introTicks` **only while `phase === "intro"`**, and after `advance` any non-`fight` phase triggers a full `world.restart()`. **Never force `phase` back to `"fight"` after a KO** — `endRound` has already banked the win and left a fighter in `ko`, so the next tick banks it again until `matchWinner` sets; and a 15-tick `advance` batch can KO mid-loop, so a pre-loop pin can't catch it anyway. Panel edits `stats` (walkSpeed/jumpVelocity/gravity/maxHealth/scale) live by rebuilding the config; `Save JSON` writes only the player's `stats` block. Keys `1/2/3/4` per-bound, `B` all, `R` reset. DEV hook `window.__playground` (incl. `hold()`, the input seam, deliberately gated by the focus guard).
-- `render/dev-panel.ts` — shared DOM plumbing for BOTH dev panels (helpers, `saveRegistry`, `installFocusGuard`). **Function declarations only, no top-level DOM/fetch**, so importing it can't drag panel/save code into a prod bundle. **`installFocusGuard` needs `disableGlobalCapture()`, not just `keyboard.enabled = false`**: `InputReader` builds keys with `addKey()` (capture defaults **true**) and Phaser's `KeyboardManager` listens on `window` and `preventDefault()`s any captured keyCode **regardless of event target** — so without it, typing `a`/`d`/`w` into a panel field is swallowed. Also calls `resetKeys()` so a key released over the panel can't strand an `isDown`. `ponytail:` capture is game-global while `enabled` is per-plugin, so it assumes ONE dev scene at a time (Boot guarantees that). **A `<select>` is NOT blurred by changing its value**, so the guard kept the keyboard disabled after a dropdown pick and the just-selected fighter was dead to input until a canvas click — which read as "the monk can't do any moves" (monk-specific only because the brawler is the default and needs no dropdown). Fix (2026-07-21): the shared `select()` helper `s.blur()`s on change → focusout → the guard restores control.
-- `input.ts` — hardcoded P1 (WASD + F/G, **block = `Q`**) and P2 (Arrows + `,`/`.`, **block = `/`**) bindings; computes held + rising-edge flags. **`EdgeLatch` lives in its own Phaser-free `edge-latch.ts`** (re-exported here) because `input.ts` imports Phaser and vitest runs the sim in `node` — in place it was untestable (`window is not defined`). Block can't use Left/Right Shift — Phaser 4.2.1 dispatches by keyCode and both shifts are 16. **`InputReader` emits `*Pressed` as a 1-frame RISING edge** (`light && !prev`) — real input never holds a pressed flag across frames. The DEV `__holdP1`/`hold` seams FORCE it true every frame, so holding it two pumped frames = two edges = a double-fire under the (correct) input buffer; e2e specs must feed a 1-frame edge (`pump(1)`), which is why `crouch-block.spec` was changed from `pump(2)`. `EdgeLatch.consume(i, c)` (2026-07-21) clears ONLY the edges the sim acted on (from `World.consumedInputs`); `clear()` stays for world rebuild/restart.
-- `render/stage.ts` — **`buildStage(scene, cfg)`**: adds the parallax layers (pre-baked 1697×720, `setScale(1)`, per-layer `setScrollFactor` + `setDepth`) and the animated props, **validating every texture + all 4 prop frames before creating anything**; returns `{ layers, destroy() }`. Data-driven over `cfg.layers` — nothing hardcodes `near`. **`PropConfig` has an optional `scale`** (2026-07-21) — `.setScale(prop.scale ?? 1)` — for shrinking the atlas prop sprites (`vents`/`beacon`/`steam`); there is deliberately NO per-prop `scrollFactor` field (a factor < 1 drifts a prop across the roof as the camera pans). The **water tower and left-side shed are BAKED into `medium.png`/`main.png`**, not props — resizing them needs an art regen, so they're out of scope for config tuning. Measure a prop's displayed opaque height against the fighter (~183px) rather than eyeballing: `vents`/`beacon` sit at `scale 0.42` (~160px), `steam` at 0.6. **The front `near` occluder (depth 20) was DROPPED from `stages.json` in the resolution pass** (its dusk-palette edge read as "residual purple" and it only added a foreground strip; BootScene still preloads near.png so re-adding a `<stage>-near` entry restores it) — the stage is 3 layers now. Depth bands: layers 0–2, props 3–8, fighters 9–11, debug 50, HUD 100–101, the Esc quit prompt 102.
-- **Phase 12 camera (`render/camera-frame.ts` + `MatchScene`)** — the follow-camera now ZOOMS IN as the fighters close: `groupZoom(sep) = clamp(VIEW_WIDTH/(sep+240), 1, 1.25)`, eased by `stepZoom`, then `centerOn(midpoint, STAGE_HEIGHT - cam.displayHeight/2)` for a bottom-aligned view. **Zoom never goes below 1** — Phase 08's rejection of zoom was about zooming OUT (the art is exactly `STAGE_HEIGHT` tall, so <1 shows empty bands); zooming IN has no such problem and `MAX_SEPARATION` already solves the far case. `ZOOM_PAD = VIEW_WIDTH - MAX_SEPARATION` makes the curve meet 1.0 exactly at max separation. `ZOOM_MAX 1.25` is inside a measured budget (ceiling 1.53, from the 185px jump apex + 185px fighter). **`setScrollFactor(0)` does NOT exempt an object from zoom**, so the HUD/legend/quit-prompt/end-menu live on a SECOND camera (`cameras.add` + reciprocal `ignore()` lists); an object missing from both lists renders TWICE (once zoomed, once not) and one in both renders never, so the lists must stay exhaustive — `e2e/camera-group.spec.ts` asserts every object's `cameraFilter`. This is why `StageHandle` exposes `objects` (not just `layers` — props were unreachable) and `Hud` exposes `objects`. **`STAGE_MARGIN` is 116, not 90**: it must be ≥ the widest sprite extent from the origin (jiujitsu `ko` = 116px) or a cornered body is cropped by the camera's world bound.
-- **Match-end menu (`MatchScene`)** — REMATCH / MAIN MENU, arrows or W/S, `Enter` confirms, defaults to REMATCH; `Enter` OUTSIDE `matchEnd` is still the plain restart (Phase 11's quit-prompt spec presses it during intro). Visibility is driven off `match.phase`, never off the `matchEnd` EVENT, because the e2e sets the phase directly. **`Phaser.Input.Keyboard.JustDown` is NOT frame-scoped** — `Key._justDown` is set on keydown and cleared only by a `JustDown()` read or keyup, so polling it only while the menu is open let a key *already held* when the KO landed (down = crouch, an ordinary way to die) fire a phantom edge and move the highlight off REMATCH. Poll every frame, act only at `matchEnd`. Rematch must keep `latch.clear()`: Arrow-Up doubles as P2 jump.
-- `render/boxes.ts`, `render/hud.ts` — debug hitbox overlay (toggle `B`) and health/timer HUD. `drawDebugBoxes(g, f, show)` takes **per-bound toggles** (`BoundsToggles`, default all-on) and draws frame-gated bounds **faint when inactive, solid when active**: guard falls back to the stance's `cfg.guardStand/guardCrouch`, hit falls back to `allHitBoxes(cfg, state)` — **all distinct hit boxes across the state's frames**, not the first one, because a per-frame override may legally replace `hit[]` on a single active frame with different reach. **HUD is screen-space: `setScrollFactor(0)` on every element and it reads `VIEW_WIDTH`, not the world**, or it drifts as the camera pans.
-- `public/` — Vite static root: `sprites/<id>/<state>.png` (Phase 09 per-state sheets, 320×256 cells), `configs/character-gym.json` (fighter registry, each `{ render, data }`), plus `ui/` `props/` `backgrounds/` — including **`ui/portraits/<id>.png`** (Phase 11: 448×600 select-card portraits, downscaled from the Phase 06 masters by `npm run copy:portraits`, keyed `portrait-<id>`; **downscale, never regenerate**). Sprite/atlas schema in [`public/configs/sprite-schema.md`](public/configs/sprite-schema.md); provenance/licensing in [`docs/asset-manifest.md`](docs/asset-manifest.md). `tsconfig` has `resolveJsonModule` so sim tests import the registry JSON directly.
-- `concepts/` — **authoring** art, not shipped: `mockups/` (Phase 03, the locked direction) and `backgrounds/<stage>/` (Phase 04 parallax layers + their `*-raw.png`, `*.prompt.txt`, `*.job.json`, `_preview.png`). Nothing loads from here — **Phase 08 baked them into `public/backgrounds/<runtimeId>/` via `scripts/copy-stage-layers.py` (`npm run copy:stages`)**: it pre-scales each keyed layer to the runtime **1697×720** (`GROUND_Y/STAGE_HEIGHT`=0.861111 feet line, scale by **height** only or fighters float) so the renderer needs no runtime scaling. **Do NOT set a Phaser Image's `displayHeight` alone to scale a layer — that setter changes only `scaleY` and squashes it to full 3168px width; use `setScale()` / pre-baked size.** The bake also does a **premultiplied-alpha resize + a magenta-fringe flood** (the keyed sources carry a faint edge fringe just past `key-layers.py`'s `KEY_HI=120`; the flood clears it from the void inward, stopping at real palette — L1-to-void >300 — so genuine dusk purple is never touched). Read [`concepts/backgrounds/README.md`](concepts/backgrounds/README.md) for the full geometry contract, measured wrap seams, and the worked `STAGE_WIDTH = 1696` config that makes every layer fit without tiling.
-
-### Playwright E2E (`e2e/`) — Phaser gotchas
-
-The sim/animations only advance inside Phaser's game step, which **headless Chromium throttles/pauses** (reports the page hidden → `HIDDEN` → `loop.pause()`). Trusted **keyboard events also don't reach Phaser headless**. So the spec: (1) `window.__game.loop.stop()` then pumps `window.__game.step(t, 1000/60)` as the sole clock (deterministic, no RAF race); (2) drives P1 input via the DEV `window.__holdP1(Partial<InputSnapshot>)` seam, not synthetic keys; (3) pumps past the intro phase (`INTRO_TICKS=90`) which gates input, before expecting movement. `test:e2e` runs headed and uses `webServer`/`reuseExistingServer`. `workers` is capped at **4** in `playwright.config.ts` — every worker cold-boots the whole asset set through one dev server, and past ~4 concurrent boots they starve each other and specs whose bodies take milliseconds time out at random. That reads as flakiness in whichever spec lost the race, so a "new spec broke three unrelated ones" result is usually contention, not a regression: re-run the suite without the new file before believing it. A spec whose BODY is genuinely expensive (many pumped frames — each one is a real render) should call `test.slow()` rather than eat the shared budget; `cpu-difficulty.spec.ts` does. The per-test timeout is raised to **60 s** in `playwright.config.ts`: every spec does a real `page.goto` that pulls the whole sprite/stage asset set through the dev server, and as the suite grew that cold boot started grazing the 30 s default and flaking a test whose body takes milliseconds. If a spec fails inside `ready()`'s `waitForFunction`, suspect boot cost, not the assertion. The Playground spec uses the same shape against `?scene=playground` with its own `window.__playground.hold()` seam.
-
-**Since Phase 11 `/` boots the MENU, not a match** — any spec that wants a match must navigate to **`?scene=match`** (DEV-only route; prod always starts at the flow). The five older match specs (`atlas`, `camera-juice`, `crouch-block`, `phase09-characters`, `stage`) do. Their internal boot waits are 30 s, not 15: boot now also pulls three portraits, and with parallel workers on a cold dev server the *first* test of each file was grazing the old limit (each file passes alone in ~7 s). And **tween callbacks never fire under the pump** (`TweenManager` reads `Date.now()`), so a spec can only wait on `Time.Clock`-driven progress — pump in a bounded loop until the expected global appears, never "one more frame".
-
-Two more, learned in Phase 10: **batch the round-trips.** A spec that alternated `hold()` / `pump()` / read ~45 times grazed the 30 s test timeout and went flaky; running the whole scripted sequence inside ONE `page.evaluate` that returns the observed states is stable and loses no coverage (the sim is deterministic). And **`pump()` takes a delta** — passing `0` gives a frame that advances no sim tick, which is how the sub-tick phase bugs are reproduced deterministically instead of hoping for a short frame.
+- **Phaser 4 tint COLOR and tint MODE are separate, and `setTintFill()` is a deprecated no-op.** A white
+  MULTIPLY tint is invisible, so a flash must `setTint(0xffffff).setTintMode(Phaser.TintModes.FILL)` and
+  switch the mode back, or the fighter stays a white silhouette. `FighterSprite.update()` is the ONLY
+  writer of the tint — `applyHitFeedback` runs before `render()`, so tinting from the event loop is
+  overwritten the same frame; a block flash can only be set THROUGH the sprite.
+- **`setScrollFactor(0)` does NOT exempt an object from ZOOM.** Hence the second, non-zooming camera for
+  HUD/legend/quit-prompt/end-menu (`cameras.add` + reciprocal `ignore()` lists). An object missing from
+  both lists renders TWICE; one in both renders never. The lists must stay exhaustive —
+  `e2e/camera-group.spec.ts` asserts every object's `cameraFilter`. This is why `StageHandle` exposes
+  `objects` (not just `layers` — props were unreachable) and `Hud` exposes `objects`.
+- Zoom is **IN only**: `groupZoom(sep) = clamp(VIEW_WIDTH/(sep+240), 1, 1.25)`, eased by `stepZoom`, then
+  `centerOn(midpoint, STAGE_HEIGHT - cam.displayHeight/2)` for a bottom-aligned view. Below 1 shows empty
+  bands (the art is exactly `STAGE_HEIGHT` tall); the far case is already solved by `MAX_SEPARATION`.
+  `ZOOM_PAD = VIEW_WIDTH - MAX_SEPARATION` makes the curve meet 1.0 exactly at max separation.
+- **`STAGE_MARGIN` is 116, not 90**: it must be ≥ the widest sprite extent from the origin (jiujitsu `ko`
+  = 116px) or a cornered body is cropped by the camera's world bound.
+- **`Phaser.Input.Keyboard.JustDown` is NOT frame-scoped.** `Key._justDown` is set on keydown and cleared
+  only by a `JustDown()` read or keyup, so polling it only while a menu is open lets a key *already held*
+  when the KO landed (down = crouch, an ordinary way to die) fire a phantom edge. Poll every frame, act
+  only in the right phase.
+- **A Container's own depth is what sorts it against the scene**; its children's depths are only relative
+  to each other. A menu container left at depth 0 renders *under* a depth-1 scrim — which looks like a
+  colour choice, not a bug. Depth bands: layers 0–2, props 3–8, fighters 9–11, debug 50, HUD 100–101,
+  Esc quit prompt 102. Fighter depth (`11`/`9`) follows the most recent MOVER, and must key off walk
+  STATE, not position — pushback and knockback move a fighter who never acted.
+- **Do NOT set a Phaser Image's `displayHeight` alone to scale a layer** — that setter changes only
+  `scaleY` and squashes it to full width. Use `setScale()` or a pre-baked size. Stage layers are pre-baked
+  to 1697×720 by `copy-stage-layers.py` and drawn at `setScale(1)`.
+- **BootScene is two-phase**: `load.json` in preload → validate in create → queue every sheet and
+  `portrait-<id>` → `this.load.start()` → on COMPLETE refuse routing if `failed>0` OR any expected
+  texture is missing (blocks a 404 AND a corrupt-200). Portraits can't be queued in `preload()` because
+  their ids come from the registry, which is only cached after preload.
+- **`installFocusGuard` needs `disableGlobalCapture()`, not just `keyboard.enabled = false`**:
+  `InputReader` builds keys with `addKey()` (capture defaults **true**) and Phaser's `KeyboardManager`
+  listens on `window` and `preventDefault()`s any captured keyCode **regardless of event target**, so
+  typing into a panel field is otherwise swallowed. It also calls `resetKeys()` so a key released over
+  the panel can't strand an `isDown`. Capture is game-global while `enabled` is per-plugin, so it assumes
+  ONE dev scene at a time (Boot guarantees that). **A `<select>` is NOT blurred by changing its value** —
+  the shared `select()` helper `blur()`s on change, or the keyboard stays dead after a dropdown pick
+  (this read as "the monk can't do any moves").
+- `render/dev-panel.ts` is **function declarations only, no top-level DOM/fetch**, so importing it can't
+  drag panel/save code into a prod bundle. The Gym saves through a **dev-server-only** Vite middleware
+  (`vite/gym-save-plugin.ts`): full-origin match, 256 KB limit, shared `validate-character`, atomic
+  temp+rename write.
+- Gym boxes come off the **assembled** config, so `persist()` **divides by `stats.scale`**, and both
+  persist and display round to **2dp, never integers**. **Guard is the exception**: it edits the
+  STANCE TEMPLATE (all frames) via `render/gym-persist.ts`, and its display box is a scaled view of
+  the template, *not* the assembled frame's box — editing the frame's box would smear a hand-authored
+  per-frame override across every other frame. A template write then needs a full `rebuild()`, because
+  each frame holds its own clone. (`applyFromPanel` rewrites all four fields when one
+  is edited, so an integer display re-authors the untouched three at a fractional scale).
+- **PlaygroundScene must never force `phase` back to `"fight"` after a KO** — `endRound` has already
+  banked the win and left a fighter in `ko`, so the next tick banks it again until `matchWinner` sets;
+  and a 15-tick `advance` batch can KO mid-loop, so a pre-loop pin can't catch it anyway. It pins the
+  clock only while `phase === "intro"` and does a full `world.restart()` on any non-`fight` phase.
+- **Block can't use Left/Right Shift** — Phaser 4.2.1 dispatches by keyCode and both shifts are 16.
+  Bindings: P1 WASD + F/G, block `Q`; P2 arrows + `,`/`.`, block `/`.
+- Input **edge presses are latched** in `pending[]` until a sim tick consumes them (held fields like
+  `block` pass straight through) — **plus the `down` held at press time, surfaced as
+  `InputSnapshot.downAtPress`**, so a buffered crouch normal doesn't come out standing when the player
+  releases `down` before an actionable tick lands.
+- `drawDebugBoxes` falls back to **`allHitBoxes(cfg, state)` — all distinct hit boxes across the state's
+  frames**, not the first one, because a per-frame override may legally replace `hit[]` on a single
+  active frame with different reach. Guard falls back to **`f.guardBoxes()` — the current FRAME's
+  stance array** — so a frame carrying no guard box correctly draws nothing rather than advertising a
+  stance box the sim would never honour. Bounds draw **faint when inactive, solid when active**.
+- HUD is screen-space: `setScrollFactor(0)` on every element and it reads `VIEW_WIDTH`, not the world.
+- **There is deliberately NO per-prop `scrollFactor`** in `PropConfig` (a factor < 1 drifts a prop across
+  the roof as the camera pans); only `scale`. The **water tower and left-side shed are BAKED into
+  `medium.png`/`main.png`**, not props — resizing them needs an art regen. Measure a prop's displayed
+  opaque height against the fighter (~183px) rather than eyeballing.
+- The front `near` occluder was **dropped from `stages.json`** in the resolution pass (its dusk-palette
+  edge read as "residual purple"); BootScene still preloads `near.png`, so re-adding a `<stage>-near`
+  entry restores it. The stage is 3 layers now.
 
 ## Conventions
 
 - Timing is always in **ticks** (integers at 60 Hz), never wall-clock seconds, inside the sim.
-- Comments tagged `ponytail:` mark deliberate simplifications with their upgrade path (e.g. hardcoded bindings, the no-zoom midpoint follow-camera that Phase 12 replaces with a group camera, or `key-layers.py` masking a foreground strip the generator refuses to draw thin). They're intent markers, not TODO noise.
-- **Compare fighters by EFFECTIVE reach (`hit.x + hit.w − own pushbox half`), never by raw hit-box reach.** The monk's art is a wide low stance, so his pushboxes are bigger (`pushStand 60` / `pushCrouch 76` vs 56 / 60), which parks him further from the opponent and lands the same nominal hit box short — he played as if his moves "didn't reach" even though they executed and connected. A wide-bodied character needs correspondingly longer hit boxes just to break even; his widths were raised (light 72→94, heavy 98→112, crouchLight 66→74, crouchHeavy 100→108) so no fighter is out-ranged purely for being broad. `reach-parity.test.ts` pins it. Only `w` was changed — **`y`/`h` decide high/low, so never touch them for a reach tweak**.
-- **...and measure its PHASE too, not just its length.** Phase 12's companion finding: `attackFrameRate` made every attack animation exactly as long as its move, and the strike still landed on a wind-up pose on 10 of 18 sheets, because nothing aligned the *contact frame* with the *active window*. `render.sheets.<state>.hit` (measured by `scripts/check-attack-sync.py`) plus `attackFrameDurations` in `anim-timing.ts` now spend the `startup` ticks on frames `0..hit-1` and the rest on `hit..n-1`. Three traps, all real: (1) **the obvious metric is the wrong one** — furthest opaque column measures the whole silhouette, and for a wide-stanced fighter the widest thing in frame is a planted leg (monk `attackLight` scored `[65,65,65,66,65,65]`); difference each frame against frame 0 to isolate what MOVED. (2) A sheet the metric can't call reports **INDETERMINATE and keeps uniform timing** — never a guessed number. (3) **`PLAY_LAG_TICKS`**: `play()` runs in the render pass AFTER the tick that entered the state, so the animation clock is one tick behind the sim — budget the wind-up `startup - 1` ticks or the contact frame lands on the LAST active tick. That one was invisible to perfect arithmetic and only showed up by tracing `stateFrame` against `anims.currentFrame` on the running game.
-- **An ANIMATION is a claim about a move — measure its length against that move.** The same rule as boxes, one layer up. Attack anims were built with an authored per-state `fps` that had drifted from the move's real tick duration: every fighter's `attackLight` needed 0.43s of art over a 0.25–0.27s move, so playback was cut off at ~60% and **the strike was never drawn** — it read as "the light attack does nothing", while `crouchHeavy` (0.40s of art over a 0.53s move) finished early and froze, reading as "runs too quickly". Invisible to 163 unit + 35 e2e tests because nothing ever compared animation length to move length; it only surfaced in a gameplay video. Attack frame rates are now DERIVED (`fps = renderFrames * TICK_HZ / simTicks`) in the Phaser-free `src/render/anim-timing.ts`, unit-tested against the shipped registry.
-- **…and when you fix a defect class, sweep the WHOLE class.** The derivation above was applied to attacks and stopped there; every other sheet kept a flat authored `fps: 8` that matched no sim window, for two more phases. `knockdown` got 750ms of art for a 300ms state, so playback was cut at frame 2 of 6 — **and the fall is frames 3–5**, so a fighter stood bolt upright through his entire knockdown and popped back to idle. `blockstun` showed 1.1–1.9 of 4 frames, `hitstun` 1.5–2.4, jumps 2.8. `attackFrameRate` is now **`stateFrameRate`** and also covers jumps (arc = `jumpVelocity / gravity`, a constant per fighter, so it can be baked in at registration); stun length is chosen by the attack that *caused* it and is only known once the state is entered, so **`stunFrameRate`** supplies it as a play-time override. That override **disables Phaser's per-frame durations** — `Animation.getNextTick` only honours them while `state.frameRate === currentAnim.frameRate` ([Animation.js:518](node_modules/phaser/src/animations/Animation.js#L518)) — which is safe only because attacks are the sole carriers of durations and `stunFrameRate` returns `null` for every attack state. The unit test proves the arithmetic; the **browser** test is the one that matters, because the arithmetic was already right and what could still fail is the override reaching Phaser's clock (same lesson as `PLAY_LAG_TICKS`).
-- **A box is a claim about a sprite — measure it against that sprite.** The ground heavy shipped for two phases with a crouching hurt box and a shin-height hit box on top of a *standing punch* animation; both were invisible to every test, because the tests only ever compared boxes to other boxes. `config.ts`'s `TEST_DUMMY` still authors its heavy low on purpose (it's the fixture that exercises the low path) — don't "fix" it to match the roster. One-liner that catches this class of bug: read the sheet's alpha, take the topmost opaque row per frame, compare to `hurt.h`.
-- **Prefer a measurement to an opinion on generated art.** Phase 04's three worst defects were all invisible by eye and obvious by number — and one *wrong* metric (topmost-opaque-pixel, which scores a chain-link mesh as a solid wall) hid a bad asset for a whole iteration. Check art against the sim's real constants (`GROUND_Y`, `HURT_STAND.h`), not against how it looks. This applies to the **source** art and to reviewers too: a Phase 05 plan review said a shoulder patch on the mockup fighter was imagined, so it was dropped from the prompt — a 300×200 crop showed it was real, and it shipped into two gens. A crop costs nothing; a recollection isn't evidence.
-- **An art gate self-tests before it judges.** `check-characters.py` runs 9 synthetic fixtures on its own metrics every run, and caught a real bug (a 4px speck scoring as a whole second figure) *before* a credit was spent. Phase 04's rule — a wrong metric is more dangerous than no metric — is why. Corollary: say plainly what the gate does **not** cover rather than let a green tick imply more than it proves. Some criteria ("no text", "no logos", "distinct") have no honest metric; the visual checklist in a phase log is load-bearing, not decoration.
-- Tests live next to code as `*.test.ts` and drive the sim directly via `World.tick()` with crafted `InputSnapshot`s — the pattern for any new sim behavior. `combat.test.ts` covers hit/block/trade rules; `regression.test.ts` pins specific ordering bugs (labelled P1-1, P2-1, …). **Render-layer logic gets tested by being MOVED out of the scene**: `edge-latch.ts` and Phase 11's `flow-state.ts` are Phaser-free modules precisely so vitest's node env can reach them — if a scene rule has an edge case, that's the move, not a browser test.
-- **A regression test you haven't watched FAIL is decoration.** Re-introduce the bug, confirm the test goes red, restore. Phase 10 shipped two fakes before a real one: the first never triggered the code path it was named after, the second could pass vacuously on `undefined === undefined` (assert `typeof x === "number"` when reading a value through a DEV hook). Same rule as the art gates' self-tests, applied to behaviour.
-- **Phaser 4 TWEENS run on the wall clock, `Time.Clock` runs on the delta.** `TweenManager.getDelta()` reads `Date.now()`, so a tween does **not** advance under the e2e's pumped `game.step` — anything sequenced off a tween's `onComplete` is both untestable and one interrupted tween away from deadlock. Hang game logic on `this.time.delayedCall`; keep tweens decorative. Corollary: `killTweensOf(target)` kills EVERY tween on that target — an entry fade and a selection scale sharing one target means killing the second freezes the first, which is how Phase 11's cards ended up permanently at alpha 0. Track and stop the specific tween, and have a fade force-settle its end value on `onStop` as well as `onComplete`.
-- **A Container's own depth is what sorts it against the scene**; the depths of its children are only relative to each other. A menu container left at the default depth 0 renders *under* a depth-1 scrim, dimming everything in it — which looks like a colour choice, not a bug.
-- **A screenshot catches what no test can.** Phase 11's two worst defects (invisible cards, everything dim) both passed the full unit + e2e suite. The same rule the art phases learned, applied to UI: look at it.
-- **A reviewer's finding can be real while its diagnosis is wrong — re-derive, don't apply the patch.** Phase 10's QA agent correctly measured input being swallowed after a reset and blamed an `EdgeLatch`/keydown race that is impossible (keydown is emitted before the scene's `update`); the actual cause was a reset loop next door. Take the *symptom* as evidence and the *cause* as a hypothesis.
+- Comments tagged `ponytail:` mark deliberate simplifications with their upgrade path. Intent markers,
+  not TODO noise.
+
+### Measure the claim against the thing it claims about
+
+Four bugs, one shape. Each shipped for one or more phases and was invisible to the whole test suite,
+because the tests only ever compared code to other code.
+
+- **A box is a claim about a sprite.** The ground heavy had a crouching hurt box and a shin-height hit box
+  on top of a standing punch. One-liner that catches the class: read the sheet's alpha, take the topmost
+  opaque row per frame, compare to `hurt.h`. `scripts/` still has no gate for box-vs-art agreement.
+- **An ANIMATION is a claim about a move — measure its length against that move.** Attack anims used an
+  authored per-state `fps` that had drifted: every fighter's `attackLight` had 0.43s of art over a
+  0.25–0.27s move, so playback was cut at ~60% and **the strike was never drawn** ("the light attack does
+  nothing"), while `crouchHeavy` finished early and froze ("runs too quickly"). Frame rates are now
+  DERIVED (`fps = renderFrames * TICK_HZ / simTicks`) in the Phaser-free `src/render/anim-timing.ts`.
+- **…and measure its PHASE too, not just its length.** Even at the right length the strike landed on a
+  wind-up pose on 10 of 18 sheets, because nothing aligned the *contact frame* with the *active window*.
+  `render.sheets.<state>.hit` (measured by `check-attack-sync.py`) plus `attackFrameDurations` now spend
+  the `startup` ticks on frames `0..hit-1` and the rest on `hit..n-1`. Three traps: (1) **the obvious
+  metric is the wrong one** — furthest opaque column measures the whole silhouette, and for a
+  wide-stanced fighter the widest thing in frame is a planted leg; difference each frame against frame 0
+  to isolate what MOVED. (2) A sheet the metric can't call reports **INDETERMINATE and keeps uniform
+  timing** — never a guessed number. (3) **`PLAY_LAG_TICKS`**: `play()` runs in the render pass AFTER the
+  tick that entered the state, so the animation clock is one tick behind the sim — budget the wind-up
+  `startup - 1` ticks or the contact frame lands on the LAST active tick. Invisible to perfect arithmetic;
+  only showed up by tracing `stateFrame` against `anims.currentFrame` on the running game.
+- **…and when you fix a defect class, sweep the WHOLE class.** The derivation above was applied to attacks
+  and stopped there; every other sheet kept a flat authored `fps: 8` for two more phases. `knockdown` got
+  750ms of art for a 300ms state, cut at frame 2 of 6 — **and the fall is frames 3–5**, so a fighter stood
+  bolt upright through his entire knockdown. `attackFrameRate` is now **`stateFrameRate`** and also covers
+  jumps (arc = `jumpVelocity / gravity`, constant per fighter, bakeable at registration); stun length is
+  chosen by the attack that *caused* it and is only known once the state is entered, so **`stunFrameRate`**
+  supplies it as a play-time override. That override **disables Phaser's per-frame durations** —
+  `Animation.getNextTick` only honours them while `state.frameRate === currentAnim.frameRate`
+  ([Animation.js:518](node_modules/phaser/src/animations/Animation.js#L518)) — which is safe only because
+  attacks are the sole carriers of durations and `stunFrameRate` returns `null` for every attack state.
+  The unit test proves the arithmetic; the **browser** test is the one that matters, because the
+  arithmetic was already right and what could still fail is the override reaching Phaser's clock.
+
+Related: **held/one-shot states must not loop** — a looping `crouch` sheet whose first frames are the
+standing wind-up read as the fighter popping up out of the crouch.
+
+Same rule for art: prefer a measurement to an opinion, and a wrong metric is more dangerous than no
+metric. Detail in [`docs/art-pipeline.md`](docs/art-pipeline.md).
+
+### Balance
+
+**Compare fighters by EFFECTIVE reach (`hit.x + hit.w − own pushbox half`), never by raw hit-box reach.**
+The monk's art is a wide low stance, so his pushboxes are bigger (`pushStand 60` / `pushCrouch 76` vs
+56 / 60), which parks him further from the opponent and lands the same nominal hit box short — he played
+as if his moves "didn't reach" even though they executed and connected. A wide-bodied character needs
+correspondingly longer hit boxes just to break even. `reach-parity.test.ts` pins it. Only `w` was
+changed — **`y`/`h` decide high/low, so never touch them for a reach tweak**.
+
+### Testing
+
+- Tests live next to code as `*.test.ts` and drive the sim directly via `World.tick()` with crafted
+  `InputSnapshot`s. `combat.test.ts` covers hit/block/trade rules; `regression.test.ts` pins specific
+  ordering bugs (labelled P1-1, P2-1, …).
+- **Render-layer logic gets tested by being MOVED out of the scene.** `edge-latch.ts`, `flow-state.ts`,
+  `anim-timing.ts` and `camera-frame.ts` are Phaser-free modules precisely so vitest's node env can reach
+  them — if a scene rule has an edge case, that's the move, not a browser test.
+- **A regression test you haven't watched FAIL is decoration.** Re-introduce the bug, confirm the test
+  goes red, restore. Phase 10 shipped two fakes before a real one: the first never triggered the code
+  path it was named after, the second could pass vacuously on `undefined === undefined` (assert
+  `typeof x === "number"` when reading a value through a DEV hook).
+- **A screenshot catches what no test can.** Phase 11's two worst defects (invisible cards, everything
+  dim) both passed the full unit + e2e suite. Look at it.
+- **A reviewer's finding can be real while its diagnosis is wrong — re-derive, don't apply the patch.**
+  Phase 10's QA agent correctly measured input being swallowed after a reset and blamed an
+  `EdgeLatch`/keydown race that is impossible (keydown is emitted before the scene's `update`); the actual
+  cause was a reset loop next door. Take the *symptom* as evidence and the *cause* as a hypothesis.
+
+### Phaser 4 timing
+
+**TWEENS run on the wall clock, `Time.Clock` runs on the delta.** `TweenManager.getDelta()` reads
+`Date.now()`, so a tween does **not** advance under the e2e's pumped `game.step` — anything sequenced off
+a tween's `onComplete` is both untestable and one interrupted tween away from deadlock. Hang game logic
+on `this.time.delayedCall`; keep tweens decorative. Corollary: **`killTweensOf(target)` kills EVERY tween
+on that target** — an entry fade and a selection scale sharing one target means killing the second freezes
+the first, which is how Phase 11's cards ended up permanently at alpha 0. Track and stop the specific
+tween, and have a fade force-settle its end value on `onStop` as well as `onComplete`.
+
+## Playwright E2E (`e2e/`)
+
+The sim/animations only advance inside Phaser's game step, which **headless Chromium throttles/pauses**
+(reports the page hidden → `HIDDEN` → `loop.pause()`). Trusted **keyboard events also don't reach Phaser
+headless**. So a spec: (1) `window.__game.loop.stop()` then pumps `window.__game.step(t, 1000/60)` as the
+sole clock; (2) drives P1 input via the DEV `window.__holdP1(Partial<InputSnapshot>)` seam, not synthetic
+keys; (3) pumps past the intro phase (`INTRO_TICKS=90`), which gates input, before expecting movement.
+
+- **`/` boots the MENU, not a match** — any spec that wants a match must navigate to **`?scene=match`**
+  (DEV-only route). Boot pulls the whole sprite/stage/portrait set through the dev server, so the per-test
+  timeout is **60 s** and the older specs' internal boot waits are 30 s. If a spec fails inside `ready()`'s
+  `waitForFunction`, suspect boot cost, not the assertion.
+- **`workers` is capped at 4** in `playwright.config.ts` — every worker cold-boots the whole asset set
+  through one dev server, and past ~4 concurrent boots they starve each other and specs whose bodies take
+  milliseconds time out at random. **A "new spec broke three unrelated ones" result is usually contention,
+  not a regression**: re-run the suite without the new file before believing it. A spec whose BODY is
+  genuinely expensive should call `test.slow()` (`cpu-difficulty.spec.ts` does).
+- **The DEV `__holdP1`/`hold` seams FORCE a pressed flag true every frame**, whereas the real
+  `InputReader` emits `*Pressed` as a 1-frame RISING edge. Holding it two pumped frames = two edges = a
+  double-fire under the (correct) input buffer; specs must feed a 1-frame edge (`pump(1)`).
+- **Batch the round-trips.** A spec that alternated `hold()` / `pump()` / read ~45 times grazed the
+  timeout and went flaky; running the whole scripted sequence inside ONE `page.evaluate` that returns the
+  observed states is stable and loses no coverage (the sim is deterministic).
+- **`pump()` takes a delta** — passing `0` gives a frame that advances no sim tick, which is how the
+  sub-tick phase bugs are reproduced deterministically instead of hoping for a short frame.
+- **Tween callbacks never fire under the pump**, so a spec can only wait on `Time.Clock`-driven progress —
+  pump in a bounded loop until the expected global appears, never "one more frame".
+
+## Tooling gotchas
+
+- **A `codex:rescue` review DOES run inside plan mode.** Two real constraints, neither about plan mode:
+  (1) the forwarding subagent **hard-refuses any prompt that mentions relayed authorization** ("the user
+  confirmed…") — phrase the task plainly, describe the design, ask the questions, say "read-only, do not
+  edit files"; (2) that subagent is scoped to a single `task` call, so it **cannot poll or return its own
+  result** — fetch it yourself:
+  `node ~/.claude/plugins/marketplaces/openai-codex/plugins/codex/scripts/codex-companion.mjs result <task-id>`
+  (`… status` lists jobs, `… status <task-id>` shows live phase). A review takes several minutes; poll in
+  a background Bash loop rather than blocking. If it refuses citing plan mode, update the Codex CLI; it
+  also defaults to `--write`.
+- **A `codex:rescue` review of a file OUTSIDE the workspace root hangs silently** — Codex sat 9 minutes
+  frozen mid-read with no error on a plan in `~/.claude/plans/`. **Inline the file's text into the
+  prompt** instead of passing its path, or copy it in-tree. In-tree files read fine.
+- **`taskkill /PID` from the Bash tool needs `MSYS_NO_PATHCONV=1`** — Git Bash rewrites the leading `/PID`
+  into a path and the kill silently fails. Same MSYS translation as the ctx7 rule; it generalises to any
+  Windows tool taking a `/FLAG` argument.
+- Real git history starts **2026-07-22**; `git stash`/`diff`/`log` all work. Notes older than that saying
+  "there is no VCS safety net" are stale — except for the gitignored `concepts/` art, which is still only
+  on this machine.
+
+## Assets
+
+`public/` is the Vite static root: `sprites/<id>/<state>.png` (per-state sheets, 320×256 cells),
+`configs/character-gym.json` (fighter registry, each `{ render, data }`), `ui/portraits/<id>.png`
+(448×600 — **downscale from the Phase 06 masters, never regenerate**), plus `ui/` `props/`
+`backgrounds/`. Schema in [`public/configs/sprite-schema.md`](public/configs/sprite-schema.md);
+provenance/licensing in [`docs/asset-manifest.md`](docs/asset-manifest.md). `tsconfig` has
+`resolveJsonModule` so sim tests import the registry JSON directly.
+
+`concepts/` is **authoring** art, not shipped — nothing loads from there. Read
+[`concepts/backgrounds/README.md`](concepts/backgrounds/README.md) for the full stage geometry contract,
+measured wrap seams, and the worked `STAGE_WIDTH = 1696` config.

@@ -24,7 +24,7 @@ function sampleData(): CharacterData {
       crouchLight: { body: "crouch", startup: 4, active: 3, recovery: 9, hit: { x: 38, y: 18, w: 66, h: 40 }, damage: 5, hitstun: 11, blockstun: 8, hitstop: 6, knockback: { x: 110, y: 0 }, chip: 1 },
       crouchHeavy: { body: "crouch", startup: 8, active: 4, recovery: 20, hit: { x: 48, y: 6, w: 100, h: 42 }, damage: 13, hitstun: 18, blockstun: 14, hitstop: 10, knockback: { x: 220, y: -240 }, chip: 3 },
     },
-    frames: { idle: 4, walkF: 6, walkB: 6, crouch: 2, jumpRise: 1, jumpFall: 1, hitstun: 1, blockstun: 1, knockdown: 1, ko: 1 },
+    frames: { idle: 4, walkF: 6, walkB: 6, crouch: 2, block: 2, blockCrouch: 2, jumpRise: 1, jumpFall: 1, hitstun: 1, blockstun: 1, knockdown: 1, ko: 1 },
   };
 }
 
@@ -117,6 +117,26 @@ describe("validateFighterEntry", () => {
     const e = sampleEntry();
     e.data.overrides = { idle: [{ frame: 0, hit: [{ x: 0, y: 0, w: 10, h: 10 }] }] };
     expect(validateFighterEntry("brawler", e).some((m) => m.includes("active window") || m.includes("non-attack"))).toBe(true);
+  });
+
+  // Phase 13: guard overrides used to be parsed by nothing at all — authored, stored, and silently
+  // ignored by both the builder and this validator.
+  it("accepts a guard override on a state that can guard", () => {
+    const e = sampleEntry();
+    e.data.overrides = { blockCrouch: [{ frame: 1, guardCrouch: [{ x: -32, y: 0, w: 90, h: 40 }] }] };
+    expect(validateFighterEntry("brawler", e)).toEqual([]);
+  });
+
+  it("rejects a guard override on a state that cannot guard", () => {
+    const e = sampleEntry();
+    e.data.overrides = { attackLight: [{ frame: 4, guardStand: [{ x: 0, y: 0, w: 10, h: 10 }] }] };
+    expect(validateFighterEntry("brawler", e).some((m) => m.includes("cannot guard"))).toBe(true);
+  });
+
+  it("rejects a malformed guard override box", () => {
+    const e = sampleEntry();
+    e.data.overrides = { block: [{ frame: 0, guardStand: [{ x: 0, y: 0, w: 0, h: 10 }] }] };
+    expect(validateFighterEntry("brawler", e).some((m) => m.includes("guardStand[0].w"))).toBe(true);
   });
 });
 

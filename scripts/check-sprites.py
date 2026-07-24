@@ -26,7 +26,7 @@ _spec.loader.exec_module(key_layers)
 KEY_RGB, KEY_HI = key_layers.KEY_RGB, key_layers.KEY_HI  # magenta ref + soft-matte upper bound
 
 CELL_W, CELL_H = 320, 256
-UPRIGHT = ("idle", "walkF", "walkB", "blockstun", "hitstun")  # bodies that should share a height
+UPRIGHT = ("idle", "walkF", "walkB", "block", "blockstun", "hitstun")  # bodies that should share a height (blockCrouch is a crouch — excluded)
 HEIGHT_TOL = 30  # px spread allowed among a fighter's upright states
 
 # An ATTACK sheet is a claim that a strike happens. Nothing checked that until 2026-07-22, and a

@@ -8,7 +8,7 @@ import registry from "../../public/configs/character-gym.json";
 const RAW = registry as unknown as Record<string, { render: unknown; data: CharacterData }>;
 
 const IDS = Object.keys(RAW).filter((k) => !k.startsWith("_"));
-const STATES = ["idle", "walkF", "walkB", "crouch", "jumpRise", "jumpFall", "attackLight", "attackHeavy", "airLight", "airHeavy", "crouchLight", "crouchHeavy", "hitstun", "blockstun", "knockdown", "ko"];
+const STATES = ["idle", "walkF", "walkB", "crouch", "block", "blockCrouch", "jumpRise", "jumpFall", "attackLight", "attackHeavy", "airLight", "airHeavy", "crouchLight", "crouchHeavy", "hitstun", "blockstun", "knockdown", "ko"];
 
 const mk = (over: Partial<InputSnapshot> = {}): InputSnapshot => ({ ...emptyInput(), ...over });
 const lightPress = mk({ light: true, lightPressed: true });
@@ -19,7 +19,7 @@ describe("shipped character registry", () => {
     expect(validateRegistry(RAW)).toEqual([]);
   });
 
-  it("every fighter assembles into 16 states + all six attacks + guards", () => {
+  it("every fighter assembles into 18 states + all six attacks + guards", () => {
     for (const id of IDS) {
       const c = assembleCharacter(id, RAW[id].data);
       expect(Object.keys(c.states).sort()).toEqual([...STATES].sort());
@@ -27,8 +27,15 @@ describe("shipped character registry", () => {
       expect(c.attacks.heavy.kind).toBe("heavy");
       expect(c.attacks.airLight.kind).toBe("airLight");
       expect(c.attacks.crouchHeavy.kind).toBe("crouchHeavy");
-      expect(c.guardStand.length).toBeGreaterThan(0);
-      expect(c.guardCrouch.length).toBeGreaterThan(0);
+      // Phase 13b: guard is per-frame AND now lives on the dedicated held-guard states. It must be on
+      // the block states + blockstun, and absent on idle/crouch (a fighter is never guarding there) and
+      // on attacks.
+      expect(c.states.block.frames[0].guardStand.length).toBeGreaterThan(0);
+      expect(c.states.blockCrouch.frames[0].guardCrouch.length).toBeGreaterThan(0);
+      expect(c.states.blockstun.frames[0].guardCrouch.length).toBeGreaterThan(0);
+      expect(c.states.idle.frames[0].guardStand).toEqual([]);
+      expect(c.states.crouch.frames[0].guardCrouch).toEqual([]);
+      expect(c.states.attackHeavy.frames[0].guardStand).toEqual([]);
     }
   });
 
@@ -91,13 +98,18 @@ describe("shipped registry blocking matrix", () => {
           const chip = RAW[atk].data.attacks[m.key].chip;
           const damage = RAW[atk].data.attacks[m.key].damage;
           const wrong = m.blockedBy === "stand" ? "crouch" : "stand";
+          let connected = 0;
           for (const gap of GAPS) {
             const raw = shippedExchange(atk, def, m.key, "none", gap);
             if (raw === 0) continue; // out of reach at this spacing — nothing to block
+            connected++;
             expect(raw, `unguarded @${gap}`).toBe(damage);
             expect(shippedExchange(atk, def, m.key, m.blockedBy, gap), `${m.blockedBy} guard @${gap}`).toBe(chip);
             expect(shippedExchange(atk, def, m.key, wrong, gap), `${wrong} guard @${gap}`).toBe(damage);
           }
+          // Without this the whole case passes vacuously the day a move stops reaching: every gap
+          // `continue`s and nothing is ever asserted.
+          expect(connected, "no gap in GAPS connected at all").toBeGreaterThan(0);
         });
       }
     }

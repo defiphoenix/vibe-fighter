@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { assembleCharacter, allHitBoxes } from "./character-builder";
-import type { CharacterData } from "./types";
+import { isGuardableState } from "./types";
+import type { CharacterData, StateName } from "./types";
 
 /** Minimal but complete authorable data for one fighter. */
 function sampleData(): CharacterData {
@@ -50,19 +51,21 @@ function sampleData(): CharacterData {
       },
     },
     frames: {
-      idle: 4, walkF: 6, walkB: 6, crouch: 2, jumpRise: 1, jumpFall: 1,
+      idle: 4, walkF: 6, walkB: 6, crouch: 2, block: 2, blockCrouch: 2, jumpRise: 1, jumpFall: 1,
       hitstun: 1, blockstun: 1, knockdown: 1, ko: 1,
     },
   };
 }
 
 describe("assembleCharacter", () => {
-  it("builds all 16 states with the authored frame counts", () => {
+  it("builds all 18 states with the authored frame counts", () => {
     const c = assembleCharacter("test", sampleData());
     expect(c.id).toBe("test");
     expect(c.states.idle.frames.length).toBe(4);
     expect(c.states.walkF.frames.length).toBe(6);
     expect(c.states.crouch.frames.length).toBe(2);
+    expect(c.states.block.frames.length).toBe(2);
+    expect(c.states.blockCrouch.frames.length).toBe(2);
     expect(c.states.jumpRise.frames.length).toBe(1);
     // attack length == startup + active + recovery
     expect(c.states.attackLight.frames.length).toBe(4 + 3 + 8);
@@ -76,6 +79,8 @@ describe("assembleCharacter", () => {
     expect(c.states.idle.loop).toBe(true);
     expect(c.states.walkF.loop).toBe(true);
     expect(c.states.crouch.loop).toBe(true);
+    expect(c.states.block.loop).toBe(false); // held brace, NOT a loop (popping in/out reads wrong)
+    expect(c.states.blockCrouch.loop).toBe(false);
     expect(c.states.attackLight.loop).toBe(false);
     expect(c.states.ko.loop).toBe(false);
   });
@@ -94,10 +99,9 @@ describe("assembleCharacter", () => {
     for (let i = 7; i < 15; i++) expect(f[i].hit.length).toBe(0);
   });
 
-  it("copies stats, global guard, and attack specs", () => {
+  it("copies stats and attack specs", () => {
     const c = assembleCharacter("test", sampleData());
     expect(c.stats.walkSpeed).toBe(220);
-    expect(c.guardStand).toEqual([{ x: 15, y: 70, w: 40, h: 105 }]);
     expect(c.attacks.light.damage).toBe(6);
     expect(c.attacks.heavy.knockback).toEqual({ x: 240, y: -260 });
     // AttackSpec must not leak the frame-building fields
@@ -122,8 +126,6 @@ describe("assembleCharacter", () => {
     expect(c.states.idle.frames[0].hurt[0]).toEqual({ x: -60, y: 0, w: 120, h: 370 });
     expect(c.states.idle.frames[0].push).toEqual({ x: -56, y: 0, w: 112, h: 350 });
     expect(c.states.attackLight.frames[4].hit[0]).toEqual({ x: 80, y: 200, w: 140, h: 90 });
-    expect(c.guardStand).toEqual([{ x: 30, y: 140, w: 80, h: 210 }]);
-    expect(c.guardCrouch).toEqual([{ x: 30, y: 0, w: 80, h: 160 }]);
     // the OVERRIDDEN frame is scaled too — proves the override is authored in unscaled space and
     // scaling runs after it, not before (which would leave this frame at 1x).
     expect(c.states.attackHeavy.frames[9].hurt).toEqual([{ x: -60, y: 0, w: 180, h: 240 }]);
@@ -165,5 +167,73 @@ describe("assembleCharacter", () => {
     // two frames of one state are independent objects
     a.states.walkF.frames[1].push.w = 111;
     expect(a.states.walkF.frames[0].push.w).toBe(56);
+  });
+});
+
+// Phase 13/13b: guard boxes moved from two character-level arrays into FrameBoxes, so they can vary by
+// animation frame. Phase 13b then made the set of frames that CARRY a guard box the dedicated held-
+// guard states (block/blockCrouch) plus blockstun — a fighter only ever guards while planted in one
+// of those.
+describe("per-frame guard boxes", () => {
+  const GUARDABLE: StateName[] = ["block", "blockCrouch", "blockstun"];
+  const NOT_GUARDABLE: StateName[] = [
+    "idle", "walkF", "walkB", "crouch", "jumpRise", "jumpFall", "attackLight", "attackHeavy",
+    "airLight", "airHeavy", "crouchLight", "crouchHeavy", "hitstun", "knockdown", "ko",
+  ];
+
+  it("isGuardableState names exactly the dedicated block states plus blockstun", () => {
+    for (const s of GUARDABLE) expect(isGuardableState(s), s).toBe(true);
+    for (const s of NOT_GUARDABLE) expect(isGuardableState(s), s).toBe(false);
+  });
+
+  it("seeds every guardable frame from the character-level template", () => {
+    const c = assembleCharacter("test", sampleData());
+    for (const s of GUARDABLE) {
+      for (const f of c.states[s].frames) {
+        expect(f.guardStand, s).toEqual([{ x: 15, y: 70, w: 40, h: 105 }]);
+        expect(f.guardCrouch, s).toEqual([{ x: 15, y: 0, w: 40, h: 80 }]);
+      }
+    }
+  });
+
+  it("leaves guard EMPTY on every frame that cannot guard", () => {
+    const c = assembleCharacter("test", sampleData());
+    for (const s of NOT_GUARDABLE) {
+      for (const f of c.states[s].frames) {
+        expect(f.guardStand, s).toEqual([]);
+        expect(f.guardCrouch, s).toEqual([]);
+      }
+    }
+  });
+
+  it("applies a per-frame guard override to that frame only", () => {
+    const data = sampleData();
+    data.overrides = { blockCrouch: [{ frame: 1, guardCrouch: [{ x: 15, y: 0, w: 40, h: 20 }] }] };
+    const c = assembleCharacter("test", data);
+    expect(c.states.blockCrouch.frames[1].guardCrouch).toEqual([{ x: 15, y: 0, w: 40, h: 20 }]);
+    expect(c.states.blockCrouch.frames[0].guardCrouch).toEqual([{ x: 15, y: 0, w: 40, h: 80 }]);
+    // the untouched stance on the same frame keeps the template
+    expect(c.states.blockCrouch.frames[1].guardStand).toEqual([{ x: 15, y: 70, w: 40, h: 105 }]);
+  });
+
+  it("REFUSES a guard override on a state that cannot guard", () => {
+    // `guarding` is derived from box data now, so a guard box on an attack frame would make a
+    // fighter blockable mid-punch. The validator rejects this, but config.ts calls assembleCharacter
+    // directly with nothing in front of it — so the builder has to be the enforcer too.
+    const data = sampleData();
+    data.overrides = { attackLight: [{ frame: 4, guardStand: [{ x: 0, y: 0, w: 99, h: 99 }] }] };
+    const c = assembleCharacter("test", data);
+    expect(c.states.attackLight.frames[4].guardStand).toEqual([]);
+  });
+
+  it("scales frame guards by stats.scale exactly once, overrides included", () => {
+    const data = sampleData();
+    data.overrides = { blockCrouch: [{ frame: 1, guardCrouch: [{ x: 15, y: 0, w: 40, h: 20 }] }] };
+    data.stats.scale = 2;
+    const c = assembleCharacter("test", data);
+    expect(c.states.block.frames[0].guardStand).toEqual([{ x: 30, y: 140, w: 80, h: 210 }]);
+    expect(c.states.blockCrouch.frames[0].guardCrouch).toEqual([{ x: 30, y: 0, w: 80, h: 160 }]);
+    // authored unscaled, scaled after the override lands — 20 * 2, not 20 or 80
+    expect(c.states.blockCrouch.frames[1].guardCrouch).toEqual([{ x: 30, y: 0, w: 80, h: 40 }]);
   });
 });

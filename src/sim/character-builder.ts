@@ -9,7 +9,7 @@ import type {
   StateName,
   StateSpec,
 } from "./types";
-import { ATTACK_STATE_TO_KEY } from "./types";
+import { ATTACK_STATE_TO_KEY, isGuardableState } from "./types";
 
 // Pure frame-box builders (moved out of config.ts so both the JSON loader and the sim tests
 // reconstruct a CharacterConfig from compact CharacterData). No Phaser, no I/O, deterministic.
@@ -17,8 +17,10 @@ import { ATTACK_STATE_TO_KEY } from "./types";
 const cloneBox = (b: Box): Box => ({ x: b.x, y: b.y, w: b.w, h: b.h });
 const cloneBoxes = (bs: Box[]): Box[] => bs.map(cloneBox);
 
+/** Guard starts EMPTY on every frame; seedGuard fills the guardable states in one later pass, so
+ *  the body templates below stay purely about hurt/push/hit. */
 function fb(hurt: Box[], push: Box, hit: Box[] = []): FrameBoxes {
-  return { hurt: cloneBoxes(hurt), push: cloneBox(push), hit: cloneBoxes(hit) };
+  return { hurt: cloneBoxes(hurt), push: cloneBox(push), hit: cloneBoxes(hit), guardStand: [], guardCrouch: [] };
 }
 
 /** n independent copies of a frame (never aliased — the Gym overwrites single frames). */
@@ -87,6 +89,10 @@ export function assembleCharacter(id: string, data: CharacterData): CharacterCon
     walkF: simpleState(data.frames.walkF, true, stand),
     walkB: simpleState(data.frames.walkB, true, stand),
     crouch: simpleState(data.frames.crouch, true, crouch),
+    // Phase 13b held-guard poses: one-shot into a braced hold (loop:false), NOT looping — a looping
+    // guard sheet reads as popping in and out of block. Guard boxes are seeded by the loop below.
+    block: simpleState(data.frames.block, false, stand),
+    blockCrouch: simpleState(data.frames.blockCrouch, false, crouch),
     jumpRise: simpleState(data.frames.jumpRise, false, air),
     jumpFall: simpleState(data.frames.jumpFall, false, air),
     attackLight: attackState(bodyFor(data.attacks.light.body), data.attacks.light),
@@ -101,21 +107,35 @@ export function assembleCharacter(id: string, data: CharacterData): CharacterCon
     ko: simpleState(data.frames.ko, false, fb(b.ko.hurt, b.ko.push)),
   };
 
-  // Apply per-frame overrides (guard overrides are stored but not consumed here — see note).
+  // Seed the stance guard onto every frame that is allowed to carry one. Doing it as its own pass
+  // (rather than threading a guard pair through the body templates) keeps "which states can guard"
+  // in one readable place, next to the rule that enforces it on overrides below.
+  for (const key of Object.keys(states) as StateName[]) {
+    if (!isGuardableState(key)) continue;
+    for (const f of states[key].frames) {
+      f.guardStand = cloneBoxes(b.guardStand);
+      f.guardCrouch = cloneBoxes(b.guardCrouch);
+    }
+  }
+
+  // Apply per-frame overrides.
   if (data.overrides) {
     for (const key of Object.keys(data.overrides) as StateName[]) {
       const list = data.overrides[key];
       if (!list) continue;
       const frames = states[key].frames;
+      const guardable = isGuardableState(key);
       for (const ov of list) {
         const f = frames[ov.frame];
         if (!f) continue;
         if (ov.hurt) f.hurt = cloneBoxes(ov.hurt);
         if (ov.push) f.push = cloneBox(ov.push);
         if (ov.hit) f.hit = cloneBoxes(ov.hit);
-        // ponytail: per-frame guard overrides (ov.guardStand/guardCrouch) are authored + written
-        // by the Gym but the sim overlays guard globally (fighter.ts activeBoxes); per-frame guard
-        // consumption is deferred — wire it into FrameBoxes + activeBoxes when a move needs it.
+        // A guard box outside the guardable set would make `Fighter.guarding` — which is derived
+        // from box data — true mid-attack. The validator rejects this so no human edit is silently
+        // swallowed; the builder drops it because config.ts assembles with no validator in front.
+        if (guardable && ov.guardStand) f.guardStand = cloneBoxes(ov.guardStand);
+        if (guardable && ov.guardCrouch) f.guardCrouch = cloneBoxes(ov.guardCrouch);
       }
     }
   }
@@ -126,9 +146,6 @@ export function assembleCharacter(id: string, data: CharacterData): CharacterCon
     attacks[key] = toSpec(data.attacks[key], key);
   }
 
-  const guardStand = cloneBoxes(b.guardStand);
-  const guardCrouch = cloneBoxes(b.guardCrouch);
-
   // stats.scale rescales the whole fighter: art (FighterSprite.setScale) AND collision geometry.
   // Applied LAST, in one traversal of the assembled graph, so overrides are authored in the same
   // unscaled space as the base boxes (author once, scale once). Everything here is already a fresh
@@ -138,11 +155,15 @@ export function assembleCharacter(id: string, data: CharacterData): CharacterCon
   if (s !== 1) {
     const scaleBox = (box: Box): void => { box.x *= s; box.y *= s; box.w *= s; box.h *= s; };
     for (const spec of Object.values(states)) {
-      for (const f of spec.frames) { f.hurt.forEach(scaleBox); scaleBox(f.push); f.hit.forEach(scaleBox); }
+      for (const f of spec.frames) {
+        f.hurt.forEach(scaleBox);
+        scaleBox(f.push);
+        f.hit.forEach(scaleBox);
+        f.guardStand.forEach(scaleBox);
+        f.guardCrouch.forEach(scaleBox);
+      }
     }
-    guardStand.forEach(scaleBox);
-    guardCrouch.forEach(scaleBox);
   }
 
-  return { id, stats: { ...data.stats }, states, attacks, guardStand, guardCrouch };
+  return { id, stats: { ...data.stats }, states, attacks };
 }

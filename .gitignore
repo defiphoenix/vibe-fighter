@@ -25,3 +25,5 @@ concepts/**/*.gif
 .env
 .env.*
 !.env.example
+
+e2e/.registry-lock/

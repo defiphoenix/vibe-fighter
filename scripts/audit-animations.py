@@ -47,7 +47,7 @@ ATTACK_KEY = {
     "crouchLight": "crouchLight", "crouchHeavy": "crouchHeavy",
 }
 # Held or looping: they repeat until the player stops, so there is no duration to check them against.
-OPEN_ENDED = {"idle", "walkF", "walkB", "crouch", "ko"}
+OPEN_ENDED = {"idle", "walkF", "walkB", "crouch", "block", "blockCrouch", "ko"}
 # Of those, the ones that genuinely CYCLE: a repeated pose here is a stutter the player sees on loop.
 LOOPING = {"idle", "walkF", "walkB"}
 STUN_TICKS = {"knockdown": 18}  # fixed by Fighter.onLand; hitstun/blockstun come from the attack

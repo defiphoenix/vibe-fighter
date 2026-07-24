@@ -1,9 +1,9 @@
-import type { AttackStateName, Box, CharacterConfig, InputSnapshot, StateName } from "./types";
+import type { AttackStateName, Box, CharacterConfig, FrameBoxes, InputSnapshot, StateName } from "./types";
 import { isAttackState } from "./types";
 import { DT, GROUND_Y } from "./constants";
 
 /** States in which a fighter can start a new action. Exported: cpu.ts gates its reaction timer on it. */
-export const ACTIONABLE: ReadonlySet<StateName> = new Set(["idle", "walkF", "walkB", "crouch"]);
+export const ACTIONABLE: ReadonlySet<StateName> = new Set(["idle", "walkF", "walkB", "crouch", "block", "blockCrouch"]);
 const STUN: ReadonlySet<StateName> = new Set(["hitstun", "blockstun", "knockdown"]);
 
 /** Resolved local box set for the current tick. */
@@ -72,15 +72,31 @@ export class Fighter {
     return this.state === "ko";
   }
 
-  /** True only when a guard box is actually active this tick (block key held, grounded, in a state
-   *  that can guard). guardIntent alone is set even during hitstun/attack, so render/UI cues must use
-   *  THIS, not guardIntent, or they advertise protection that isn't there. */
+  /** True only when a guard box is actually active this tick (block key held, grounded, and the
+   *  current animation frame carries a guard box). guardIntent alone is set even during
+   *  hitstun/attack, so render/UI cues must use THIS, not guardIntent, or they advertise protection
+   *  that isn't there.
+   *
+   *  Derived from the box DATA rather than from a duplicated state list: guard is per-frame now, so
+   *  a state list would be a second claim about the same thing and the two could drift. The builder
+   *  is what guarantees the data can't say yes on an attack frame (see isGuardableState). */
   get guarding(): boolean {
-    return (
-      this.grounded &&
-      this.guardIntent &&
-      (ACTIONABLE.has(this.state) || this.state === "blockstun")
-    );
+    return this.grounded && this.guardIntent && this.guardBoxes().length > 0;
+  }
+
+  /** The current frame's guard boxes for the stance being held, IGNORING whether block is pressed.
+   *  The debug overlay draws these faint to show where a guard WOULD protect; combat gets the gated
+   *  version through activeBoxes(). */
+  guardBoxes(): Box[] {
+    const f = this.currentFrame();
+    return this.crouchIntent ? f.guardCrouch : f.guardStand;
+  }
+
+  /** The frame the sim is on, with the one clamp that every box read shares — a state can be held
+   *  past its last authored slot (stunTimer outliving the art). */
+  private currentFrame(): FrameBoxes {
+    const spec = this.cfg.states[this.state];
+    return spec.frames[Math.min(this.stateFrame, spec.frames.length - 1)];
   }
 
   /** Step 3: FSM decisions from input. facing is from the previous tick's solve. */
@@ -123,7 +139,8 @@ export class Fighter {
     if (this.guardIntent) {
       // ponytail: plant while blocking (guard is stationary + legible). crouchIntent still selects
       // low vs high guard via activeBoxes. Walk-back-while-block is the alternative if desired later.
-      this.setState(this.crouchIntent ? "crouch" : "idle");
+      // Phase 13b: dedicated held-guard states carry the block art; crouchIntent picks high vs low.
+      this.setState(this.crouchIntent ? "blockCrouch" : "block");
       this.vx = 0;
     } else if (this.crouchIntent) {
       this.setState("crouch");
@@ -207,6 +224,12 @@ export class Fighter {
     if (STUN.has(this.state)) {
       this.stunTimer--;
       if (this.stunTimer <= 0 && this.grounded) {
+        // ponytail: a fighter who blocks a hit and keeps holding guard leaves blockstun through idle
+        // for one tick, then think() re-enters block/blockCrouch from frame 0 — replaying the sheet's
+        // raise-guard wind-up (worst on brawler/blockCrouch, whose frame 0 is a standing pose). A
+        // visible seam only in multi-hit blockstrings; state selection still precedes combat, so guard
+        // is never actually dropped. Fix path when it matters: regenerate block/blockCrouch to open
+        // ALREADY braced (frame 0 = the guard pose, held), so re-entry has no wind-up to replay.
         this.setState("idle");
       }
       return;
@@ -255,15 +278,12 @@ export class Fighter {
 
   /** Resolved local boxes for this tick (step 7 reads these). */
   activeBoxes(): ActiveBoxes {
-    const spec = this.cfg.states[this.state];
-    const idx = Math.min(this.stateFrame, spec.frames.length - 1);
-    const frame = spec.frames[idx];
-
-    let guard: Box[] = [];
-    if (this.guarding) {
-      guard = this.crouchIntent ? this.cfg.guardCrouch : this.cfg.guardStand;
-    }
-
-    return { hurt: frame.hurt, push: frame.push, hit: frame.hit, guard };
+    const frame = this.currentFrame();
+    return {
+      hurt: frame.hurt,
+      push: frame.push,
+      hit: frame.hit,
+      guard: this.guarding ? this.guardBoxes() : [],
+    };
   }
 }

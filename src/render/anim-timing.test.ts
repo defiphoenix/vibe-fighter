@@ -39,10 +39,11 @@ describe("attack animations span their move exactly", () => {
   }
 
   it("leaves the genuinely open-ended states on their authored fps", () => {
-    // Only the looping ones: idle/walk repeat until the player stops, so there is no duration to
-    // match. Everything else in STATE_NAMES is timed against the sim by one of the two functions.
+    // The looping ones (idle/walk repeat until the player stops) plus the held guard braces
+    // (block/blockCrouch) and ko: no sim duration to match, so they ride the authored fps. Everything
+    // else in STATE_NAMES is timed against the sim by one of the two functions.
     const { data, render } = reg[FIGHTERS[0]];
-    for (const state of ["idle", "walkF", "walkB", "crouch", "ko"] as StateName[]) {
+    for (const state of ["idle", "walkF", "walkB", "crouch", "block", "blockCrouch", "ko"] as StateName[]) {
       const meta = render.sheets[state];
       expect(stateFrameRate(state, meta, data), state).toBe(meta.fps);
       expect(stunFrameRate(state, meta, 20), state).toBeNull();

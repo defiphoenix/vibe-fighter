@@ -39,6 +39,7 @@ replayed the stand-up twice a second and read as "crouch doesn't hold". `loop: f
 | `idle` | 10 | yes | 4 |
 | `walkF` / `walkB` | 12 | yes | 6 |
 | `crouch` | 12 | **no** | 2 |
+| `block` / `blockCrouch` | 8 | **no** | held guard brace (one-shot into a hold) |
 | `jumpRise` / `jumpFall` | 8 | no | 1 (physics-driven) |
 | `attackLight` | ~12 (read against 4/3/8 startup/active/recovery) | no | 15 |
 | `attackHeavy` | ~12 (read against 9/4/18) | no | 31 |
@@ -49,13 +50,15 @@ replayed the stand-up twice a second and read as "crouch doesn't hold". `loop: f
 
 ## Animation keys
 
-One animation per authoritative sim `StateName` — the 16 states in `src/sim/types.ts`:
-`idle, walkF, walkB, crouch, jumpRise, jumpFall, attackLight, attackHeavy, airLight, airHeavy,
-crouchLight, crouchHeavy, hitstun, blockstun, knockdown, ko`.
+One animation per authoritative sim `StateName` — the 18 states in `src/sim/types.ts`:
+`idle, walkF, walkB, crouch, block, blockCrouch, jumpRise, jumpFall, attackLight, attackHeavy,
+airLight, airHeavy, crouchLight, crouchHeavy, hitstun, blockstun, knockdown, ko`.
 
 Art-list extras in the manifest map to later phases, not here:
-- **block high / block low** → the sim has a single `blockstun`; high/low is box geometry
-  (`GUARD_STAND` vs `GUARD_CROUCH`). Per-frame guard art → Phase 13.
+- **block high / block low** → shipped in Phase 13b as the dedicated held-guard states `block` (high)
+  and `blockCrouch` (low). High/low is still box geometry (`GUARD_STAND` vs `GUARD_CROUCH`, per-frame
+  since Phase 13); the FSM now plants a guarding fighter in these states, and `crouchIntent` picks the
+  stance. `blockstun` remains the separate hit-reaction. Sheet list is **18**.
 - **special-charge / special-exec** → no special state yet → Phase 15.
 
 ## Transparency

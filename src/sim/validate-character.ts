@@ -1,5 +1,5 @@
 import type { AttackKey, AttackStateName, StateName } from "./types";
-import { ATTACK_STATE_TO_KEY, isAttackState } from "./types";
+import { ATTACK_STATE_TO_KEY, isAttackState, isGuardableState } from "./types";
 
 /** Mirrors PLAY_LAG_TICKS in render/anim-timing.ts. Duplicated, not imported: sim/ must not depend
  *  on render/. anim-timing.test.ts pins the two together. */
@@ -10,13 +10,13 @@ const PLAY_LAG_TICKS = 1;
 // paths can't drift. Operates on untyped input — every access is guarded.
 
 export const STATE_NAMES: StateName[] = [
-  "idle", "walkF", "walkB", "crouch", "jumpRise", "jumpFall",
+  "idle", "walkF", "walkB", "crouch", "block", "blockCrouch", "jumpRise", "jumpFall",
   "attackLight", "attackHeavy", "airLight", "airHeavy", "crouchLight", "crouchHeavy",
   "hitstun", "blockstun", "knockdown", "ko",
 ];
 
 const NON_ATTACK: Exclude<StateName, AttackStateName>[] = [
-  "idle", "walkF", "walkB", "crouch", "jumpRise", "jumpFall", "hitstun", "blockstun", "knockdown", "ko",
+  "idle", "walkF", "walkB", "crouch", "block", "blockCrouch", "jumpRise", "jumpFall", "hitstun", "blockstun", "knockdown", "ko",
 ];
 
 // The four air/crouch variants must use the matching body template; the two ground normals are left
@@ -157,7 +157,7 @@ export function validateFighterEntry(id: string, entry: unknown): string[] {
   if (!isObj(data.frames)) p("missing frames");
   else for (const s of NON_ATTACK) if (!isPosInt(data.frames[s])) p(`frames.${s}: positive integer required`);
 
-  // render sheets: exactly the 16 states (STATE_NAMES), each well-formed
+  // render sheets: exactly the 18 states (STATE_NAMES), each well-formed
   if (isObj(render)) {
     for (const k of ["frameWidth", "frameHeight"]) if (!isPosInt(render[k])) p(`render.${k}: positive integer required`);
     if (!Array.isArray(render.anchor) || render.anchor.length !== 2 || !render.anchor.every(isFiniteNum)) {
@@ -202,6 +202,16 @@ export function validateFighterEntry(id: string, entry: unknown): string[] {
             checkBoxArray(ov.hit, `overrides.${key}[${frame}].hit`, errs);
             const inActive = shape?.active && frame >= shape.active[0] && frame < shape.active[1];
             if (!inActive) p(`overrides.${key}: hit override on frame ${frame} is outside the attack active window`);
+          }
+          // Guard, same shape of rule as `hit` above: the box has to be well-formed AND the state has
+          // to be one that can carry a guard box at all. `Fighter.guarding` is derived from this data,
+          // so a guard box on an attack frame would make the attacker blockable mid-punch. The builder
+          // drops these too (config.ts assembles with no validator in front) — this is what stops a
+          // hand edit being silently swallowed.
+          for (const g of ["guardStand", "guardCrouch"] as const) {
+            if (ov[g] === undefined) continue;
+            checkBoxArray(ov[g], `overrides.${key}[${frame}].${g}`, errs);
+            if (!isGuardableState(key as StateName)) p(`overrides.${key}: ${g} override on a state that cannot guard`);
           }
         }
       }

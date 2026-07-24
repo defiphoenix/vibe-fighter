@@ -71,12 +71,13 @@ export function drawDebugBoxes(g: Phaser.GameObjects.Graphics, f: Fighter, show:
   if (show.push) drawBoxes(g, [boxes.push], f, COL.push, 0.5);
   if (show.hurt) drawBoxes(g, boxes.hurt, f, COL.hurt, 0.8);
 
-  // Guard: the sim only resolves a guard box while `guarding` (block held, grounded, guardable
-  // state). Show the stance's box faint the rest of the time so you can see WHERE it would protect
-  // before committing. crouchIntent picks high vs low, exactly as activeBoxes does.
+  // Guard: the sim only resolves a guard box while `guarding` (block held, grounded, and the frame
+  // carries one). Show the frame's box faint the rest of the time so you can see WHERE it would
+  // protect before committing — and, since guard is per-frame now, a frame that carries NO guard box
+  // correctly draws nothing at all rather than a stance box the sim would never honour.
   if (show.guard) {
     if (boxes.guard.length) drawBoxes(g, boxes.guard, f, COL.guard, SOLID);
-    else drawBoxes(g, f.crouchIntent ? f.cfg.guardCrouch : f.cfg.guardStand, f, COL.guard, FAINT);
+    else drawBoxes(g, f.guardBoxes(), f, COL.guard, FAINT);
   }
 
   // Hit: live only during an attack's active window. Outside it, show the move's whole reach faint

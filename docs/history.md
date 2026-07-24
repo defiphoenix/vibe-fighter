@@ -1,0 +1,122 @@
+# Project history
+
+What shipped, in order. Per-phase detail is in [`docs/phases/`](phases/) (`NN-*.md` spec +
+`NN-*-log.md` gate results); this file is the connective narrative, plus the **passes** that happened
+between phases and therefore have no phase log of their own.
+
+`CLAUDE.md` deliberately does not carry this — it's history, not guidance.
+
+## Phases
+
+- **00 baseline** (2026-07-15) — repo verified, tests green, source video + `prompts.txt` captured.
+- **01 architecture** (2026-07-16) — doc-only; [`docs/architecture.md`](architecture.md) established the
+  pure-sim / render-adapter boundary that everything since follows.
+- **02 asset pipeline** (2026-07-16) — placeholder sprite replaces the debug box; Playwright E2E harness
+  born (the `__game.step` pump + `__holdP1` seam).
+- **03 concept mockups** (2026-07-16) — four SNES-style mockups in `concepts/mockups/2026-07-16/`;
+  **rooftop-dusk locked** as the art direction and the roster cut to **brawler / jiujitsu / monk** (the
+  recipe's green boxer and subway stage were dropped). Those three ids are canonical all the way to
+  `public/sprites/<id>/`.
+- **04 parallax backgrounds** (2026-07-17) — 8 layers × 2 stages (twilight/sunset) at 21:9 in
+  `concepts/backgrounds/`, chroma-keyed by `scripts/key-layers.py`.
+- **05 character references** (2026-07-17) — the three fighters pulled out of the dense mockups into
+  isolated refs in `concepts/characters/`.
+- **06 select portraits** (2026-07-17) — 1792×2400 busts on a **baked** backdrop, so unlike every other
+  art phase there is no void and nothing to key. That geometry is the contract Phases 07/11/14/15 build
+  against. First zero-rejection art phase (6 credits).
+- **07 UI + prop atlases** (2026-07-17) — `public/ui/hud-atlas.png` and `public/props/twilight-atlas.png`
+  (16 animated prop frames) via `scripts/build-atlases.py`; the shared provenance gate extracted into
+  `scripts/art_gate.py`.
+- **08 scrolling stage** (2026-07-18) — a world wider than the viewport (`STAGE_WIDTH=1696` vs
+  `VIEW_WIDTH=1280`), per-layer parallax, a midpoint follow-camera, animated props, two
+  config-selectable variants in `public/configs/stages.json`, and the dev `StagePreviewScene`. Camera
+  zoom was deferred to Phase 12.
+- **09 fighter registry + Gym** (2026-07-18) — fighters became data-driven: three entries in
+  `public/configs/character-gym.json` (each `{ render, data }`), the pure `assembleCharacter`, the shared
+  `validate-character` gating both BootScene and the dev Gym write-back, and BOTH fighters animating from
+  real per-state sprites. The Character Gym (`?scene=gym`) landed with it.
+- **10 fighter playground** (2026-07-19) — dev-only `?scene=playground`: controllable fighter + inert
+  dummy, live per-character stat tuning saved back to `character-gym.json`, the keyboard focus guard, and
+  `stats.scale` finally wired to both art and boxes.
+- **11 menus, modes, versus CPU** (2026-07-19) — the game boots into `FlowScene` (title → mode → stage →
+  character select) handing `MatchScene` a `MatchConfig`; `1v1` or `1vCPU` at three difficulties; the
+  pure seeded `CpuController`; portraits baked to `public/ui/portraits/`.
+- **12 core combat + camera integration** (2026-07-22) — zoom-in-only group camera plus a second
+  non-zooming camera for the HUD; z-order follows the most recent MOVER; attack animations phase-aligned
+  to the sim's active window via a measured contact frame; selectable REMATCH / MAIN MENU at match end.
+  Also raised `STAGE_MARGIN` 90→116 (a cornered KO was cropped) and un-clipped the control legend (it
+  measured 1535px in a 1280 viewport).
+- **13 guard box migration** (2026-07-23) — guard moved from two character-level arrays into
+  `FrameBoxes` as a per-frame `guardStand`/`guardCrouch` pair; `CharacterConfig`'s copies are gone and
+  `Fighter.guarding` is derived from the box data instead of a duplicated state list. Per-frame guard
+  overrides — authored and stored since Phase 09 but consumed by nothing — are now honoured by the
+  builder and validated. The Gym can edit guard boxes, which write the stance template. Deliberately
+  **not** taken: block-high/low art, so the 16 states are unchanged. Shipped numbers untouched: every
+  frame of a guardable state is seeded from the same template, which is what made it a no-op.
+- **13b block animation art** (2026-07-24) — took the art Phase 13 skipped: two dedicated held-guard
+  states `block` (high) and `blockCrouch` (low), with real Seedance clips for all three fighters
+  (states 16→18). The FSM guard branch now plants a guarding fighter in these states, and the
+  `GUARDABLE` set was *swapped* to `{block, blockCrouch, blockstun}` — idle/walk/crouch dropped out
+  because a fighter is never guarding while in them (no shipped guard override rode those states, so
+  nothing was lost). `block`/`blockCrouch` also joined `ACTIONABLE`, not for jab-out (the attack edge
+  is read before the guard branch) but to keep `cpu.ts`'s reaction timer running through a guard
+  episode. Held one-shots (`loop:false`) needed no new render code. The Phase-13 per-frame live-guard
+  proof was rebuilt around `blockCrouch`'s deterministic clamped contact frame, since the looping
+  2-slot `crouch` it used to rely on is no longer guardable. Deferred: continuous guard through a
+  blockstun replays the raise-guard wind-up on re-entry (a seam in blockstrings) — fix path is
+  regenerating the sheets to open already braced.
+
+## Passes between phases
+
+### Gameplay resolution pass (2026-07-18)
+
+Freed the fighters' feet; dropped the front `near` layer (the "residual purple" was measured to be real
+dusk palette, 0 magenta spill); made block a **dedicated key** (P1 `Q` / P2 `/`, plant-on-block); added
+**air + crouch attacks** (fighter states 12→16); generated real Seedance sprites for the new and
+idle-derived states across all three fighters. The held/one-shot states (crouch, jumpRise, jumpFall,
+knockdown, ko) got real per-state motion here — they no longer start from the standing idle. Codex
+reviewed both the plan and the diff.
+
+### Crouch/block fix pass (2026-07-19)
+
+Three complaints, three unrelated root causes: crouch pop-up was a **looping** sheet whose first frames
+are the standing wind-up (held states must not loop); block failed only at contact range because the
+guard boxes were a thin forward slab; crouch attacks flaked because `EdgeLatch` buffered the edge but not
+the stance (`downAtPress`).
+
+### CPU difficulty + heavy hitbox pass (2026-07-20)
+
+The CPU was unbeatable even on easy, so it gained a `reactionTicks` window and a `DAMAGE_SCALE` handicap.
+The **ground heavy stopped being a low** once its boxes were measured against its own sprite — it is a
+standing punch, not a sweep. `Esc` started working in every phase, with a mid-match confirm.
+
+### Input-buffer / props / menu / off-screen pass (2026-07-21)
+
+**Attacks were silently dropped** when pressed during your own move — the render latch cleared on any
+fight tick, but `World.tick()` returns "a fight tick ran `think`", NOT "the edge was consumed"; fixed
+with per-edge consumption tracking. The reported **"monk can't do moves" was the FOCUS GUARD, not the
+monk** — picking a fighter from the Playground dropdown left the `<select>` focused so the keyboard
+stayed disabled. **Off-screen fighters** fixed by a sim-side `MAX_SEPARATION=1040` cap (camera zoom was
+rejected — the stage art is exactly viewport-height, so uniform zoom bands the top/bottom). Also: a DEV
+Playground button on the FlowScene title, and the background props shrunk via a new `PropConfig.scale`.
+Attack animation timing was derived from sim duration here, fixing "the light attack does nothing".
+
+### Security pass (2026-07-22, `0713c76`)
+
+`npm audit` 5→0 via vite 5.4.21→7.3.6 and vitest 2→4; `/__gym/save` now requires a full-origin match;
+new `vercel.json` CSP. The 17% bundle shrink is Vite 7's raised browser target, not lost code.
+
+### Animation audit pass (2026-07-23)
+
+A roster-wide audit (`npm run audit:anim`) found the stun/jump timing bug — `knockdown` had 750ms of art
+for a 300ms state, so **the fall never drew** and a fighter stood bolt upright through his entire
+knockdown. The Phase 12 fix for *attacks* had never been swept across the other 15 sheets. Ten
+barely-moving sheets were regenerated in the same pass; see the sampling-rate section of
+[`docs/art-pipeline.md`](art-pipeline.md) for why they came out frozen.
+
+## Deployment history
+
+The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git
+integration. That **lifted the old "never push" rule**. Before that date `.git/` was an empty directory
+and every `git` command failed — notes older than 2026-07-22 saying "there is no VCS safety net" are
+stale.

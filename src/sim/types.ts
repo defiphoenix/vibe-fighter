@@ -9,11 +9,16 @@ export interface Box {
   h: number;
 }
 
-/** Boxes for one animation frame. Any array may be empty (e.g. hit[] only on active frames). */
+/** Boxes for one animation frame. Any array may be empty (e.g. hit[] only on active frames).
+ *  Guard is carried as BOTH stances rather than one resolved array: the fighter's crouch INTENT
+ *  picks between them at read time (`Fighter.guardBoxes`), which is what lets a crouch-blocker keep
+ *  low guard through `blockstun` — a state with one body and no stance of its own. */
 export interface FrameBoxes {
   hurt: Box[];
   push: Box;
   hit: Box[];
+  guardStand: Box[];
+  guardCrouch: Box[];
 }
 
 export type StateName =
@@ -21,6 +26,8 @@ export type StateName =
   | "walkF"
   | "walkB"
   | "crouch"
+  | "block"
+  | "blockCrouch"
   | "jumpRise"
   | "jumpFall"
   | "attackLight"
@@ -62,6 +69,21 @@ export function isWalkState(s: StateName): boolean {
   return s === "walkF" || s === "walkB";
 }
 
+/** States whose frames CARRY a guard box. Phase 13b: a guarding fighter is now planted in a dedicated
+ *  `block`/`blockCrouch` state (the FSM guard branch), so those two — plus `blockstun`, which has no
+ *  stance of its own and relies on `crouchIntent` to keep a crouch-blocker's low guard up while
+ *  stunned — are exactly the states where a guard box is live. idle/walk/crouch dropped out: a fighter
+ *  is never guarding while in them. Read by BOTH the builder (which refuses to apply a guard override
+ *  outside this set) and the validator (which rejects one) — `guarding` is derived from box data now,
+ *  so a guard box authored onto an attack frame would otherwise make a fighter blockable mid-punch. */
+const GUARDABLE: ReadonlySet<StateName> = new Set<StateName>([
+  "block", "blockCrouch", "blockstun",
+]);
+
+export function isGuardableState(s: StateName): boolean {
+  return GUARDABLE.has(s);
+}
+
 export interface StateSpec {
   /** number of animation frames; stateFrame indexes frames[] */
   frames: FrameBoxes[];
@@ -89,14 +111,14 @@ export interface FighterStats {
   scale: number;
 }
 
+/** Guard boxes are NOT here: they live per-frame in `FrameBoxes` (Phase 13). `CharacterData.boxes`
+ *  keeps the stance template that seeds them, so there is exactly one assembled place to read a
+ *  guard box from and it cannot drift from the frame it claims to describe. */
 export interface CharacterConfig {
   id: string;
   stats: FighterStats;
   states: Record<StateName, StateSpec>;
   attacks: Record<AttackKey, AttackSpec>;
-  /** guard boxes overlaid when guardIntent is held (separate from locomotion state) */
-  guardStand: Box[];
-  guardCrouch: Box[];
 }
 
 // ---- Authorable character data (JSON-friendly; the render edge loads it, a pure builder
@@ -118,8 +140,8 @@ export interface AttackData {
 }
 
 /** A signature per-frame box tweak applied after base assembly (what the Gym writes).
- *  guardStand/guardCrouch are authored/stored but NOT yet consumed per-frame by the sim
- *  (guard is a global stance overlay — see assembleCharacter). */
+ *  guardStand/guardCrouch are honoured only on a state `isGuardableState` accepts; the builder drops
+ *  them anywhere else and the validator rejects them there. */
 export interface FrameOverride {
   frame: number;
   hurt?: Box[];
@@ -150,6 +172,8 @@ export interface CharacterData {
     walkF: number;
     walkB: number;
     crouch: number;
+    block: number;
+    blockCrouch: number;
     jumpRise: number;
     jumpFall: number;
     hitstun: number;

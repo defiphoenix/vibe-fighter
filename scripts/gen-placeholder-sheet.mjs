@@ -36,6 +36,8 @@ const POSE = {
   walkF: { bodyH: 140, bodyW: 40, stride: true },
   walkB: { bodyH: 140, bodyW: 40, stride: true },
   crouch: { bodyH: 92, bodyW: 48 },
+  block: { bodyH: 138, bodyW: 44, guard: true },
+  blockCrouch: { bodyH: 92, bodyW: 48, guard: true },
   jumpRise: { bodyH: 128, bodyW: 38, armsUp: true },
   jumpFall: { bodyH: 128, bodyW: 38, armsUp: true },
   attackLight: { bodyH: 140, bodyW: 40, punch: "high" },

@@ -5,22 +5,28 @@ import { GROUND_Y, VIEW_WIDTH } from "../sim/constants";
 import { loadRegistry, buildConfig, type CharacterRegistry } from "../render/characters";
 import { FighterSprite } from "../render/fighter-sprite";
 import { installFocusGuard, num, numRow, row, saveRegistry, select } from "../render/dev-panel";
+import { guardView, mergeFrameOverride, persistGuard, toAuthored, type GuardKind } from "../render/gym-persist";
 import { STATE_NAMES } from "../sim/validate-character";
+import { isGuardableState } from "../sim/types";
 import type { Box, CharacterData, FrameOverride, StateName } from "../sim/types";
 
 const FX = VIEW_WIDTH / 2; // fighter feet-center x (camera unscrolled → world == screen)
 const FY = GROUND_Y;
-const COL = { hurt: 0x33dd55, hit: 0xff3355, push: 0xffffff, sel: 0xffe000 };
+const COL = { hurt: 0x33dd55, hit: 0xff3355, push: 0xffffff, guardStand: 0x33bbff, guardCrouch: 0x33bbff, sel: 0xffe000 };
 
-type EditKind = "hurt" | "push" | "hit";
+type EditKind = "hurt" | "push" | "hit" | GuardKind;
 interface Editable { box: Box; kind: EditKind; idx: number }
+
+const isGuardKind = (k: EditKind): k is GuardKind => k === "guardStand" || k === "guardCrouch";
 
 /** Dev-only Character Gym (?scene=gym). Displays one fighter's authored boxes on the exact combat
  *  path (a real Fighter → activeBoxes), edits them with Q (translate) / W (scale) gizmos, and saves
  *  to public/configs/character-gym.json via the dev Vite middleware. No sparring: combat "flows"
  *  because the Match scene reloads the saved JSON.
- *  ponytail: guard boxes aren't per-frame editable here (sim overlays guard globally — see
- *  character-builder). Static authoring only; a live sparring preview can come later. */
+ *  Guard boxes are editable on any state that can carry one, but they edit the STANCE TEMPLATE (all
+ *  frames) rather than a single frame — see render/gym-persist.ts. Per-frame guard variation is a
+ *  hand-authored JSON override; the sim honours it, the Gym just doesn't author it.
+ *  ponytail: no live sparring preview here. */
 export class GymScene extends Phaser.Scene {
   private reg!: CharacterRegistry;
   private rawFile!: Record<string, { render: unknown; data: CharacterData }>;
@@ -63,7 +69,28 @@ export class GymScene extends Phaser.Scene {
         setState: (s: StateName) => this.setState(s),
         edit: (dx: number, dy: number) => this.nudge(dx, dy),
         save: () => this.save(),
-        current: () => ({ id: this.id, state: this.state, frame: this.frame, sel: this.sel }),
+        // Selecting by KIND, not by simulating Tab presses: trusted keyboard events don't reach
+        // Phaser headless, so an e2e has no other way to land on a specific box.
+        selectKind: (kind: EditKind): boolean => {
+          const i = this.editable().findIndex((e) => e.kind === kind);
+          if (i < 0) return false;
+          this.sel = i;
+          this.redraw();
+          return true;
+        },
+        current: () => {
+          const e = this.editable()[this.sel];
+          return { id: this.id, state: this.state, frame: this.frame, sel: this.sel, kind: e?.kind, box: e?.box };
+        },
+        // What WOULD be saved. Lets a spec check that a guard edit landed on the stance template and
+        // wrote no per-frame override, without having to save and re-read the real registry file.
+        data: () => JSON.parse(JSON.stringify(this.working)) as CharacterData,
+        /** The assembled frame the sim would actually use — the claim the template edit is making. */
+        frameGuard: (state: StateName, frame: number) => {
+          const spec = this.fighter.cfg.states[state];
+          const f = spec.frames[Math.min(frame, spec.frames.length - 1)];
+          return { guardStand: f.guardStand, guardCrouch: f.guardCrouch };
+        },
       };
     }
   }
@@ -89,6 +116,9 @@ export class GymScene extends Phaser.Scene {
     this.redraw();
   }
 
+  /** hurt/push/hit come off the assembled frame (they ARE per-frame). Guard comes off a scaled view
+   *  of the stance template instead — see gym-persist.guardView for why the frame's own guard box is
+   *  the wrong thing to hand the user. Guard entries only appear on states that can carry one. */
   private editable(): Editable[] {
     const spec = this.fighter.cfg.states[this.state];
     const f = spec.frames[Math.min(this.frame, spec.frames.length - 1)];
@@ -96,6 +126,11 @@ export class GymScene extends Phaser.Scene {
     f.hurt.forEach((box, idx) => list.push({ box, kind: "hurt", idx }));
     list.push({ box: f.push, kind: "push", idx: 0 });
     f.hit.forEach((box, idx) => list.push({ box, kind: "hit", idx }));
+    if (isGuardableState(this.state)) {
+      for (const kind of ["guardStand", "guardCrouch"] as const) {
+        guardView(this.working, kind).forEach((box, idx) => list.push({ box, kind, idx }));
+      }
+    }
     return list;
   }
 
@@ -141,8 +176,20 @@ export class GymScene extends Phaser.Scene {
     if (!e) return;
     if (this.mode === "translate") { e.box.x += dx; e.box.y += -dy; } // world y-down → local y-up
     else { e.box.w = Math.max(1, e.box.w + dx); e.box.h = Math.max(1, e.box.h - dy); }
-    this.persist();
-    this.redraw();
+    this.commit(e);
+  }
+
+  /** Guard edits the whole STANCE, hurt/push/hit edit ONE frame — so a guard edit has to re-assemble
+   *  (every frame holds its own clone of the template; a bare redraw would leave the others stale),
+   *  while a per-frame edit can just redraw what it already mutated in place. */
+  private commit(e: Editable): void {
+    if (isGuardKind(e.kind)) {
+      persistGuard(this.working, e.kind, e.idx, e.box);
+      this.rebuild();
+    } else {
+      this.persist();
+      this.redraw();
+    }
   }
 
   private nudge(dx: number, dy: number): void { this.applyDelta(dx, dy); }
@@ -156,15 +203,15 @@ export class GymScene extends Phaser.Scene {
   private persist(): void {
     const spec = this.fighter.cfg.states[this.state];
     const f = spec.frames[this.frame];
-    const s = this.working.stats.scale;
-    const r = (n: number): number => Math.round((n / s) * 100) / 100;
-    const copy = (b: Box): Box => ({ x: r(b.x), y: r(b.y), w: r(b.w), h: r(b.h) });
+    const copy = (b: Box): Box => toAuthored(b, this.working.stats.scale);
     const entry: FrameOverride = { frame: this.frame, hurt: f.hurt.map(copy), push: copy(f.push) };
     if (f.hit.length) entry.hit = f.hit.map(copy);
     const ov = (this.working.overrides ??= {});
     const listRaw = (ov[this.state] ??= []);
     const existing = listRaw.findIndex((o) => o.frame === this.frame);
-    if (existing >= 0) listRaw[existing] = entry;
+    // Preserve any per-frame guard override already on this frame — the Gym doesn't author one, but a
+    // hand-authored JSON can, and rebuilding the entry from body fields alone would drop it.
+    if (existing >= 0) listRaw[existing] = mergeFrameOverride(listRaw[existing], entry);
     else listRaw.push(entry);
   }
 
@@ -248,8 +295,7 @@ export class GymScene extends Phaser.Scene {
     e.box.y = num(this.inputs.y.value, e.box.y);
     e.box.w = Math.max(1, num(this.inputs.w.value, e.box.w));
     e.box.h = Math.max(1, num(this.inputs.h.value, e.box.h));
-    this.persist();
-    this.redraw();
+    this.commit(e);
   }
 
   private async save(): Promise<void> {

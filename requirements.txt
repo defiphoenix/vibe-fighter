@@ -1,0 +1,5 @@
+# Ambient deps for the Python art pipeline under scripts/. None ship in the bundle.
+# scipy is needed only by build-atlases.py (ndimage.label).
+pillow
+numpy
+scipy

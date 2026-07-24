@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync, writeFileSync } from "node:fs";
+import { withRegistryLock } from "./registry-lock";
 
 // Phase 11 acceptance for the Play flow (title -> mode -> stage -> characters -> match), the CPU
 // opponent, and the Playground's save-to-config round trip.
@@ -209,7 +210,9 @@ test.describe("Phase 11 — menus, modes, versus flow", () => {
 
   test("Playground stats saved to the config apply in the main game", async ({ page }) => {
     // The dev endpoint writes to the ONE real registry file and this repo has no VCS safety net,
-    // so snapshot the bytes and put them back whatever happens.
+    // so snapshot the bytes and put them back whatever happens. The lock serializes this against the
+    // other file-mutating spec (gym-guard) so parallel workers can't clobber each other's mutation.
+    await withRegistryLock(async () => {
     const original = readFileSync(REGISTRY);
     try {
       await page.goto("/?scene=playground");
@@ -230,5 +233,6 @@ test.describe("Phase 11 — menus, modes, versus flow", () => {
     } finally {
       writeFileSync(REGISTRY, original);
     }
+    });
   });
 });

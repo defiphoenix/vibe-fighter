@@ -11,7 +11,9 @@ import { assembleCharacter } from "./character-builder";
 // a ground normal. The SHIPPED roster's ground heavy is a HIGH — its art is a standing punch — so
 // don't read this fixture as the game's move list. The shipped high/low matrix lives in
 // registry.test.ts, which runs against character-gym.json rather than this dummy.
-const TEST_DUMMY: CharacterData = {
+// Exported so a test can assemble a VARIANT of the shared fixture (e.g. with a per-frame guard
+// override) without re-authoring 40 boxes that would then drift from the numbers below.
+export const TEST_DUMMY: CharacterData = {
   stats: { walkSpeed: 220, jumpVelocity: 900, gravity: 2600, maxHealth: 100, scale: 1 },
   boxes: {
     pushStand: { x: -28, y: 0, w: 56, h: 175 },
@@ -37,7 +39,7 @@ const TEST_DUMMY: CharacterData = {
     crouchLight: { body: "crouch", startup: 4, active: 3, recovery: 9, hit: { x: 38, y: 18, w: 66, h: 40 }, damage: 5, hitstun: 11, blockstun: 8, hitstop: 6, knockback: { x: 110, y: 0 }, chip: 1 },
     crouchHeavy: { body: "crouch", startup: 8, active: 4, recovery: 20, hit: { x: 48, y: 6, w: 100, h: 42 }, damage: 13, hitstun: 18, blockstun: 14, hitstop: 10, knockback: { x: 220, y: -240 }, chip: 3 },
   },
-  frames: { idle: 4, walkF: 6, walkB: 6, crouch: 2, jumpRise: 1, jumpFall: 1, hitstun: 1, blockstun: 1, knockdown: 1, ko: 1 },
+  frames: { idle: 4, walkF: 6, walkB: 6, crouch: 2, block: 2, blockCrouch: 2, jumpRise: 1, jumpFall: 1, hitstun: 1, blockstun: 1, knockdown: 1, ko: 1 },
 };
 
 export const FIGHTER_A = assembleCharacter("fighter-a", TEST_DUMMY);

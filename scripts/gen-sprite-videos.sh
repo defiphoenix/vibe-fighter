@@ -31,6 +31,10 @@ declare -A START_OVERRIDE=(
   # at the right scale. Starting a crouch ATTACK from the crouch state's own final frame also means
   # the two animations agree pixel-for-pixel at the moment the player presses the button.
   [jiujitsu/crouchLight]="concepts/characters/sprites/jiujitsu/crouch/03.png"
+  # blockCrouch is a deep crouch too — same start-image discipline as the crouch states. The monk has
+  # no crouched frame of his own; jiujitsu starts from his own already-deep crouch frame.
+  [monk/blockCrouch]="concepts/characters/crouch-refs/monk-crouch.png"
+  [jiujitsu/blockCrouch]="concepts/characters/sprites/jiujitsu/crouch/03.png"
 )
 
 # per-fighter outfit clause so every state keeps the exact same look
@@ -66,6 +70,8 @@ declare -A MOTION=(
   # backward without moving his legs, and brawler froze for the first 4 of 8 frames. Name the cycle.
   [walkB]="walks backward with a complete and clearly visible walking cycle, repeated steadily for the whole clip: he lifts one foot right off the ground, swings that leg back behind him and plants it, then does the same with the other leg, over and over. The legs alternate continuously and are never both planted still at the same time. Guard stays up and his torso stays upright and facing right"
   [crouch]="ducks down low into a compact crouching guard and holds it"
+  [block]="settles into a tight high guard, both forearms raised in front of his head and chest, and braces there steadily on his feet, weight shifting only slightly the whole time"
+  [blockCrouch]="squats all the way down into a deep low crouch, thighs parallel to the ground and torso upright, both forearms raised in a low guard covering his body, and braces there. He NEVER stands up tall and NEVER lies down; only his weight shifts slightly"
   [jumpRise]="crouches slightly then leaps straight up, rising into the air with legs tucking up"
   [jumpFall]="falls downward from the peak of a jump, legs extending toward a landing"
   [attackLight]="throws one straight jab: the lead arm reaches forward until the elbow is completely straight and the fist is far out in front of his chest, then returns to guard. The arm fully extending is the single biggest movement in the clip. ${SPAN_CLIP}"
@@ -86,8 +92,10 @@ declare -A MOTION_FROM_START=(
   [monk/crouchLight]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and punches: his lead arm shoots straight forward until the elbow is completely straight and the fist is far out in front of him, then pulls back to his chest. ONLY the arm moves"
   [monk/crouchHeavy]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and sweeps one heavy low attack forward along the floor, the striking arm or leg extending far out in front of him and then returning. His hips stay down the whole time. ${SPAN_CLIP}"
   [jiujitsu/crouchLight]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and punches: his lead arm shoots straight forward until the elbow is completely straight and the fist is far out in front of him, then pulls back to his chest. ONLY the arm moves. ${SPAN_CLIP}"
+  [monk/blockCrouch]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and holds both forearms up in a low guard covering his body, bracing steadily. His hips stay down the whole time and he never rises"
+  [jiujitsu/blockCrouch]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and holds both forearms up in a low guard covering his body, bracing steadily. His hips stay down the whole time and he never rises"
 )
-STATES=("$@"); [ ${#STATES[@]} -eq 0 ] && STATES=(walkF walkB crouch jumpRise jumpFall attackLight attackHeavy airLight airHeavy crouchLight crouchHeavy hitstun blockstun knockdown ko)
+STATES=("$@"); [ ${#STATES[@]} -eq 0 ] && STATES=(walkF walkB crouch block blockCrouch jumpRise jumpFall attackLight attackHeavy airLight airHeavy crouchLight crouchHeavy hitstun blockstun knockdown ko)
 
 for ST in "${STATES[@]}"; do
   DIR="concepts/characters/sprites/$FID/$ST"; MP4="concepts/characters/video/$FID/$ST.mp4"

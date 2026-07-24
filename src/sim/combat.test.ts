@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { World } from "./world";
-import { FIGHTER_A, FIGHTER_B } from "./config";
-import { emptyInput, type InputSnapshot } from "./types";
+import { FIGHTER_A, FIGHTER_B, TEST_DUMMY } from "./config";
+import { Fighter } from "./fighter";
+import { assembleCharacter } from "./character-builder";
+import { emptyInput, type CharacterData, type InputSnapshot, type StateName } from "./types";
 import { DT, GROUND_Y } from "./constants";
 
 function mk(over: Partial<InputSnapshot> = {}): InputSnapshot {
@@ -169,7 +171,7 @@ describe("geometric blocking (dedicated block key)", () => {
     w.tick(NONE);
     const forwardForP2 = p2.facing > 0 ? { right: true } : { left: true };
     w.tick([mk(), mk({ block: true, ...forwardForP2 })]);
-    expect(p2.state).toBe("idle"); // planted, not walkF
+    expect(p2.state).toBe("block"); // planted in the held-guard state, not walkF
     expect(p2.vx).toBe(0);
     expect(p2.activeBoxes().guard.length).toBeGreaterThan(0); // guard still up
   });
@@ -309,7 +311,9 @@ describe("crouch attacks (low moves)", () => {
     const p2 = w.fighters[1];
     w.tick([mk(), mk({ block: true, down: false, downAtPress: true })]);
     expect(p2.crouchIntent).toBe(false);
-    expect(p2.activeBoxes().guard[0].y).toBe(p2.cfg.guardStand[0].y); // standing guard, not crouch
+    expect(p2.state).toBe("block"); // planted in the high-guard state, not blockCrouch
+    // standing guard, not crouch — read off the frame the fighter is actually on
+    expect(p2.activeBoxes().guard[0].y).toBe(p2.cfg.states.block.frames[0].guardStand[0].y);
   });
 
   it("grounded WITHOUT down stays the standing attack", () => {
@@ -425,5 +429,151 @@ describe("Fighter.damageScale — the CPU difficulty handicap", () => {
     }
     expect(blocked).toBe(true);
     expect(before - w.fighters[1].health).toBe(0);
+  });
+});
+
+// Phase 13/13b: guard is per-frame data. These drive a real World rather than reading the assembler,
+// because the acceptance criterion is that a guard box VARIES BY FRAME during a match. A low-guarding
+// fighter is now planted in the held `blockCrouch` state (loop:false), so its frames are the live
+// carriers — `blockstun` can't show this (single slot, stateFrame frozen during stun). blockCrouch
+// clamps to its final sim slot well before a startup-4 attack connects, so the contact frame is
+// DETERMINISTIC rather than parity-dependent: strip the guard box from exactly that frame and the same
+// low passes; strip a frame the defender is never on at contact and it still blocks.
+describe("per-frame guard boxes in a live match", () => {
+  /** A world whose DEFENDER (p2) is a variant of the shared dummy. */
+  function worldWithDefenderOverride(overrides: CharacterData["overrides"], gap = 90): World {
+    const data: CharacterData = JSON.parse(JSON.stringify(TEST_DUMMY));
+    data.overrides = overrides;
+    const w = new World(FIGHTER_A, assembleCharacter("dummy-b", data));
+    w.match.phase = "fight";
+    w.match.introTicks = 0;
+    w.fighters[0].reset(640 - gap / 2, 1);
+    w.fighters[1].reset(640 + gap / 2, -1);
+    return w;
+  }
+
+  /** p1 throws one crouch light on tick `pressTick`; p2 holds a low (block+down) guard throughout, so
+   *  it is planted in `blockCrouch`. Reports what happened AND the defender's blockCrouch frame live on
+   *  the tick contact resolved — damage alone can't tell "the guard box was missing" from "the attack
+   *  whiffed". */
+  function lowExchange(w: World, pressTick: number): { dealt: number; type: string; frame: number } {
+    const start = w.fighters[1].health;
+    const press = mk({ light: true, lightPressed: true, down: true });
+    const hold = mk({ down: true });
+    const guard = mk({ block: true, down: true });
+    let type = "none";
+    let frame = -1;
+    for (let i = 0; i < 40; i++) {
+      // combat resolves BEFORE advanceTimers, so the frame live at contact is the pre-tick one.
+      const pre = { state: w.fighters[1].state, frame: w.fighters[1].stateFrame };
+      const seen = w.events.length;
+      w.tick([i === pressTick ? press : hold, guard]);
+      const ev = w.events.slice(seen).find((e) => e.type === "hit" || e.type === "block");
+      if (ev && type === "none") {
+        type = ev.type;
+        frame = pre.state === "blockCrouch" ? pre.frame : -1;
+      }
+    }
+    return { dealt: start - w.fighters[1].health, type, frame };
+  }
+
+  const CHIP = TEST_DUMMY.attacks.crouchLight.chip;
+  const DAMAGE = TEST_DUMMY.attacks.crouchLight.damage;
+  const PRESS = 0;
+
+  it("blocks a low while planted in blockCrouch, guard box uniform (the control)", () => {
+    const r = lowExchange(worldWithDefenderOverride(undefined), PRESS);
+    expect(r.type).toBe("block");
+    expect(r.dealt).toBe(CHIP);
+    expect(r.frame, "contact resolved on a real blockCrouch frame").toBeGreaterThanOrEqual(0);
+  });
+
+  it("a guard box stripped from the live blockCrouch contact frame lets the SAME low through", () => {
+    // The contact frame is deterministic (blockCrouch clamps to its final slot before startup-4
+    // connects); read it from the uniform-guard control rather than hardcoding it.
+    const contactFrame = lowExchange(worldWithDefenderOverride(undefined), PRESS).frame;
+    expect(contactFrame).toBeGreaterThanOrEqual(0);
+    const otherFrame = contactFrame === 0 ? 1 : 0;
+    const parkedAboveHead = { x: -32, y: 300, w: 90, h: 10 };
+
+    // Strip the guard box from exactly the frame that is live at contact → the low now lands.
+    const stripLive: CharacterData["overrides"] = {
+      blockCrouch: [{ frame: contactFrame, guardCrouch: [parkedAboveHead] }],
+    };
+    const open = lowExchange(worldWithDefenderOverride(stripLive), PRESS);
+    expect(open.type).toBe("hit"); // same input, same range — only the contact frame's guard box moved
+    expect(open.dealt).toBe(DAMAGE);
+
+    // Strip a frame the defender is NEVER on at contact → the block is untouched.
+    const stripOther: CharacterData["overrides"] = {
+      blockCrouch: [{ frame: otherFrame, guardCrouch: [parkedAboveHead] }],
+    };
+    const stillBlocked = lowExchange(worldWithDefenderOverride(stripOther), PRESS);
+    expect(stillBlocked.type).toBe("block");
+    expect(stillBlocked.dealt).toBe(CHIP);
+  });
+
+  it("guard is unavailable on every frame that cannot carry one", () => {
+    // Set the flags directly: think() clears guardIntent through its grounded gate, which would
+    // make this pass for the wrong reason.
+    const f = new Fighter(FIGHTER_A, 0);
+    // Phase 13b: idle/walk/crouch dropped out of the guardable set — a fighter is never guarding while
+    // in them (the guard plant now puts it in block/blockCrouch), so they carry no guard box either.
+    for (const state of ["idle", "walkF", "walkB", "crouch", "attackLight", "attackHeavy", "airLight",
+      "airHeavy", "crouchLight", "crouchHeavy", "hitstun", "knockdown", "ko", "jumpRise",
+      "jumpFall"] as StateName[]) {
+      (f as unknown as { state: StateName }).state = state;
+      f.grounded = true;
+      f.guardIntent = true;
+      for (const crouching of [false, true]) {
+        f.crouchIntent = crouching;
+        for (let i = 0; i < FIGHTER_A.states[state].frames.length; i++) {
+          f.stateFrame = i;
+          expect(f.guardBoxes(), `${state}[${i}]`).toEqual([]);
+          expect(f.guarding, `${state}[${i}]`).toBe(false);
+          expect(f.activeBoxes().guard, `${state}[${i}]`).toEqual([]);
+        }
+      }
+    }
+  });
+
+  it("crouch intent picks the stance mid-blockstun, where the state has none of its own", () => {
+    // blockstun's frames carry BOTH stances precisely so a crouch-blocker keeps low guard while
+    // stunned. Nothing else in the sim distinguishes a high from a low blockstun.
+    const w = fightWorld(90);
+    const p2 = w.fighters[1];
+    for (let i = 0; i < 20 && p2.state !== "blockstun"; i++) {
+      w.tick([i === 0 ? mk({ light: true, lightPressed: true }) : mk(), mk({ block: true })]);
+    }
+    expect(p2.state).toBe("blockstun");
+    p2.crouchIntent = false;
+    const high = p2.guardBoxes();
+    p2.crouchIntent = true;
+    const low = p2.guardBoxes();
+    expect(high.length).toBeGreaterThan(0);
+    expect(low.length).toBeGreaterThan(0);
+    expect(low[0].y).toBeLessThan(high[0].y); // genuinely the two different bands
+  });
+
+  it("mirrors with facing: the same exchange resolves identically from either side", () => {
+    const run = (p1Left: boolean): { dealt: number; type: string } => {
+      const w = fightWorld(90);
+      if (!p1Left) {
+        w.fighters[0].reset(640 + 45, -1);
+        w.fighters[1].reset(640 - 45, 1);
+      }
+      return lowExchange(w, 0);
+    };
+    const a = run(true);
+    const b = run(false);
+    expect(a.type).toBe("block");
+    expect(a).toEqual(b);
+    // …and an unguarded control, so "both blocked" can't secretly be "both whiffed".
+    const w = fightWorld(90);
+    const start = w.fighters[1].health;
+    for (let i = 0; i < 40; i++) {
+      w.tick([i === 0 ? mk({ light: true, lightPressed: true, down: true }) : mk({ down: true }), mk()]);
+    }
+    expect(start - w.fighters[1].health).toBe(DAMAGE);
   });
 });
