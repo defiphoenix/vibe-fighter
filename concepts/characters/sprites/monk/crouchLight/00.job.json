@@ -1,8 +1,8 @@
 [
   {
-    "created_at": "2026-07-23T14:58:50.203467Z",
+    "created_at": "2026-07-25T17:22:47.516084Z",
     "display_name": "Seedance 2.0",
-    "id": "ee255c6c-e432-402e-b79e-133f5e5620e8",
+    "id": "a3c438b3-07af-4eda-868b-0d568d93feac",
     "job_type": "seedance_2_0",
     "min_result_url": null,
     "params": {
@@ -15,9 +15,9 @@
       "medias": [
         {
           "data": {
-            "id": "863608f7-0d2b-4cf1-886d-eb8ad86bf75d",
+            "id": "5e86ba9a-edaf-4cad-89d0-8ac383f311e2",
             "type": "media_input",
-            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/863608f7-0d2b-4cf1-886d-eb8ad86bf75d_resize.jpg"
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/5e86ba9a-edaf-4cad-89d0-8ac383f311e2_resize.jpg"
           },
           "role": "start_image"
         }
@@ -27,15 +27,15 @@
       "multi_prompt": [],
       "multi_shot_mode": "custom",
       "multi_shots": false,
-      "prompt": "The SAME single monk fighter from the start image stays in exactly the low crouched position of the start image without raising his hips or head at all, and punches: his lead arm shoots straight forward until the elbow is completely straight and the fist is far out in front of him, then pulls back to his chest. ONLY the arm moves, side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt": "The SAME single monk fighter from the start image stays in exactly the low crouched position of the start image without raising his hips or head at all, and punches LOW along the floor: his lead arm shoots straight forward at SHIN HEIGHT, the fist skimming forward just above the ground level with his own ankles and NEVER rising as high as his own knees, until the elbow is completely straight and the fist is far out in front of him, then pulls back. ONLY the arm moves -- his head, shoulders and hips do not rise at all, side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
       "prompt_language": "en",
       "reference_elements": [],
       "resolution": "720p",
       "speedramp": "auto",
       "width": 720
     },
-    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_145850_ee255c6c-e432-402e-b79e-133f5e5620e8.mp4",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_172247_a3c438b3-07af-4eda-868b-0d568d93feac.mp4",
     "status": "completed",
-    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_145850_ee255c6c-e432-402e-b79e-133f5e5620e8_thumbnail.webp"
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_172247_a3c438b3-07af-4eda-868b-0d568d93feac_thumbnail.webp"
   }
 ]

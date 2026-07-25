@@ -1,8 +1,8 @@
 [
   {
-    "created_at": "2026-07-23T15:12:56.707444Z",
+    "created_at": "2026-07-25T17:18:57.61448Z",
     "display_name": "Seedance 2.0",
-    "id": "5355075c-a55d-4a5d-bc44-0a0f12897ad8",
+    "id": "e0aa1624-50df-4eac-a3b5-5511ee58e69d",
     "job_type": "seedance_2_0",
     "min_result_url": null,
     "params": {
@@ -15,9 +15,9 @@
       "medias": [
         {
           "data": {
-            "id": "e0e77e87-ad90-4b28-8020-854efe231ae2",
+            "id": "b3b69e00-3930-45be-aed5-dff132c1456a",
             "type": "media_input",
-            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/e0e77e87-ad90-4b28-8020-854efe231ae2_resize.jpg"
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/b3b69e00-3930-45be-aed5-dff132c1456a_resize.jpg"
           },
           "role": "start_image"
         }
@@ -27,15 +27,15 @@
       "multi_prompt": [],
       "multi_shot_mode": "custom",
       "multi_shots": false,
-      "prompt": "The SAME single monk fighter from the start image stays in exactly the low crouched position of the start image without raising his hips or head at all, and sweeps one heavy low attack forward along the floor, the striking arm or leg extending far out in front of him and then returning. His hips stay down the whole time. Perform this single motion slowly and steadily so that it fills the ENTIRE clip from the very first moment to the very last: extending through the first half and returning through the second half. Never hold still, and never repeat the motion twice — at every instant the body is at a different position from every other instant., side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt": "The SAME single monk fighter from the start image stays in exactly the low crouched position of the start image without raising his hips or head at all, and sweeps one heavy low attack forward ALONG THE GROUND at ankle height: the striking arm or leg skims just above the floor, reaching far out in front of him and never rising as high as his own knees, then returns. His hips stay down the whole time. Perform this single motion slowly and steadily so that it fills the ENTIRE clip from the very first moment to the very last: extending through the first half and returning through the second half. Never hold still, and never repeat the motion twice — at every instant the body is at a different position from every other instant., side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
       "prompt_language": "en",
       "reference_elements": [],
       "resolution": "720p",
       "speedramp": "auto",
       "width": 720
     },
-    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_151256_5355075c-a55d-4a5d-bc44-0a0f12897ad8.mp4",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_171857_e0aa1624-50df-4eac-a3b5-5511ee58e69d.mp4",
     "status": "completed",
-    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260723_151256_5355075c-a55d-4a5d-bc44-0a0f12897ad8_thumbnail.webp"
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_171857_e0aa1624-50df-4eac-a3b5-5511ee58e69d_thumbnail.webp"
   }
 ]

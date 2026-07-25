@@ -493,8 +493,7 @@
           "path": "sprites/jiujitsu/airLight.png",
           "frames": 4,
           "fps": 12,
-          "loop": false,
-          "hit": 2
+          "loop": false
         },
         "airHeavy": {
           "path": "sprites/jiujitsu/airHeavy.png",
@@ -906,8 +905,7 @@
           "path": "sprites/monk/crouchHeavy.png",
           "frames": 4,
           "fps": 10,
-          "loop": false,
-          "hit": 1
+          "loop": false
         },
         "special": {
           "path": "sprites/monk/special.png",

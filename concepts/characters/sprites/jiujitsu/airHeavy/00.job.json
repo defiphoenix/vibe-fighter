@@ -1,8 +1,8 @@
 [
   {
-    "created_at": "2026-07-18T17:39:32.904902Z",
+    "created_at": "2026-07-25T17:14:23.679257Z",
     "display_name": "Seedance 2.0",
-    "id": "f1959cee-34a2-44e9-bcc4-a6442e7ecf04",
+    "id": "ef34c51d-e947-4a09-8874-3a689be579dc",
     "job_type": "seedance_2_0",
     "min_result_url": null,
     "params": {
@@ -15,9 +15,9 @@
       "medias": [
         {
           "data": {
-            "id": "957582dd-3f06-4f66-ad3c-eb044069ec47",
+            "id": "a0e1095d-2ea2-492e-b0eb-4e61af2b1e91",
             "type": "media_input",
-            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/957582dd-3f06-4f66-ad3c-eb044069ec47.png"
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/a0e1095d-2ea2-492e-b0eb-4e61af2b1e91.png"
           },
           "role": "start_image"
         }
@@ -27,15 +27,15 @@
       "multi_prompt": [],
       "multi_shot_mode": "custom",
       "multi_shots": false,
-      "prompt": "The SAME single jiujitsu fighter from the start image leaps into the air and throws one heavy diving punch angled downward, staying airborne, side view facing RIGHT, centered in place. Keep his exact appearance every frame: white judo gi with a blue belt, barefoot, short dark navy hair (hair colour identical every frame). Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt": "The SAME single jiujitsu fighter from the start image leaps into the air with his knees tucked up and throws one heavy diving punch aimed STEEPLY DOWNWARD at an opponent standing on the ground below him: he commits his whole body behind it, the fist driving down and forward until it is far out in front of him and DOWN AT THE LEVEL OF HIS OWN KNEES, his arm slanting steeply toward the ground. He never punches straight out at his own head height. He stays airborne with his feet off the ground the whole time, side view facing RIGHT, centered in place. Keep his exact appearance every frame: white judo gi with a blue belt, barefoot, short dark navy hair (hair colour identical every frame). Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
       "prompt_language": "en",
       "reference_elements": [],
       "resolution": "720p",
       "speedramp": "auto",
       "width": 720
     },
-    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_173932_f1959cee-34a2-44e9-bcc4-a6442e7ecf04.mp4",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_171423_ef34c51d-e947-4a09-8874-3a689be579dc.mp4",
     "status": "completed",
-    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_173932_f1959cee-34a2-44e9-bcc4-a6442e7ecf04_thumbnail.webp"
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_171423_ef34c51d-e947-4a09-8874-3a689be579dc_thumbnail.webp"
   }
 ]

@@ -370,10 +370,17 @@ because the tests only ever compared code to other code.
   turns damage into chip — the same shape as the normals' blocking matrix, which had no special row.
   **`scripts/audit-boxes.py` (`npm run audit:boxes`) finally closes the measurement gap**: hurt height
   vs the figure, hit band vs the measured strike, for all 21 attack sheets. Advisory (exit 0) like
-  `audit:anim`, because **4 shipped sheets flag today** — `jiujitsu/airLight`+`airHeavy` and
-  `monk/crouchLight`+`crouchHeavy` all carry boxes entirely BELOW where their art actually strikes,
-  and each needs an art regen or a design call, not a silent number change. The hard enforcement stays
-  in `registry.test.ts`; a red gate nobody can make green just gets bypassed.
+  `audit:anim`. It found **4 more on its first run** — `jiujitsu/airLight`+`airHeavy` and
+  `monk/crouchLight`+`crouchHeavy`, all carrying boxes entirely BELOW where their art struck — and
+  none could be fixed by moving the box: crouch normals are *defined* as lows (they must clear
+  `guardStand`'s 70 floor), so the ART had to come down. All four regenerated; the audit now reports
+  "every attack box agrees with its own sheet". Hard enforcement stays in `registry.test.ts`; this
+  stays advisory so a regression reads as a report rather than a bypassed red gate.
+- **The model lands a strike HIGHER than you ask — aim a joint lower.** The vertical form of Phase 04's
+  "inflates any requested band". `monk/crouchLight` asked for KNEE height and measured 61–127px against
+  an 18–58 box; asking for the SHIN got the knee (55–126, in the box). Naming the *move* never does it
+  — `crouchHeavy`'s prompt said "low sweeping attack" for two phases and he punched at chest height.
+  Name the height, then name it one joint lower than you want.
   When body and art disagree on a state whose frames are mostly crouched, prefer the CROUCH profile: a
   hurt box larger than the art means you get hit by things that visually miss, one smaller means attacks
   pass through you, and the second is the worse failure.
@@ -424,10 +431,22 @@ because the tests only ever compared code to other code.
 Related: **a held state must not loop if any frame leaves the pose** — a looping `crouch` sheet whose
 first frames are the standing wind-up reads as the fighter popping up out of the crouch. The inverse
 also holds: `blockCrouch` **does** loop (`render.sheets.blockCrouch.loop:true`, Phase 13b) precisely
-because EVERY frame stays in the low guard — a contained crouch bob — so it keeps the guard visibly
-alive while held without ever popping up. `block` (high) stays a one-shot hold. Render loop is the
-Phaser `repeat` from `render.sheets.<state>.loop`; the builder's sim `StateSpec.loop` is independent
-and only clamps the sim `stateFrame` (irrelevant for a guard whose frames all carry the same box).
+because EVERY frame stays in the low guard, so it keeps the guard alive while held without ever
+popping up. `block` (high) stays a one-shot hold. Render loop is the Phaser `repeat` from
+`render.sheets.<state>.loop`; the builder's sim `StateSpec.loop` is independent and only clamps the
+sim `stateFrame` (irrelevant for a guard whose frames all carry the same box).
+**The BOB those sheets were generated with is gone** — Phase 13b asked for a bounce so a held guard
+would not read as a frozen still, and playing it, the bounce is what read wrong: jiujitsu measured 9px
+of vertical spread across four frames and the monk 17px (9% of his standing height), i.e. a fighter
+jumping on the spot. It was never load-bearing — **a LOOP of near-identical held frames already is a
+steady guard**, which is what the bob was reaching for. Both prompts now hold and breathe ("the top of
+his head stays at very nearly the same height in every single frame"), like the high `block` prompts
+that always worked: jiujitsu 9→3px, monk 17→2px. Do not reintroduce a bob count.
+Also: **`guard-refs/monk-blockCrouch.png` is a STANDING pose** and is no longer used — it is why his
+low block measured 86–96% of his standing height. `--start-image` dominates the prompt, so a bad
+reference cannot be argued out of the model; `monk/blockCrouch` starts from `crouch-refs/monk-crouch.png`
+(his other crouch states' deep squat, which already holds a guard) and now measures 85% against his own
+`crouch` at 84%.
 
 Same rule for art: prefer a measurement to an opinion, and a wrong metric is more dangerous than no
 metric. Detail in [`docs/art-pipeline.md`](docs/art-pipeline.md).

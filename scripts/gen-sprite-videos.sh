@@ -40,7 +40,13 @@ declare -A START_OVERRIDE=(
   [monk/block]="concepts/characters/guard-refs/monk-block.png"
   [brawler/blockCrouch]="concepts/characters/guard-refs/brawler-blockCrouch.png"
   [jiujitsu/blockCrouch]="concepts/characters/guard-refs/jiujitsu-blockCrouch.png"
-  [monk/blockCrouch]="concepts/characters/guard-refs/monk-blockCrouch.png"
+  # NOT guard-refs/monk-blockCrouch.png: that "crouched guard" reference is a fighter STANDING in a
+  # wide horse stance, which is why his low block measured 158-175px against a 183px stand — 86-96%
+  # of his standing height, i.e. not a crouch at all. `--start-image` DOMINATES the prompt, so no
+  # wording could have fixed it. crouch-refs/monk-crouch.png is the purpose-generated deep squat used
+  # by his other crouch states and already holds a guard at the chin, so his crouch and crouch-block
+  # now also agree pixel-for-pixel — the same argument as jiujitsu/crouchLight below.
+  [monk/blockCrouch]="concepts/characters/crouch-refs/monk-crouch.png"
 )
 
 # per-fighter outfit clause so every state keeps the exact same look
@@ -88,6 +94,13 @@ declare -A MOTION=(
   [ko]="collapses to the ground and lies there motionless, knocked out"
   [airLight]="leaps into the air and throws one fast jumping jab punch angled downward, staying airborne"
   [airHeavy]="leaps into the air and throws one heavy diving punch angled downward, staying airborne"
+  # jiujitsu ONLY. `audit:boxes` measured his air normals as the roster's outliers: the fist lands at
+  # 163-193px on airLight against a box at 80-130, and 113-169 against 40-100 -- he throws them at his
+  # own head height while the brawler and monk both angle down into their boxes. "Angled downward" was
+  # evidently too weak on its own, so these name the TARGET below him and the height the fist ends at.
+  # Keyed per-fighter rather than edited in place: the shared text is correct for the other two.
+  [jiujitsu/airLight]="leaps into the air with his knees tucked up and throws one fast jumping jab punched STEEPLY DOWNWARD at an opponent standing on the ground below him: the fist drives down and forward together, ending well out in front of him and BELOW the level of his own hips, so his whole arm slants down toward the ground. He never punches straight out at his own head height. He stays airborne with his feet off the ground the whole time"
+  [jiujitsu/airHeavy]="leaps into the air with his knees tucked up and throws one heavy diving punch aimed STEEPLY DOWNWARD at an opponent standing on the ground below him: he commits his whole body behind it, the fist driving down and forward until it is far out in front of him and DOWN AT THE LEVEL OF HIS OWN KNEES, his arm slanting steeply toward the ground. He never punches straight out at his own head height. He stays airborne with his feet off the ground the whole time"
   [crouchLight]="is squatting all the way down in a deep full crouch the entire time, buttocks near his heels and thighs parallel to the ground, torso upright. He NEVER stands up tall and NEVER lies down. From that deep squat he throws one fast straight punch: the lead arm shoots forward at knee height until the elbow is completely straight and the fist is far out in front of his knees, then snaps back. The legs stay folded in the deep squat while only the arm moves"
   [crouchHeavy]="is squatting all the way down in a deep full crouch the entire time, thighs parallel to the ground, and swings one heavy low sweeping attack along the floor at ankle height. He NEVER stands up tall and NEVER lies down"
   # Phase 15 supers. Each is a MULTI-HIT flurry, so unlike every other attack here the prompt names a
@@ -115,8 +128,16 @@ declare -A MOTION=(
 # start frame, so the prompt asks for the ARM ALONE and explicitly freezes everything else.
 declare -A MOTION_FROM_START=(
   [monk/crouch]="holds exactly the low crouched position of the start image, breathing and shifting his weight very slightly. He stays down the whole time and never rises"
-  [monk/crouchLight]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and punches: his lead arm shoots straight forward until the elbow is completely straight and the fist is far out in front of him, then pulls back to his chest. ONLY the arm moves"
-  [monk/crouchHeavy]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and sweeps one heavy low attack forward along the floor, the striking arm or leg extending far out in front of him and then returning. His hips stay down the whole time. ${SPAN_CLIP}"
+  # The monk's crouch normals named the CROUCH but never the strike's HEIGHT, and `audit:boxes`
+  # measured the result: his fist lands at 100-123px on crouchLight against a box at 18-58, and
+  # 73-126 against 6-48 on crouchHeavy -- he squats correctly and then punches at chest height. The
+  # box cannot follow the art here the way the jiujitsu special's could, because crouch normals are
+  # DEFINED as lows (they have to clear guardStand's 70 floor), so the art is what has to come down.
+  # Asking for KNEE height landed the fist at 61-127px against a box at 18-58 -- better than the
+  # 100-123 it measured before, still 3px short. The model lands consistently HIGHER than asked (the
+  # Phase 04 "inflates any requested band" lesson, in the vertical), so aim at the SHIN to get a knee.
+  [monk/crouchLight]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and punches LOW along the floor: his lead arm shoots straight forward at SHIN HEIGHT, the fist skimming forward just above the ground level with his own ankles and NEVER rising as high as his own knees, until the elbow is completely straight and the fist is far out in front of him, then pulls back. ONLY the arm moves -- his head, shoulders and hips do not rise at all"
+  [monk/crouchHeavy]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and sweeps one heavy low attack forward ALONG THE GROUND at ankle height: the striking arm or leg skims just above the floor, reaching far out in front of him and never rising as high as his own knees, then returns. His hips stay down the whole time. ${SPAN_CLIP}"
   [jiujitsu/crouchLight]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and punches: his lead arm shoots straight forward until the elbow is completely straight and the fist is far out in front of him, then pulls back to his chest. ONLY the arm moves. ${SPAN_CLIP}"
   # block / blockCrouch start FROM the guard pose, so the prompt just holds it — no wind-up, the guard
   # is up from frame 0. Only a slight, steady weight shift; the pose itself never changes.
@@ -127,8 +148,14 @@ declare -A MOTION_FROM_START=(
   # (not a frozen still). The background must stay a perfectly flat uniform magenta with no texture or
   # speckle, or the chroma key leaves green fragments floating around him.
   [brawler/blockCrouch]="stays fully crouched in a low guard the ENTIRE time — hips down, knees bent, forearms up covering his body — and breathes with a gentle continuous sway, his shoulders and torso rising and settling a little and his weight shifting slightly. He NEVER rises up, NEVER straightens his legs, and NEVER lowers the guard. Perfectly flat uniform magenta background, no texture or speckle"
-  [jiujitsu/blockCrouch]="stays in a deep low crouch the ENTIRE time, hips down and forearms up at his face guarding — and BOUNCES with a big, obvious, springy up-and-down bob, his whole torso and head dropping several inches lower and springing back up, repeating this bounce about FOUR times across the clip so the movement is unmistakable. His guard hands and shoulders visibly bob and sway with each bounce. His feet stay planted and his legs stay bent in the deep crouch — he NEVER stands up or straightens his legs, but everything above the hips moves a lot. Perfectly flat uniform magenta background, no texture or speckle"
-  [monk/blockCrouch]="stays in a deep low horse-stance crouch the ENTIRE time, hips down and forearms up guarding — and bobs with a clear steady bounce, dipping down a little lower and springing back up to the crouch, repeating this bob about THREE times across the clip. He also weaves his shoulders and guard side to side as he bobs, so there is obvious continuous movement. He NEVER stands up, NEVER straightens his legs, and NEVER lowers the guard — only the bob and weave move. Perfectly flat uniform magenta background, no texture or speckle"
+  # Phase 13b asked these two for a BOB, to stop a held guard reading as a frozen still. Playing it,
+  # the bob is what reads wrong: jiujitsu measured 9px of vertical spread and monk 17px (9% of his
+  # standing height) and both look like a fighter jumping on the spot rather than braced. The bob was
+  # never load-bearing — `blockCrouch` loops (loop:true), and a loop of near-identical held frames is
+  # simply a steady guard, which is the intent. So these now HOLD, exactly like the high `block`
+  # prompts above: a breath, not a bounce. Do not reintroduce a bob count here.
+  [jiujitsu/blockCrouch]="holds exactly the deep low crouching guard pose of the start image for the whole clip — hips down near his heels, knees bent, forearms up in front of his face and chest — and simply breathes there, his shoulders rising and settling very slightly and his weight easing a little from one foot to the other. He does NOT bob, does NOT bounce, and does NOT dip up and down: the top of his head stays at very nearly the same height in every single frame. He NEVER stands up, NEVER straightens his legs, and NEVER lowers the guard. Perfectly flat uniform magenta background, no texture or speckle"
+  [monk/blockCrouch]="holds exactly the deep crouching pose of the start image for the whole clip — hips dropped low near his heels, knees bent well past ninety degrees, torso upright — with both forearms raised in a tight guard covering his face and chest, and simply breathes there, his shoulders rising and settling very slightly. He does NOT bob, does NOT bounce, and does NOT dip up and down: the top of his bald head stays at very nearly the same height in every single frame, no higher than it is in the start image. He NEVER stands up, NEVER straightens his legs, NEVER rises out of the squat, and NEVER lowers the guard. Perfectly flat uniform magenta background, no texture or speckle"
 )
 STATES=("$@"); [ ${#STATES[@]} -eq 0 ] && STATES=(walkF walkB crouch block blockCrouch jumpRise jumpFall attackLight attackHeavy airLight airHeavy crouchLight crouchHeavy special hitstun blockstun knockdown ko)
 

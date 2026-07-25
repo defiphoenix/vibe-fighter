@@ -251,13 +251,48 @@ It is **advisory, exit 0**, like `audit:anim` — because **four shipped sheets 
 | `monk/crouchLight` | 18..58 | 100..123 |
 | `monk/crouchHeavy` | 6..48 | 73..126 |
 
-Every one is a box sitting entirely BELOW where its art actually strikes. The monk's two are the
-known "he never really crouches" problem (his crouch frames measure 154 px against a 184 px stand),
-so his crouch normals punch at chest height while the sim sweeps at the knee — and unlike the
-jiujitsu special these cannot be fixed by lowering the box, because crouch normals are *defined* as
-lows: the art has to come down instead. That is an art pass, not a number change, which is exactly
-why this ships advisory rather than red. Hard enforcement of the high/low semantics stays in
-`registry.test.ts`; a red gate nobody can make green just gets bypassed.
+Every one was a box sitting entirely BELOW where its art actually strikes, and none could be fixed by
+moving the box: crouch normals are *defined* as lows (they have to clear `guardStand`'s 70 px floor)
+and the jiujitsu's air normals were the only pair on the roster thrown above their box, so the art was
+what had to change in all four cases.
+
+**All four were regenerated and the audit is now clean — "every attack box agrees with its own
+sheet".** Each prompt was missing the same thing in a different place, and none of it was the *move*:
+
+- The monk's crouch normals named the CROUCH and never the strike's HEIGHT, so he squatted correctly
+  and then punched at chest level. `crouchHeavy` went 73..126 → 0..129 on one pass.
+- `crouchLight` needed TWO passes and taught the vertical version of the Phase 04 lesson: asking for
+  KNEE height landed the fist at 61..127 — better than 100..123, still 3 px short of the box. **The
+  model lands consistently higher than asked**, so the winning prompt aims at the SHIN to get a knee
+  (final 55..126).
+- The jiujitsu's air normals said "angled downward", which was too weak on its own. Naming the target
+  *below* him and where the fist ends fixed both. Keyed **per-fighter** rather than edited in the
+  shared text, because the brawler's and monk's air normals were already correct — the `<fid>/<state>`
+  fallback exists so one fighter's fix cannot risk two working sheets.
+
+## …and the crouch-block bounce
+
+Found by playing, again: both low guards read as *jumping on the spot*. Measured, the complaint was
+exact — vertical spread across the four frames was 9 px on jiujitsu and **17 px on the monk (9 % of
+his standing height)**, against the brawler's 3 px (his is the static hold Phase 13b pinned).
+
+The bob was Phase 13b's answer to a held guard reading as a frozen still, and it was **never
+load-bearing**: `blockCrouch` has `loop:true`, and a loop of near-identical held frames *is* a steady
+guard. Both prompts now HOLD — a breath, not a bounce, with "the top of his head stays at very nearly
+the same height in every single frame" — exactly like the high `block` prompts that always worked.
+Result: jiujitsu 9 → 3 px, monk 17 → **2 px**.
+
+The monk's had a second cause the bob was hiding. His `blockCrouch` measured 158–175 px against a
+183 px stand — 86–96 %, i.e. **not a crouch at all** — because `guard-refs/monk-blockCrouch.png` is a
+fighter *standing* in a wide horse stance. `--start-image` DOMINATES the prompt, so no wording could
+ever have fixed it. Pointed at `crouch-refs/monk-crouch.png` instead (the purpose-generated deep squat
+his other crouch states already use, which happens to hold a guard at the chin) he now measures 85 %,
+matching his own `crouch` at 84 % — the pixel-for-pixel agreement between a crouch and a crouch-block
+that the jiujitsu's `crouchLight` was given for the same reason. He is still the shallowest croucher
+on the roster, but that is now a consistent character trait rather than a per-sheet defect.
+
+Hard enforcement of the high/low semantics stays in `registry.test.ts`; the audit stays advisory, so
+a future regression reads as a report rather than a bypassed red gate.
 
 ## Not taken
 
