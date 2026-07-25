@@ -1,8 +1,8 @@
 [
   {
-    "created_at": "2026-07-24T10:52:37.065007Z",
+    "created_at": "2026-07-25T04:25:48.497647Z",
     "display_name": "Seedance 2.0",
-    "id": "ed7a198b-5e33-4769-8c27-f4daff645fce",
+    "id": "39809a1f-3577-4bda-9546-4b5e7ffcae77",
     "job_type": "seedance_2_0",
     "min_result_url": null,
     "params": {
@@ -15,9 +15,9 @@
       "medias": [
         {
           "data": {
-            "id": "af231aa6-d7d4-4851-8c9a-55c75b05a089",
+            "id": "89327172-e69b-4427-93c0-d1e395c67b91",
             "type": "media_input",
-            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/af231aa6-d7d4-4851-8c9a-55c75b05a089.png"
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/89327172-e69b-4427-93c0-d1e395c67b91.png"
           },
           "role": "start_image"
         }
@@ -27,15 +27,15 @@
       "multi_prompt": [],
       "multi_shot_mode": "custom",
       "multi_shots": false,
-      "prompt": "The SAME single jiujitsu fighter from the start image settles into a tight high guard, both forearms raised in front of his head and chest, and braces there steadily on his feet, weight shifting only slightly the whole time, side view facing RIGHT, centered in place. Keep his exact appearance every frame: white judo gi with a blue belt, barefoot, short dark navy hair (hair colour identical every frame). Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt": "The SAME single jiujitsu fighter from the start image holds exactly the high guard pose of the start image, both forearms up covering the head and chest, bracing steadily on his feet with only a slight weight shift. The guard never lowers and the pose never changes, side view facing RIGHT, centered in place. Keep his exact appearance every frame: white judo gi with a blue belt, barefoot, short dark navy hair (hair colour identical every frame). Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
       "prompt_language": "en",
       "reference_elements": [],
       "resolution": "720p",
       "speedramp": "auto",
       "width": 720
     },
-    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260724_105237_ed7a198b-5e33-4769-8c27-f4daff645fce.mp4",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_042548_39809a1f-3577-4bda-9546-4b5e7ffcae77.mp4",
     "status": "completed",
-    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260724_105237_ed7a198b-5e33-4769-8c27-f4daff645fce_thumbnail.webp"
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_042548_39809a1f-3577-4bda-9546-4b5e7ffcae77_thumbnail.webp"
   }
 ]

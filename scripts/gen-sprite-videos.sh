@@ -31,10 +31,16 @@ declare -A START_OVERRIDE=(
   # at the right scale. Starting a crouch ATTACK from the crouch state's own final frame also means
   # the two animations agree pixel-for-pixel at the moment the player presses the button.
   [jiujitsu/crouchLight]="concepts/characters/sprites/jiujitsu/crouch/03.png"
-  # blockCrouch is a deep crouch too — same start-image discipline as the crouch states. The monk has
-  # no crouched frame of his own; jiujitsu starts from his own already-deep crouch frame.
-  [monk/blockCrouch]="concepts/characters/crouch-refs/monk-crouch.png"
-  [jiujitsu/blockCrouch]="concepts/characters/sprites/jiujitsu/crouch/03.png"
+  # block / blockCrouch must OPEN already braced (frame 0 = the guard pose), so re-entering guard after
+  # a blockstun doesn't replay a raise-guard wind-up (worst on a crouch, which flashed a stand-up). Each
+  # starts from its OWN validated guard frame — the last frame of the first-pass clip, kept in
+  # guard-refs/ — and the prompt just holds it. Regenerated 2026-07-25.
+  [brawler/block]="concepts/characters/guard-refs/brawler-block.png"
+  [jiujitsu/block]="concepts/characters/guard-refs/jiujitsu-block.png"
+  [monk/block]="concepts/characters/guard-refs/monk-block.png"
+  [brawler/blockCrouch]="concepts/characters/guard-refs/brawler-blockCrouch.png"
+  [jiujitsu/blockCrouch]="concepts/characters/guard-refs/jiujitsu-blockCrouch.png"
+  [monk/blockCrouch]="concepts/characters/guard-refs/monk-blockCrouch.png"
 )
 
 # per-fighter outfit clause so every state keeps the exact same look
@@ -92,8 +98,14 @@ declare -A MOTION_FROM_START=(
   [monk/crouchLight]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and punches: his lead arm shoots straight forward until the elbow is completely straight and the fist is far out in front of him, then pulls back to his chest. ONLY the arm moves"
   [monk/crouchHeavy]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and sweeps one heavy low attack forward along the floor, the striking arm or leg extending far out in front of him and then returning. His hips stay down the whole time. ${SPAN_CLIP}"
   [jiujitsu/crouchLight]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and punches: his lead arm shoots straight forward until the elbow is completely straight and the fist is far out in front of him, then pulls back to his chest. ONLY the arm moves. ${SPAN_CLIP}"
-  [monk/blockCrouch]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and holds both forearms up in a low guard covering his body, bracing steadily. His hips stay down the whole time and he never rises"
-  [jiujitsu/blockCrouch]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and holds both forearms up in a low guard covering his body, bracing steadily. His hips stay down the whole time and he never rises"
+  # block / blockCrouch start FROM the guard pose, so the prompt just holds it — no wind-up, the guard
+  # is up from frame 0. Only a slight, steady weight shift; the pose itself never changes.
+  [brawler/block]="holds exactly the high guard pose of the start image, both forearms up covering the head and chest, bracing steadily on his feet with only a slight weight shift. The guard never lowers and the pose never changes"
+  [jiujitsu/block]="holds exactly the high guard pose of the start image, both forearms up covering the head and chest, bracing steadily on his feet with only a slight weight shift. The guard never lowers and the pose never changes"
+  [monk/block]="holds exactly the high guard pose of the start image, both arms up in front of the head and chest, bracing steadily on his feet with only a slight weight shift. The guard never lowers and the pose never changes"
+  [brawler/blockCrouch]="holds exactly the low crouched guard pose of the start image, forearms up covering his body, staying fully crouched with hips down the whole time. Only a slight weight shift; he NEVER rises and the guard never lowers"
+  [jiujitsu/blockCrouch]="holds exactly the low crouched guard pose of the start image, forearms up covering his body, staying fully crouched with hips down the whole time. Only a slight weight shift; he NEVER rises and the guard never lowers"
+  [monk/blockCrouch]="holds exactly the low crouched guard pose of the start image, forearms up covering his body, staying fully crouched with hips down the whole time. Only a slight weight shift; he NEVER rises and the guard never lowers"
 )
 STATES=("$@"); [ ${#STATES[@]} -eq 0 ] && STATES=(walkF walkB crouch block blockCrouch jumpRise jumpFall attackLight attackHeavy airLight airHeavy crouchLight crouchHeavy hitstun blockstun knockdown ko)
 

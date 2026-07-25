@@ -62,9 +62,10 @@ between phases and therefore have no phase log of their own.
   is read before the guard branch) but to keep `cpu.ts`'s reaction timer running through a guard
   episode. Held one-shots (`loop:false`) needed no new render code. The Phase-13 per-frame live-guard
   proof was rebuilt around `blockCrouch`'s deterministic clamped contact frame, since the looping
-  2-slot `crouch` it used to rely on is no longer guardable. Deferred: continuous guard through a
-  blockstun replays the raise-guard wind-up on re-entry (a seam in blockstrings) — fix path is
-  regenerating the sheets to open already braced.
+  2-slot `crouch` it used to rely on is no longer guardable. A follow-up pass then regenerated all six
+  block sheets to open ALREADY braced (frame 0 = the held guard, started from each fighter's own guard
+  frame), so re-entering guard after a blockstun no longer replays a raise-guard wind-up; brawler's
+  blockCrouch drifted upward on regen and was pinned to a static crouched-guard hold.
 
 ## Passes between phases
 

@@ -5,11 +5,12 @@
 guard overrides on them, so no data lost). `ACTIONABLE` gained both (for cpu.ts's reaction timer; jab-
 out works independently). `STATE_NAMES` 16→18. 6 Seedance clips (~84 credits, zero retries). Gates
 green: 220 unit + 54 e2e, typecheck/build, check:sprites/audit:anim; adversarial QA agent found no
-defects; Codex reviewed plan + diff (mergeable). **Known follow-up (deferred, non-blocking):** holding
-guard continuously through a blockstun re-enters block/blockCrouch from frame 0, replaying the raise-
-guard wind-up — a brief seam in multi-hit blockstrings (worst on brawler/blockCrouch, frame 0 standing).
-Fix path: regenerate block/blockCrouch to open already braced (frame 0 = the guard pose). See the
-`ponytail:` note in `src/sim/fighter.ts` advanceTimers.
+defects; Codex reviewed plan + diff (mergeable). **Blockstun re-entry seam — FIXED:** the block sheets
+were regenerated to OPEN already braced (frame 0 = the held guard pose, started from each fighter's own
+validated guard frame in `concepts/characters/guard-refs/`), so re-entering guard after a blockstun
+replays guard→guard with no wind-up. brawler/blockCrouch drifted upward on regen and was pinned to a
+static crouched-guard hold (its guard-ref copied to all 4 frames); the other five hold their
+regenerated braces. ~168 credits total.
 
 ---
 

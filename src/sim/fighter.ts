@@ -224,12 +224,11 @@ export class Fighter {
     if (STUN.has(this.state)) {
       this.stunTimer--;
       if (this.stunTimer <= 0 && this.grounded) {
-        // ponytail: a fighter who blocks a hit and keeps holding guard leaves blockstun through idle
-        // for one tick, then think() re-enters block/blockCrouch from frame 0 — replaying the sheet's
-        // raise-guard wind-up (worst on brawler/blockCrouch, whose frame 0 is a standing pose). A
-        // visible seam only in multi-hit blockstrings; state selection still precedes combat, so guard
-        // is never actually dropped. Fix path when it matters: regenerate block/blockCrouch to open
-        // ALREADY braced (frame 0 = the guard pose, held), so re-entry has no wind-up to replay.
+        // A fighter who blocks a hit and keeps holding guard leaves blockstun through idle for one
+        // tick, then think() re-enters block/blockCrouch from frame 0. That used to replay a raise-
+        // guard wind-up, but the block sheets now OPEN already braced (frame 0 = the held guard pose),
+        // so the re-entry replays guard→guard with no visible pop. State selection precedes combat, so
+        // guard is never dropped regardless.
         this.setState("idle");
       }
       return;
