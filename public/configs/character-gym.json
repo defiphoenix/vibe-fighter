@@ -43,7 +43,7 @@
           "path": "sprites/brawler/blockCrouch.png",
           "frames": 4,
           "fps": 8,
-          "loop": false
+          "loop": true
         },
         "jumpRise": {
           "path": "sprites/brawler/jumpRise.png",
@@ -405,7 +405,7 @@
           "path": "sprites/jiujitsu/blockCrouch.png",
           "frames": 4,
           "fps": 8,
-          "loop": false
+          "loop": true
         },
         "jumpRise": {
           "path": "sprites/jiujitsu/jumpRise.png",
@@ -767,7 +767,7 @@
           "path": "sprites/monk/blockCrouch.png",
           "frames": 4,
           "fps": 8,
-          "loop": false
+          "loop": true
         },
         "jumpRise": {
           "path": "sprites/monk/jumpRise.png",

@@ -1,8 +1,8 @@
 [
   {
-    "created_at": "2026-07-25T05:03:02.627983Z",
+    "created_at": "2026-07-25T05:22:11.639033Z",
     "display_name": "Seedance 2.0",
-    "id": "3bb289fa-205c-4666-b1e8-00700460cf19",
+    "id": "79b7e46a-9d26-4e25-9376-6f210c3238f3",
     "job_type": "seedance_2_0",
     "min_result_url": null,
     "params": {
@@ -15,9 +15,9 @@
       "medias": [
         {
           "data": {
-            "id": "b4e6f493-4e90-4e4c-9bd0-5041c7c66d59",
+            "id": "2855fb5f-00d9-4fb2-90a3-4141a121a81f",
             "type": "media_input",
-            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/b4e6f493-4e90-4e4c-9bd0-5041c7c66d59.png"
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/2855fb5f-00d9-4fb2-90a3-4141a121a81f.png"
           },
           "role": "start_image"
         }
@@ -27,15 +27,15 @@
       "multi_prompt": [],
       "multi_shot_mode": "custom",
       "multi_shots": false,
-      "prompt": "The SAME single monk fighter from the start image stays fully crouched in a low horse-stance guard the ENTIRE time — hips down, thighs bent, forearms up covering his body — and breathes with a gentle continuous sway, his shoulders and torso rising and settling a little and his weight shifting slightly. He NEVER rises up, NEVER straightens his legs, and NEVER lowers the guard. Perfectly flat uniform magenta background, no texture or speckle, side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt": "The SAME single monk fighter from the start image stays in a deep low horse-stance crouch the ENTIRE time, hips down and forearms up guarding — and bobs with a clear steady bounce, dipping down a little lower and springing back up to the crouch, repeating this bob about THREE times across the clip. He also weaves his shoulders and guard side to side as he bobs, so there is obvious continuous movement. He NEVER stands up, NEVER straightens his legs, and NEVER lowers the guard — only the bob and weave move. Perfectly flat uniform magenta background, no texture or speckle, side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
       "prompt_language": "en",
       "reference_elements": [],
       "resolution": "720p",
       "speedramp": "auto",
       "width": 720
     },
-    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_050302_3bb289fa-205c-4666-b1e8-00700460cf19.mp4",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_052211_79b7e46a-9d26-4e25-9376-6f210c3238f3.mp4",
     "status": "completed",
-    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_050302_3bb289fa-205c-4666-b1e8-00700460cf19_thumbnail.webp"
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_052211_79b7e46a-9d26-4e25-9376-6f210c3238f3_thumbnail.webp"
   }
 ]

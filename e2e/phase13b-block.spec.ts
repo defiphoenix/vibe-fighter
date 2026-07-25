@@ -75,14 +75,14 @@ test("holding block plants in `block` and the block art holds its braced pose", 
   expect(s.frameIndex).toBe(s.total); // AnimationFrame.index is 1-based
 });
 
-test("holding block + down plants in `blockCrouch` and the low-block art holds", async ({ page }) => {
+test("holding block + down plants in `blockCrouch` and the low-block art loops (a continuous crouch bob)", async ({ page }) => {
   const s = await guardSnapshot(page, { block: true, down: true });
   expect(s.state).toBe("blockCrouch");
   expect(s.guardBoxes).toBeGreaterThan(0);
   expect(s.key).toBe("brawler-blockCrouch");
-  expect(s.playing).toBe(false);
-  expect(s.progress).toBe(1);
-  expect(s.frameIndex).toBe(s.total);
+  // blockCrouch loops (loop:true) so it keeps animating while held instead of freezing on one frame.
+  expect(s.playing).toBe(true);
+  expect(s.total).toBeGreaterThan(1);
 });
 
 test("releasing block returns to idle", async ({ page }) => {

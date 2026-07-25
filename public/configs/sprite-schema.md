@@ -39,7 +39,8 @@ replayed the stand-up twice a second and read as "crouch doesn't hold". `loop: f
 | `idle` | 10 | yes | 4 |
 | `walkF` / `walkB` | 12 | yes | 6 |
 | `crouch` | 12 | **no** | 2 |
-| `block` / `blockCrouch` | 8 | **no** | held guard brace (one-shot into a hold) |
+| `block` | 8 | **no** | high guard brace, one-shot into a hold |
+| `blockCrouch` | 8 | **yes** | low guard — loops a contained crouch bob so it stays alive while held |
 | `jumpRise` / `jumpFall` | 8 | no | 1 (physics-driven) |
 | `attackLight` | ~12 (read against 4/3/8 startup/active/recovery) | no | 15 |
 | `attackHeavy` | ~12 (read against 9/4/18) | no | 31 |

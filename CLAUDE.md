@@ -309,8 +309,13 @@ because the tests only ever compared code to other code.
   The unit test proves the arithmetic; the **browser** test is the one that matters, because the
   arithmetic was already right and what could still fail is the override reaching Phaser's clock.
 
-Related: **held/one-shot states must not loop** — a looping `crouch` sheet whose first frames are the
-standing wind-up read as the fighter popping up out of the crouch.
+Related: **a held state must not loop if any frame leaves the pose** — a looping `crouch` sheet whose
+first frames are the standing wind-up reads as the fighter popping up out of the crouch. The inverse
+also holds: `blockCrouch` **does** loop (`render.sheets.blockCrouch.loop:true`, Phase 13b) precisely
+because EVERY frame stays in the low guard — a contained crouch bob — so it keeps the guard visibly
+alive while held without ever popping up. `block` (high) stays a one-shot hold. Render loop is the
+Phaser `repeat` from `render.sheets.<state>.loop`; the builder's sim `StateSpec.loop` is independent
+and only clamps the sim `stateFrame` (irrelevant for a guard whose frames all carry the same box).
 
 Same rule for art: prefer a measurement to an opinion, and a wrong metric is more dangerous than no
 metric. Detail in [`docs/art-pipeline.md`](docs/art-pipeline.md).
