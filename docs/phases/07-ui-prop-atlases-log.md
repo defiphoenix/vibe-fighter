@@ -32,7 +32,11 @@ anyway to prove it.
 the bar rect, which is what makes it composite-able: Phase 14 draws the fill *behind* the art so it
 shows through the slot while the bevel stays on top.
 
-Only the **460** is fixed (`hud.ts:5` `BAR_W`); the height is whatever the art drew. The prompt asked
+Only the **460** is fixed (`hud.ts` `BAR_W`, as of writing); the height is whatever the art drew.
+*(Phase 14 correction: the shipped `hud.ts` never carried these numbers — it had been bumped to
+`BAR_W=360 / BAR_H=24 / MARGIN=32 / TOP=26` before this log was written, and the atlas skin replaced
+them with a `BAR_SCALE` applied to the art's own 460×144. The packer's mirrored copies are comments,
+not a live link.)* The prompt asked
 for "about eight times as wide as it is tall" and got **3.19:1** — not argued with, because the gate
 proves it fits (below).
 
@@ -44,8 +48,11 @@ Phase 06 masters in the real slot. No seam at the chest, none at the perimeter.
 The window measures **1076×1650 = 0.6521:1** — the model missed the 3:4 it was asked for, and it did
 not matter, because the slot is measured rather than requested. Slot packs to **300×460**; a
 bottom-anchored cover-crop of the 1792×2400 bust into it trims **12.66% off the width** (the sides)
-and **0% off the height**, so the bust's bleed edge survives intact. Window rect is **99.90%**
-actually window, so a portrait cannot cover the painted border.
+and **0% off the height**, so the bust's bleed edge survives intact. Window rect is **98.4%** fully
+transparent — the remaining 1.6% is the arch's antialiased scallop (max alpha 166), where the
+portrait blends through by design, which is what makes the arched edge read as arched. *(This figure
+said 99.90% until Phase 14 measured the shipped PNG; the intent is unchanged — a portrait still
+cannot cover the painted border.)*
 
 ### 3. "Prop atlas frames key out cleanly and can animate." — PASS
 

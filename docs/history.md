@@ -67,6 +67,25 @@ between phases and therefore have no phase log of their own.
   frame), so re-entering guard after a blockstun no longer replays a raise-guard wind-up; brawler's
   blockCrouch drifted upward on regen and was pinned to a static crouched-guard hold.
 
+- **14 HUD skin** (2026-07-25) — the Phase 07 UI atlas finally reaches the screen: `BootScene` had
+  never loaded `hud-atlas` at all, and the HUD was still the vector rectangles from Phase 02. Now two
+  `health-bar` plates with the coloured fill drawn *behind* them (so it shows through the art's own
+  transparent slot), two `portrait-base` plates with each fighter's Phase 06 portrait cover-cropped
+  into the arch, and a match-start entrance — the band slides down over 900 ms while the bars charge
+  over 900 ms, 1.2 s total inside the 1.5 s intro, deliberately slow because "too rapid" was the
+  source prompt's one complaint. The entrance is derived from `match.introTicks`
+  (`render/hud-entrance.ts`, Phaser-free, unit-tested) rather than a tween, so it replays every round
+  and on the rematch with zero render state. `hud.ts` authors only `BAR_SCALE`/`PORTRAIT_SCALE` and
+  three offsets; the bar's height and its fill slot come off the atlas frames. Three rounds of playing
+  it then reshaped the band: the bar is drawn **non-uniformly** (0.86 × 0.5 — its 40 px of bezel is
+  frame art, not padding, so a thin-and-wide bar has no uniform-scale answer), the timer moved under
+  the bars, and `copy-portraits.py` grew the **`--hud` bake** its Phase 06 docstring anticipated —
+  the select card into a ~96×147 slot is a 4.7× bilinear squeeze with no mipmaps (Phaser only mipmaps
+  power-of-two textures), which is what "the portraits look low res" measurably was. Deliberately
+  **not** taken: art for the timer or the win pips (still text). Also corrected four stale documented
+  figures (two in `asset-manifest.md`, two in the Phase 07 log) that described an abandoned first
+  design, and put the preload atlases behind Boot's own missing-texture guard.
+
 ## Passes between phases
 
 ### Gameplay resolution pass (2026-07-18)

@@ -74,7 +74,7 @@ export class PlaygroundScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, STAGE_WIDTH, STAGE_HEIGHT);
 
     this.debugG = this.add.graphics().setDepth(50);
-    this.hud = new Hud(this);
+    this.hud = new Hud(this, [this.playerId, this.dummyId]);
     this.reader = new InputReader(this);
 
     this.add

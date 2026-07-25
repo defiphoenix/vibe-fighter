@@ -165,10 +165,14 @@ export class MatchScene extends Phaser.Scene {
         __holdP2: (v: Partial<InputSnapshot>) => void;
         __quitArmed: () => boolean;
         __endMenu: () => { shown: boolean; sel: number };
+        __hud: () => ReturnType<Hud["snapshot"]>;
       };
       w.__world = this.world;
       w.__quitArmed = () => this.quitArmed;
       w.__endMenu = () => ({ shown: this.endShown, sel: this.endSel });
+      // Lazy on purpose: the HUD is built further down create(), and a spec can only call this once
+      // the scene is running anyway.
+      w.__hud = () => this.hud.snapshot();
       w.__holdP1 = (v) => { this.testHoldP1 = v ?? {}; };
       w.__holdP2 = (v) => { this.testHoldP2 = v ?? {}; };
       // Drop the hooks with the scene. Since Esc returns to the flow, a surviving `__world` is a
@@ -176,7 +180,7 @@ export class MatchScene extends Phaser.Scene {
       // write into a dead scene's fields.
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
         const g = window as unknown as Record<string, unknown>;
-        for (const k of ["__world", "__holdP1", "__holdP2", "__sprites", "__stage", "__quitArmed", "__endMenu"]) delete g[k];
+        for (const k of ["__world", "__holdP1", "__holdP2", "__sprites", "__stage", "__quitArmed", "__endMenu", "__hud"]) delete g[k];
       });
     }
 
@@ -195,7 +199,7 @@ export class MatchScene extends Phaser.Scene {
     }
 
     this.debugG = this.add.graphics().setDepth(50);
-    this.hud = new Hud(this);
+    this.hud = new Hud(this, [idA, idB]);
 
     // Both fighters are sprite-driven with per-state animation switching (feet-anchored, mirrored).
     this.sprites = [

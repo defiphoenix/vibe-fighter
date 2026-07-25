@@ -73,11 +73,17 @@ PROP_FRAMES = 4  # frames 1..3 are --image-chained from frame 0, so refs=0 for -
 # --- the sim/render constants this art has to live inside ---------------------------------------
 # Mirrored, not imported (this is Python, that is TypeScript). Each cites its source so a drift is
 # findable. If one of these changes, this gate goes red -- which is the point.
-BAR_W = 460     # src/render/hud.ts:5
-MARGIN = 40     # src/render/hud.ts:7
-TOP = 34        # src/render/hud.ts:8
-PIP_GAP = 8     # src/render/hud.ts:22 -- pips sit at TOP + BAR_H + 8
-PIP_H = 22      # src/render/hud.ts:22 -- fontSize "22px"
+#
+# Phase 14 note: the direction of this mirror has REVERSED. These were the HUD's layout constants
+# back when the HUD was vector-drawn; hud.ts had in fact already drifted to 360/32/26 by the time
+# they were written down. The atlas skin now reads the bar's width, height and slot rect back off the
+# packed frames and applies its own BAR_SCALE, so BAR_W below is what the PACKER guarantees the art
+# is, and hud.ts is the consumer. Treat it as the contract, not as a copy of a TypeScript literal.
+BAR_W = 460     # the width this packer resizes `health-bar` to; src/render/hud.ts scales from it
+MARGIN = 40     # layout budget only (the shipped HUD uses its own MARGIN + a portrait plate)
+TOP = 34        # ditto -- these two only feed the vertical-budget assertion below
+PIP_GAP = 8     # src/render/hud.ts PIP_GAP
+PIP_H = 22      # pip font size, src/render/hud.ts
 
 # The HUD's vertical budget is DERIVED from the sim, not chosen. CLAUDE.md: check art against the
 # sim's real constants, not against how it looks. The first cut of this file used a round 200 and it

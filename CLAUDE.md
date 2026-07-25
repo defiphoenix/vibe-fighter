@@ -44,7 +44,7 @@ npm run audit:anim       # roster-wide animation REPORT (advisory, always exit 0
 npm run gen:placeholder  # regenerate 18 states x 3 fighters of placeholder sheets
 npm run key:layers       # re-key + validate the Phase 04 parallax layers
 npm run copy:stages      # pre-bake keyed layers to runtime 1697x720 into public/backgrounds
-npm run copy:portraits   # downscale Phase 06 portrait masters (1792x2400) -> public/ui/portraits/<id>.png at 448x600
+npm run copy:portraits   # Phase 06 masters (1792x2400) -> select cards at 448x600 AND hud/<id>.png at 192x294
 npm run build:atlases    # key + measure + pack the Phase 07 UI/prop atlases into public/
 npm run check:characters # validate the Phase 05 character refs
 npm run check:portraits  # validate the Phase 06 select portraits
@@ -269,6 +269,28 @@ bridge. What follows is only what you cannot learn by opening the file.
   stance array** — so a frame carrying no guard box correctly draws nothing rather than advertising a
   stance box the sim would never honour. Bounds draw **faint when inactive, solid when active**.
 - HUD is screen-space: `setScrollFactor(0)` on every element and it reads `VIEW_WIDTH`, not the world.
+- **The HUD is atlas ART, and the art owns the geometry** (Phase 14). `hud.ts` authors only two scales
+  and three offsets; the bar's width, **height** and fill-slot rect are read from the `hud-atlas`
+  frames. Slot frames are packed in **atlas space**, so the plate's own `cutX/cutY` comes off first,
+  and a flipped (P2) plate needs the mirrored slot `barW - dx - w`. The coloured fill is a `Graphics`
+  drawn **behind** the plate so it shows through the transparent slot — which means **`fillStyle` must
+  be set before `fillGradientStyle`**: the gradient is WebGL-only and the Canvas renderer *skips the
+  command*, leaving whatever fill style preceded it (the black backdrop) to draw the health bar black.
+  Portraits cover-crop into the plate's arch with no crop and no mask — the overflow hides under the
+  plate — but never letterbox one (that is Phase 11's black band). The bar plate is drawn
+  **non-uniformly** (`BAR_SCALE_X`/`BAR_SCALE_Y`): its 40 px of bezel above and below the slot is
+  frame art, not padding, so "thinner and wider" has no uniform-scale answer.
+- **Phaser only builds mipmaps for POWER-OF-TWO textures**, so a heavy downscale of an NPOT texture is
+  a raw bilinear squeeze and reads as low-res. That is why the HUD faces are their own bake
+  (`copy-portraits.py --hud` → `ui/portraits/hud/<id>.png`, loaded as `hud-portrait-<id>`) rather than
+  the 448×600 select card: measure the ratio between a texture's size and its drawn size before
+  concluding the source art is bad.
+- **The HUD entrance is derived from `match.introTicks`, not a tween or a wall clock**
+  (`render/hud-entrance.ts`, Phaser-free + unit-tested). That buys replay-per-round and the
+  Enter-rematch for free, since both go through `beginRound()`, and lets an e2e scrub the animation by
+  writing one number. The entrance scales the drawn WIDTH only — **colour tier and blink must key off
+  real health**, or a full-health fighter opens the round red and blinks through yellow into green.
+  PlaygroundScene zeroes `introTicks` before advancing, so it always renders the settled HUD.
 - **There is deliberately NO per-prop `scrollFactor`** in `PropConfig` (a factor < 1 drifts a prop across
   the roof as the camera pans); only `scale`. The **water tower and left-side shed are BAKED into
   `medium.png`/`main.png`**, not props — resizing them needs an art regen. Measure a prop's displayed
@@ -394,6 +416,12 @@ keys; (3) pumps past the intro phase (`INTRO_TICKS=90`), which gates input, befo
   observed states is stable and loses no coverage (the sim is deterministic).
 - **`pump()` takes a delta** — passing `0` gives a frame that advances no sim tick, which is how the
   sub-tick phase bugs are reproduced deterministically instead of hoping for a short frame.
+- **`game.loop.now` STOPS UPDATING after `loop.stop()`**, so the usual `let t = g.loop.now` at the top
+  of `pump()` re-reads the same frozen value on every call: N separate `pump(1)`s all replay roughly
+  the same wall-clock instant. Sim ticks still advance (they count frames), so anything driven by
+  `world` is fine — but anything keyed off the `timeMs` Phaser hands `Scene.update` (today: only the
+  HUD's low-health blink) looks frozen. Drive such a sequence from ONE `page.evaluate` that keeps its
+  own accumulating `t`. This cost a QA pass a false "the HUD is frozen" finding.
 - **Tween callbacks never fire under the pump**, so a spec can only wait on `Time.Clock`-driven progress —
   pump in a bounded loop until the expected global appears, never "one more frame".
 
@@ -422,7 +450,8 @@ keys; (3) pumps past the intro phase (`INTRO_TICKS=90`), which gates input, befo
 
 `public/` is the Vite static root: `sprites/<id>/<state>.png` (per-state sheets, 320×256 cells),
 `configs/character-gym.json` (fighter registry, each `{ render, data }`), `ui/portraits/<id>.png`
-(448×600 — **downscale from the Phase 06 masters, never regenerate**), plus `ui/` `props/`
+(448×600 — **downscale from the Phase 06 masters, never regenerate**) and `ui/portraits/hud/<id>.png`
+(192×294, the HUD's own bake), plus `ui/` `props/`
 `backgrounds/`. Schema in [`public/configs/sprite-schema.md`](public/configs/sprite-schema.md);
 provenance/licensing in [`docs/asset-manifest.md`](docs/asset-manifest.md). `tsconfig` has
 `resolveJsonModule` so sim tests import the registry JSON directly.

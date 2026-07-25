@@ -18,6 +18,7 @@ export class BootScene extends Phaser.Scene {
     this.load.json("characters", "configs/character-gym.json");
     this.load.json("stages", "configs/stages.json");
     this.load.atlas("twilight-atlas", "props/twilight-atlas.png", "props/twilight-atlas.json");
+    this.load.atlas("hud-atlas", "ui/hud-atlas.png", "ui/hud-atlas.json"); // Phase 07 HUD art, skinned in Phase 14
     for (const stage of STAGES) {
       for (const layer of LAYERS) {
         this.load.image(`${stage}-${layer}`, `backgrounds/${stage}/${layer}.png`);
@@ -32,7 +33,10 @@ export class BootScene extends Phaser.Scene {
     const failed: string[] = [];
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => failed.push(file.key));
 
-    const keys: string[] = [];
+    // The preload() atlases ride the same guard as everything else: they were queued in the first
+    // pass, so by COMPLETE they must have registered. Cheaper to name the file here than to let
+    // buildStage/Hud discover it one frame at a time.
+    const keys: string[] = ["twilight-atlas", "hud-atlas"];
     for (const { id, state, sheet } of eachSheet(reg)) {
       const key = textureKey(id, state);
       keys.push(key);
@@ -50,6 +54,12 @@ export class BootScene extends Phaser.Scene {
       const key = `portrait-${id}`;
       keys.push(key);
       this.load.image(key, `ui/portraits/${id}.png`);
+      // The HUD's own bake: the same bust, cover-cropped to the atlas arch and LANCZOS-resampled to
+      // HUD size (`npm run copy:portraits`). The 448x600 card into a ~96x147 slot is a 4.7x bilinear
+      // squeeze with no mipmaps (Phaser only mipmaps power-of-two textures), which reads as low-res.
+      const hudKey = `hud-portrait-${id}`;
+      keys.push(hudKey);
+      this.load.image(hudKey, `ui/portraits/hud/${id}.png`);
     }
 
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
@@ -58,7 +68,7 @@ export class BootScene extends Phaser.Scene {
       // either — check the transport failures AND that every expected texture actually registered.
       const missing = keys.filter((k) => !this.textures.exists(k));
       if (failed.length || missing.length) {
-        throw new Error(`characters: spritesheets failed — load errors: [${failed.join(", ")}]; missing textures: [${missing.join(", ")}]`);
+        throw new Error(`boot: assets failed to load (sheets, atlases or portraits) — load errors: [${failed.join(", ")}]; missing textures: [${missing.join(", ")}]`);
       }
       const scene = import.meta.env.DEV ? new URLSearchParams(location.search).get("scene") : null;
       // `match` is in here so DEV can skip the menus (the acceptance specs do); prod always starts

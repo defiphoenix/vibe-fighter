@@ -1,5 +1,7 @@
 # Phase 14 — HUD Skin  `[build]`
 
+**Gate result:** PASSED 2026-07-25 — see [`14-hud-skin-log.md`](14-hud-skin-log.md).
+
 **Goal:** Re-skin the existing vector HUD with the UI atlas — both fighters' health bars and
 portraits — with dynamic colour, a low-health blink, and a match-start entrance.
 
