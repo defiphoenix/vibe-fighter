@@ -1,5 +1,5 @@
 import type { CharacterData, StateName } from "../sim/types";
-import { ATTACK_STATE_TO_KEY, isAttackState } from "../sim/types";
+import { ATTACK_STATE_TO_KEY, attackSimTicks, isAttackState } from "../sim/types";
 import { TICK_HZ } from "../sim/constants";
 
 /** Just the two fields of a sheet's render meta that timing cares about. Kept structural so this
@@ -41,7 +41,9 @@ export function stateFrameRate(state: StateName, meta: SheetTiming, data: Charac
   }
   if (!isAttackState(state)) return meta.fps;
   const a = data.attacks[ATTACK_STATE_TO_KEY[state]];
-  const simTicks = a.startup + a.active + a.recovery;
+  // attackSimTicks, not startup+active+recovery: a `repeat` special is several windows long and the
+  // arithmetic for that lives in ONE place (sim/types.ts), mirrored by the two Python art gates.
+  const simTicks = attackSimTicks(a);
   if (simTicks <= 0) return meta.fps; // validator forbids it; don't divide by zero if it ever happens
   return (meta.frames * TICK_HZ) / simTicks;
 }
@@ -112,6 +114,11 @@ export function attackFrameDurations(state: StateName, meta: SheetTiming, data: 
   const n = meta.frames;
   if (!Number.isInteger(hit) || hit <= 0 || hit >= n) return null; // validator rejects these too
   const a = data.attacks[ATTACK_STATE_TO_KEY[state]];
+  // A multi-hit special has N contact frames but `meta.hit` is ONE measured number — it cannot describe
+  // where the other N-1 strikes land, and a two-segment split would phase-align the first window and
+  // smear every one after it. Uniform timing spreads the art evenly across the windows instead, which
+  // is the same honest answer this module already gives an INDETERMINATE sheet. Never guess here.
+  if ((a.repeat?.count ?? 1) > 1) return null;
   const windUpTicks = a.startup - PLAY_LAG_TICKS;
   const strikeTicks = a.active + a.recovery + PLAY_LAG_TICKS;
   if (windUpTicks <= 0 || strikeTicks <= 0) return null;

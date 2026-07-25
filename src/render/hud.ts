@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
 import { World } from "../sim/world";
 import { VIEW_WIDTH } from "../sim/constants";
+import { METER_MAX } from "../sim/fighter";
 import { hudEntrance } from "./hud-entrance";
 
 /** Phase 07's UI atlas. Loaded by BootScene; every frame below is validated before anything is drawn. */
@@ -49,6 +50,23 @@ const HEALTH_GRADIENT: Record<number, [number, number]> = {
 };
 const LOW_HEALTH = 0.25;
 const MID_HEALTH = 0.5;
+
+/** Super meter (Phase 15). A thin strip under the health bar, inset from it so the two never read as
+ *  one control. Its slot is derived from the health bar's own slot rather than authored, so a re-cut
+ *  `health-bar` moves both together.
+ *  ponytail: the meter has no plate ART yet — it is drawn into the same `fillG` as the health fill.
+ *  When the Phase 07 `meter-bar` plate is generated, add it at depth 101 the way `barPlates` is and
+ *  swap METER_* below for a `slotIn()` off its frame; the fill code here does not change. */
+const METER_H = 12;
+const METER_GAP = 6; // health slot bottom -> meter top
+const METER_INSET = 18; // narrower than the health slot on each side, so the two are visibly separate
+const METER_EMPTY = 0x241a30;
+const METER_FILL: [number, number] = [0x6fd8ff, 0x2a6ea8];
+/** Full bar: a hotter colour AND a pulse, because "you have a super" has to be readable at a glance
+ *  mid-fight. Same mechanism as the low-health blink, deliberately gentler — this is good news. */
+const METER_FULL: [number, number] = [0xffe27a, 0xf07830];
+const METER_PULSE_MS = 380;
+const METER_PULSE_DIM = 0.6;
 /** The low-health blink was `BLINK_MS = 120` and a full on/off cut, carried over from the vector HUD.
  *  On a 24 px rectangle that was a subtle blink; on the art's 62 px painted slot the QA pass measured
  *  it at ~4.3 Hz of full-bar disappearance and called it a strobe, which is both unpleasant and past
@@ -103,6 +121,8 @@ export class Hud {
   private window: Slot;
   private shownIds: [string, string] = ["", ""];
   private lastFill: [number, number] = [0, 0];
+  private lastMeter: [number, number] = [0, 0];
+  private meterY = 0;
   private lastColor: [number, number] = [HEALTH_HIGH, HEALTH_HIGH];
   private lastAlpha: [number, number] = [1, 1];
   private lastBlinkOff = false;
@@ -136,7 +156,13 @@ export class Hud {
     // ceiling with a tall frame hanging beside it.
     const plateH = faceFrame.height * PORTRAIT_SCALE;
     this.barTop = TOP + (plateH - this.barH) / 2;
-    const pipY = this.barTop + this.barH + PIP_GAP;
+    // The meter sits BELOW the whole bar plate, not below the plate's fill slot. Measuring from the
+    // slot put it at barTop+57 against a 72px plate — still inside the art, and the plate is opaque
+    // everywhere except the slot itself, so the meter drew every frame and was completely invisible.
+    // Every test still passed: the width it reported was real, it was just underneath the bezel. Only
+    // looking at the screen caught it.
+    this.meterY = this.barTop + this.barH + METER_GAP;
+    const pipY = this.meterY + METER_H + PIP_GAP;
 
     // Depth 100/101 with creation order deciding within a band (Phaser sorts stably by depth). The
     // faces must NOT drop to 99: the match-end scrim is depth 99 and is created later, so it would
@@ -245,6 +271,35 @@ export class Hud {
     this.fillG.fillRect(i === 0 ? x + dx : x + dx + this.slot.w - w, y, w, this.slot.h);
   }
 
+  /** The super meter strip. Geometry is derived from the health slot (see METER_* above), so it
+   *  mirrors for P2 exactly like `bar()` does and cannot drift from the plate it sits under. */
+  private meter(i: 0 | 1, frac: number, pulse: boolean, dy: number): void {
+    const x = this.barX[i];
+    const dx = (i === 0 ? this.slot.dx : this.barW - this.slot.dx - this.slot.w) + METER_INSET;
+    const y = this.meterY + dy;
+    const w = this.slot.w - METER_INSET * 2;
+
+    this.fillG.fillStyle(METER_EMPTY, 0.85);
+    this.fillG.fillRect(x + dx, y, w, METER_H);
+
+    const full = frac >= 1;
+    const fw = w * Phaser.Math.Clamp(frac, 0, 1);
+    // Recorded AFTER the fill is actually drawn (below), never here: assigning it up front makes the
+    // e2e's width assertions survive the `fillRect` being deleted, which is a snapshot that reports
+    // bookkeeping rather than rendering — the exact thing `snapshot()` exists to avoid.
+    this.lastMeter[i] = 0;
+    if (fw <= 0) return;
+    const alpha = full && pulse ? METER_PULSE_DIM : 1;
+    const [top, bottom] = full ? METER_FULL : METER_FILL;
+    // Solid before gradient — `fillGradientStyle` is WebGL-only and Canvas skips it, which would
+    // otherwise leave this drawing in the dark backdrop colour set just above. Same trap as bar().
+    this.fillG.fillStyle(top, alpha);
+    this.fillG.fillGradientStyle(top, top, bottom, bottom, alpha);
+    // Both meters fill from the OUTBOARD edge, matching their health bar above.
+    this.fillG.fillRect(i === 0 ? x + dx : x + dx + w - fw, y, fw, METER_H);
+    this.lastMeter[i] = fw;
+  }
+
   update(world: World, timeMs: number): void {
     const m = world.match;
     // The entrance rides the sim's intro countdown, not a tween or a wall clock — see hud-entrance.ts.
@@ -264,6 +319,10 @@ export class Hud {
     const bFrac = b.health / b.cfg.stats.maxHealth;
     this.bar(0, aFrac, aFrac * entrance.fillFrac, blink, entrance.slideY);
     this.bar(1, bFrac, bFrac * entrance.fillFrac, blink, entrance.slideY);
+    // The meter rides the entrance's fill fraction too, so the whole band charges as one.
+    const pulse = Math.floor(timeMs / METER_PULSE_MS) % 2 === 0;
+    this.meter(0, (a.meter / METER_MAX) * entrance.fillFrac, pulse, entrance.slideY);
+    this.meter(1, (b.meter / METER_MAX) * entrance.fillFrac, pulse, entrance.slideY);
 
     this.timerText.setText(String(m.secondsLeft));
     this.p1Pips.setText("P1 " + "●".repeat(m.wins[0]));
@@ -292,6 +351,7 @@ export class Hud {
     bandBottom: number;
     drawCommands: number;
     fill: { w: number; color: number; alpha: number }[];
+    meter: { w: number; max: number }[];
     blinkOff: boolean;
     portraitKeys: string[];
   } {
@@ -309,6 +369,12 @@ export class Hud {
       fill: [
         { w: this.lastFill[0], color: this.lastColor[0], alpha: this.lastAlpha[0] },
         { w: this.lastFill[1], color: this.lastColor[1], alpha: this.lastAlpha[1] },
+      ],
+      // Drawn width and the width a FULL bar would be, so a spec can assert a fraction without
+      // re-deriving the meter's geometry from the atlas.
+      meter: [
+        { w: this.lastMeter[0], max: this.slot.w - METER_INSET * 2 },
+        { w: this.lastMeter[1], max: this.slot.w - METER_INSET * 2 },
       ],
       blinkOff: this.lastBlinkOff,
       portraitKeys: this.faces.map((f) => f.texture.key),

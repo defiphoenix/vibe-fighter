@@ -44,6 +44,7 @@ ATTACK_STATE_TO_KEY = {
     "airHeavy": "airHeavy",
     "crouchLight": "crouchLight",
     "crouchHeavy": "crouchHeavy",
+    "special": "special",
 }
 
 PLAY_LAG_TICKS = 1  # mirrors render/anim-timing.ts
@@ -183,6 +184,15 @@ def main() -> int:
         for state, key in ATTACK_STATE_TO_KEY.items():
             sh, atk = render["sheets"][state], data["attacks"][key]
             n = sh["frames"]
+            # A `repeat` attack has `count` contact frames but `render.sheets.<state>.hit` holds ONE
+            # number, and anim-timing.ts refuses to phase-split a multi-hit move for exactly that
+            # reason. Measuring one here would record a value nothing reads, so skip the sheet and
+            # scrub any stale measurement rather than leaving a number that looks authoritative.
+            if (atk.get("repeat") or {}).get("count", 1) > 1:
+                print(f"MULTI-HIT    {fid}/{state}: {atk['repeat']['count']} windows, uniform timing (no single contact frame)")
+                if write:
+                    sh.pop("hit", None)
+                continue
             total = atk["startup"] + atk["active"] + atk["recovery"]
             path = PUBLIC / sh["path"]
             if not path.exists():

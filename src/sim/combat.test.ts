@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { World } from "./world";
 import { FIGHTER_A, FIGHTER_B, TEST_DUMMY } from "./config";
-import { Fighter } from "./fighter";
+import { ACTIONABLE, Fighter, METER_MAX } from "./fighter";
 import { assembleCharacter } from "./character-builder";
 import { emptyInput, type CharacterData, type InputSnapshot, type StateName } from "./types";
 import { DT, GROUND_Y } from "./constants";
@@ -24,6 +24,19 @@ function fightWorld(gap = 90): World {
 
 const lightPress = mk({ light: true, lightPressed: true });
 const heavyPress = mk({ heavy: true, heavyPressed: true });
+const specialPress = mk({ special: true, specialPressed: true });
+
+/** Run `ticks` ticks, pressing P1's `first` input on tick 0 only, and report what P1's attack did.
+ *  One helper because every multi-hit assertion needs the same three numbers. */
+function soloAttack(w: World, first: InputSnapshot, ticks: number) {
+  const startHealth = w.fighters[1].health;
+  let hits = 0;
+  for (let i = 0; i < ticks; i++) {
+    w.tick([i === 0 ? first : mk(), mk()]);
+    for (const e of w.drainEvents()) if (e.type === "hit" && e.player === 1) hits++;
+  }
+  return { hits, damage: startHealth - w.fighters[1].health };
+}
 
 describe("determinism / rate independence", () => {
   it("advance(dt) in fixed steps matches direct tick() calls", () => {
@@ -57,6 +70,41 @@ describe("hit resolution", () => {
     }
     // one light = 6 damage, not 3×6 from the 3 active frames
     expect(start - w.fighters[1].health).toBe(6);
+  });
+
+  // Phase 15. The headline acceptance criterion: ONE animation, a deterministic N > 1 connects.
+  // Dedup is per hit WINDOW now, not per attack, and TEST_DUMMY's special authors 5 windows.
+  it("a special lands exactly one hit per authored window", () => {
+    const w = fightWorld();
+    w.fighters[0].meter = METER_MAX;
+    const count = TEST_DUMMY.attacks.special.repeat!.count;
+    const { hits, damage } = soloAttack(w, specialPress, 200);
+    expect(count).toBeGreaterThan(1); // the whole point — a single-hit "multi-hit" proves nothing
+    expect(hits).toBe(count);
+    expect(damage).toBe(count * TEST_DUMMY.attacks.special.damage);
+  });
+
+  // Window ids restart at 0 on every attack, so the ONLY thing stopping a previous move's window
+  // from swallowing the special's first hit is startAttack() clearing lastHitId. Break that line and
+  // this test drops to count-1 while every other test stays green.
+  it("a special straight after a connecting normal still lands every window", () => {
+    const w = fightWorld();
+    w.fighters[0].meter = METER_MAX;
+    // Land a light first (its window is id 0 — the same id the special's first window will use).
+    // 30 ticks, not 20: the light is 15 frames plus 6 of hitstop, so a shorter loop leaves P1 still
+    // locked in attackLight and think() would swallow the special press instead of testing anything.
+    for (let i = 0; i < 30; i++) w.tick([i === 0 ? lightPress : mk(), mk()]);
+    w.drainEvents();
+    expect(ACTIONABLE.has(w.fighters[0].state)).toBe(true);
+    expect(w.fighters[0].lastHitId).toBe(0); // the stale id the next attack must not inherit
+
+    // Close the gap the light's knockback opened, WITHOUT reset() — reset clears lastHitId, which is
+    // the very thing under test.
+    w.fighters[1].x = w.fighters[0].x + 90;
+    w.fighters[1].vx = 0;
+
+    const { hits } = soloAttack(w, specialPress, 200);
+    expect(hits).toBe(TEST_DUMMY.attacks.special.repeat!.count);
   });
 
   it("puts the defender into hitstun and knocks them back (away from attacker)", () => {
@@ -363,6 +411,69 @@ describe("match flow", () => {
     expect(w.match.wins[0]).toBeGreaterThanOrEqual(2);
     expect(w.match.matchWinner).toBe(0);
     expect(w.match.phase).toBe("matchEnd");
+  });
+});
+
+describe("meter — earned in combat, spent on the special", () => {
+  it("starts empty and fills only the ATTACKER when a hit lands", () => {
+    const w = fightWorld();
+    expect(w.fighters[0].meter).toBe(0);
+    expect(w.fighters[1].meter).toBe(0);
+
+    for (let i = 0; i < 20; i++) w.tick([i === 0 ? lightPress : mk(), mk()]);
+
+    const dealt = TEST_DUMMY.attacks.light.damage;
+    expect(w.fighters[0].meter).toBe(dealt);
+    // Eating a hit pays NOTHING. Meter is earned by doing something right, not by being beaten up.
+    expect(w.fighters[1].meter).toBe(0);
+  });
+
+  it("a successful block pays the BLOCKER, and pays less than landing the hit does", () => {
+    const w = fightWorld(60);
+    const guard = mk({ block: true });
+    for (let i = 0; i < 20; i++) w.tick([i === 0 ? lightPress : mk(), guard]);
+
+    const blocked = w.fighters[1].meter;
+    const dealt = TEST_DUMMY.attacks.light.damage;
+    expect(blocked).toBeGreaterThan(0);
+    expect(blocked).toBeLessThan(dealt); // strictly less than the attacker would have banked
+    // ...and the attacker who got blocked banks nothing: chip is damage, not a successful hit.
+    expect(w.fighters[0].meter).toBe(0);
+  });
+
+  it("never exceeds METER_MAX", () => {
+    const w = fightWorld();
+    w.fighters[0].meter = METER_MAX - 1;
+    for (let i = 0; i < 20; i++) w.tick([i === 0 ? lightPress : mk(), mk()]);
+    expect(w.fighters[0].meter).toBe(METER_MAX);
+  });
+
+  it("refuses the special on an empty meter — but still CONSUMES the edge", () => {
+    const w = fightWorld();
+    w.fighters[0].meter = METER_MAX - 1;
+    w.tick([specialPress, mk()]);
+    expect(w.fighters[0].state).not.toBe("special");
+    // If the edge were not consumed the render latch would hold it and re-fire it on every
+    // actionable tick until the meter happened to fill — a special that goes off by itself.
+    expect(w.fighters[0].consumed.special).toBe(true);
+  });
+
+  it("spends the WHOLE bar on a special", () => {
+    const w = fightWorld();
+    w.fighters[0].meter = METER_MAX;
+    w.tick([specialPress, mk()]);
+    expect(w.fighters[0].state).toBe("special");
+    expect(w.fighters[0].meter).toBe(0);
+  });
+
+  it("survives a round transition but is cleared by a full restart", () => {
+    const w = fightWorld();
+    w.fighters[0].meter = 40;
+    w.fighters[0].reset(500, 1); // what every round transition does to a fighter
+    expect(w.fighters[0].meter).toBe(40);
+    w.restart();
+    expect(w.fighters[0].meter).toBe(0);
+    expect(w.fighters[1].meter).toBe(0);
   });
 });
 

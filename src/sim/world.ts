@@ -30,11 +30,11 @@ export class World {
    *  across its ticks). The render latch clears exactly these — NOT "any fight tick ran" — so a press
    *  the fighter couldn't act on (locked in an attack/stun) stays buffered until it can. */
   readonly consumedInputs: [
-    { up: boolean; light: boolean; heavy: boolean },
-    { up: boolean; light: boolean; heavy: boolean },
+    { up: boolean; light: boolean; heavy: boolean; special: boolean },
+    { up: boolean; light: boolean; heavy: boolean; special: boolean },
   ] = [
-    { up: false, light: false, heavy: false },
-    { up: false, light: false, heavy: false },
+    { up: false, light: false, heavy: false, special: false },
+    { up: false, light: false, heavy: false, special: false },
   ];
 
   private accumulator = 0;
@@ -63,7 +63,7 @@ export class World {
     this.accumulator += Math.min(dt, MAX_FRAME);
     if (cpu) this.cpuSeam = cpu;
     let actionable = 0;
-    for (const ci of this.consumedInputs) { ci.up = false; ci.light = false; ci.heavy = false; }
+    for (const ci of this.consumedInputs) { ci.up = false; ci.light = false; ci.heavy = false; ci.special = false; }
     // Working copy of the human snapshots so an edge consumed on one tick is masked out for the REST
     // of this batch. Without it a multi-tick advance replays the SAME physical press: e.g. an air
     // normal that lands mid-batch recovers to idle, and the still-set lightPressed fires a second,
@@ -94,12 +94,14 @@ export class World {
         this.consumedInputs[i].up ||= c.up;
         this.consumedInputs[i].light ||= c.light;
         this.consumedInputs[i].heavy ||= c.heavy;
-        if (c.up || c.light || c.heavy) {
+        this.consumedInputs[i].special ||= c.special;
+        if (c.up || c.light || c.heavy || c.special) {
           cur[i] = {
             ...cur[i],
             upPressed: cur[i].upPressed && !c.up,
             lightPressed: cur[i].lightPressed && !c.light,
             heavyPressed: cur[i].heavyPressed && !c.heavy,
+            specialPressed: cur[i].specialPressed && !c.special,
           };
         }
       }
@@ -125,8 +127,8 @@ export class World {
     const [a, b] = this.fighters;
     // Reset consumption for THIS tick before any early return, so a non-fight/hitstop/locked tick
     // reports nothing consumed and the render latch keeps buffering the edge.
-    a.consumed.up = a.consumed.light = a.consumed.heavy = false;
-    b.consumed.up = b.consumed.light = b.consumed.heavy = false;
+    a.consumed.up = a.consumed.light = a.consumed.heavy = a.consumed.special = false;
+    b.consumed.up = b.consumed.light = b.consumed.heavy = b.consumed.special = false;
 
     // --- Phase management (non-fight phases don't simulate combat, don't consume input) ---
     if (this.match.phase === "intro") {
@@ -181,9 +183,27 @@ export class World {
     // --- Step 10a: a KO ends the round immediately, even on the connecting tick ---
     if (this.checkRoundOver(a, b)) return true; // input was consumed this tick
 
-    // --- Step 3b: freeze on the connecting frame (hitstop) — skip timers AND the round clock ---
-    if (hitstop > 0) {
-      this.hitstop = hitstop;
+    // --- Step 3b: freeze on the connecting frame (hitstop) or on a special's SUPER FREEZE ---
+    // Both ride the same channel, so the clock-doesn't-tick-while-frozen guarantee holds for free.
+    // Read AFTER the KO check on purpose: a fighter who started a special and was KO'd by an
+    // already-active opposing attack this same tick gets neither the freeze nor the cut-in.
+    // pendingFreeze is consumed here (not just read) — left set it would re-freeze every tick.
+    let superFreeze = 0;
+    for (const f of this.fighters) {
+      if (f.pendingFreeze <= 0) continue;
+      const armed = f.pendingFreeze;
+      f.pendingFreeze = 0;
+      // The move must still be HAPPENING. `think` arms this, but combat runs afterwards and can put
+      // the fighter in hitstun on the same tick — a special stuffed on its first frame would
+      // otherwise still stop the world and flash its owner's portrait for a move that never came
+      // out. The KO check above only covers the fatal case; this covers every interruption.
+      if (!isAttackState(f.state)) continue;
+      superFreeze = Math.max(superFreeze, armed);
+      this.events.push({ type: "special", player: f.index, x: f.x, y: f.y });
+    }
+    const stop = Math.max(hitstop, superFreeze);
+    if (stop > 0) {
+      this.hitstop = stop;
       return true; // input was consumed this tick
     }
 
@@ -276,6 +296,9 @@ export class World {
     this.match.round = 1;
     this.match.matchWinner = null;
     this.resetRound();
+    // Meter carries BETWEEN rounds (reset() deliberately leaves it), so a new match has to zero it
+    // here or the rematch opens with whatever bar the last one ended on.
+    for (const f of this.fighters) f.meter = 0;
     this.match.beginRound();
   }
 }

@@ -1,4 +1,4 @@
-import { Fighter } from "./fighter";
+import { Fighter, METER_MAX } from "./fighter";
 import { toWorld, overlaps } from "./geometry";
 import { ATTACK_STATE_TO_KEY, isAttackState } from "./types";
 import type { AttackSpec, SimEvent } from "./types";
@@ -9,10 +9,26 @@ interface PendingResult {
   spec: AttackSpec;
   blocked: boolean;
   awayDir: 1 | -1;
+  /** The hit window that produced this connect — what the attacker records so the SAME window can't
+   *  land twice, while the NEXT window of a multi-hit special still can. */
+  hitId: number;
 }
 
 function attackSpecOf(f: Fighter): AttackSpec | null {
   return isAttackState(f.state) ? f.cfg.attacks[ATTACK_STATE_TO_KEY[f.state]] : null;
+}
+
+/** Meter is earned by DOING something right, never by being hit: the attacker banks what a clean hit
+ *  dealt, and a fighter who successfully BLOCKS banks this fraction of what that hit would have dealt
+ *  him. Guarding is rewarded, landing it is rewarded more, and eating a hit pays nothing — so the
+ *  meter tracks who is playing well rather than who is taking a beating. A blocked attacker earns
+ *  nothing either: chip is damage, but it is not a successful hit. */
+const BLOCK_METER_SHARE = 0.5;
+
+/** `amount` is always the damage ACTUALLY applied (rounded and difficulty-scaled) — reading the spec's
+ *  raw field instead would let a fractional authored damage leak non-integers into the sim. */
+function gainMeter(f: Fighter, amount: number): void {
+  f.meter = Math.min(METER_MAX, f.meter + amount);
 }
 
 function anyOverlap(
@@ -45,11 +61,14 @@ export function resolveCombat(a: Fighter, b: Fighter): { events: SimEvent[]; hit
   const pending: PendingResult[] = [];
 
   for (const attacker of [a, b]) {
-    if (attacker.hasHit) continue;
     const spec = attackSpecOf(attacker);
     if (!spec) continue;
     const atkBoxes = snapshot.find((s) => s.self === attacker)!.boxes;
     if (atkBoxes.hit.length === 0) continue;
+    // Dedup is per hit WINDOW, not per attack: a normal has one window so it still lands once, while
+    // a `repeat` special lands once per window. The builder tags the frames; nothing here counts.
+    const hitId = atkBoxes.hitId;
+    if (hitId === undefined || attacker.lastHitId === hitId) continue;
 
     const defender = attacker === a ? b : a;
     if (defender.isKO) continue;
@@ -81,12 +100,12 @@ export function resolveCombat(a: Fighter, b: Fighter): { events: SimEvent[]; hit
     );
 
     const awayDir: 1 | -1 = defender.x >= attacker.x ? 1 : -1;
-    pending.push({ attacker, defender, spec, blocked, awayDir });
+    pending.push({ attacker, defender, spec, blocked, awayDir, hitId });
   }
 
   let hitstop = 0;
   for (const r of pending) {
-    r.attacker.hasHit = true;
+    r.attacker.lastHitId = r.hitId;
     hitstop = Math.max(hitstop, r.spec.hitstop);
     // The attacker's handicap scales what it deals. A clean hit floors at 1 so a connect always
     // registers; chip is allowed to floor at 0.
@@ -96,19 +115,25 @@ export function resolveCombat(a: Fighter, b: Fighter): { events: SimEvent[]; hit
     // practice (light 6 -> 3/4/5, heavy 15 -> 8/11/13). Chip is small enough that this doesn't
     // matter; make chip a real difficulty lever only if blocking ever becomes the way to lose.
     const scale = r.attacker.damageScale;
+    // What a clean connect would apply. The hit branch spends it as damage; the block branch only
+    // sizes the blocker's meter reward off it, so a stronger attack is worth more to block.
+    const damage = Math.max(1, Math.round(r.spec.damage * scale));
     if (r.blocked) {
       const kbx = r.spec.knockback.x * 0.5 * r.awayDir;
-      r.defender.applyHit(Math.max(0, Math.round(r.spec.chip * scale)), r.spec.blockstun, kbx, 0, true);
+      const chip = Math.max(0, Math.round(r.spec.chip * scale));
+      r.defender.applyHit(chip, r.spec.blockstun, kbx, 0, true);
+      gainMeter(r.defender, Math.floor(damage * BLOCK_METER_SHARE));
       events.push({ type: "block", player: r.defender.index, x: r.defender.x, y: r.defender.y });
       // Chip can KO through a block. world.checkRoundOver ends the round either way, but without
       // this the render layer never sees a `ko` event and the KO flash silently doesn't fire.
       if (r.defender.isKO) events.push({ type: "ko", player: r.defender.index });
     } else {
       const kbx = r.spec.knockback.x * r.awayDir;
-      const damage = Math.max(1, Math.round(r.spec.damage * scale));
       r.defender.applyHit(damage, r.spec.hitstun, kbx, r.spec.knockback.y, false);
+      gainMeter(r.attacker, damage);
       // The SCALED number goes in the payload: MatchScene reads it for hit-feedback intensity.
-      events.push({ type: "hit", player: r.defender.index, x: r.defender.x, y: r.defender.y, data: { damage } });
+      // hitId lets the render layer tell one window of a multi-hit special from the next.
+      events.push({ type: "hit", player: r.defender.index, x: r.defender.x, y: r.defender.y, data: { damage, hitId: r.hitId } });
       if (r.defender.isKO) events.push({ type: "ko", player: r.defender.index });
     }
   }

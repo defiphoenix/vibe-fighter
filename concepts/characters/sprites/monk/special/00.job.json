@@ -1,0 +1,41 @@
+[
+  {
+    "created_at": "2026-07-25T15:38:16.652467Z",
+    "display_name": "Seedance 2.0",
+    "id": "3a50e814-7edd-4614-ad11-235277715eea",
+    "job_type": "seedance_2_0",
+    "min_result_url": null,
+    "params": {
+      "aspect_ratio": "3:4",
+      "bitrate_mode": "standard",
+      "duration": 4,
+      "generate_audio": false,
+      "genre": "auto",
+      "height": 960,
+      "medias": [
+        {
+          "data": {
+            "id": "71753438-822f-447c-8f15-adf2b1f5bf46",
+            "type": "media_input",
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/71753438-822f-447c-8f15-adf2b1f5bf46.png"
+          },
+          "role": "start_image"
+        }
+      ],
+      "mode": "fast",
+      "model": "seedance_2_0_fast",
+      "multi_prompt": [],
+      "multi_shot_mode": "custom",
+      "multi_shots": false,
+      "prompt": "The SAME single monk fighter from the start image sinks into a deep horse stance for a moment with both palms drawn back at his waist, then drives out FIVE distinct open-palm thrusts, alternating hands: on each one the arm shoots forward and upward until the elbow is completely straight and the open palm is far out in front of him, then pulls all the way back to his waist ready for the next. Each strike reaches higher than the last, from chest height up to above his own head. The arm fully extending is the single biggest movement in the clip. His feet stay planted, he stays standing, and he never leaves the frame. Perfectly flat uniform magenta background, no texture or speckle, side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt_language": "en",
+      "reference_elements": [],
+      "resolution": "720p",
+      "speedramp": "auto",
+      "width": 720
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_153816_3a50e814-7edd-4614-ad11-235277715eea.mp4",
+    "status": "completed",
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_153816_3a50e814-7edd-4614-ad11-235277715eea_thumbnail.webp"
+  }
+]

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { World } from "./world";
-import { Fighter } from "./fighter";
+import { Fighter, METER_MAX } from "./fighter";
 import { resolveSpatial } from "./spatial";
 import { FIGHTER_A, FIGHTER_B } from "./config";
 import { emptyInput, type InputSnapshot } from "./types";
@@ -320,4 +320,58 @@ describe("depth follows the mover (R-8)", () => {
     for (let i = 0; i < 10; i++) w.tick(NONE); // settleBodies integrates + updates depth
     expect(w.frontIndex).toBe(0); // the loser did not pop in front while sliding
   });
+});
+
+// R-9: a special STUFFED on its startup must not freeze the world.
+// `think` arms pendingFreeze, but combat runs later on the SAME tick and can put the fighter in
+// hitstun. Honouring the freeze anyway stopped the match dead and flashed the interrupted player's
+// super portrait for a move that never came out — a full second of cinematic for nothing, and a free
+// escape for whoever got hit. Found by the Phase 15 diff review.
+describe("an interrupted special does not freeze the world (R-9)", () => {
+  it("no freeze and no `special` event when the starter is stuffed on the same tick", () => {
+    const w = fightWorld(90);
+    const [p1, p2] = w.fighters;
+    p1.meter = METER_MAX;
+
+    // P2 swings first so its hit box is live on the tick P1 commits to the special.
+    let started = false;
+    for (let i = 0; i < 12 && !started; i++) {
+      // Press on a tick where P2's hit box is ALREADY live (light is startup 4, so frames 4..6), so
+      // the connect lands in the very same tick that starts the special — that is the whole scenario.
+      const p1In = p2.state === "attackLight" && p2.stateFrame >= 4
+        ? mk({ special: true, specialPressed: true })
+        : mk();
+      w.tick([p1In, i === 0 ? mk({ light: true, lightPressed: true }) : mk()]);
+      started = p1In.specialPressed;
+    }
+
+    expect(started).toBe(true);
+    expect(p1.state).toBe("hitstun"); // the special was stuffed before it came out
+    expect(w.drainEvents().some((e) => e.type === "special")).toBe(false);
+    // Only P2's ordinary hitstop may be running — never the 36-tick super freeze.
+    expect(w.hitstop).toBeLessThan(FIGHTER_A.attacks.special.freeze!);
+  });
+});
+
+// R-10: a REFUSED special press must never linger in the buffer.
+// The special branch used to sit AFTER the light/heavy branches, which return early. Pressing light
+// and special together on a nearly-full bar meant the special edge was never reported consumed, the
+// light's own damage topped the meter up, and the buffered special then fired by itself. Found by the
+// Phase 15 diff review.
+describe("a refused special edge is always consumed (R-10)", () => {
+  it("light + special on a short bar reports BOTH edges consumed", () => {
+    const short = fightWorld();
+    short.fighters[0].meter = METER_MAX - 1;
+    short.tick([mk({ light: true, lightPressed: true, special: true, specialPressed: true }), mk()]);
+    // The refused special is still spent, so the latch releases it; the light comes out as normal.
+    expect(short.fighters[0].consumed.special).toBe(true);
+    expect(short.fighters[0].state).toBe("attackLight");
+
+    // ...and on a FULL bar the super wins the frame outright — a super beats a normal pressed together.
+    const full = fightWorld();
+    full.fighters[0].meter = METER_MAX;
+    full.tick([mk({ light: true, lightPressed: true, special: true, specialPressed: true }), mk()]);
+    expect(full.fighters[0].state).toBe("special");
+  });
+
 });

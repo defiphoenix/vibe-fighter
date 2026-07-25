@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 on top of it. Rendering uses **default LINEAR antialiasing — no `pixelArt`** — because the art is
 photographic (video-derived sprites + painted backgrounds).
 
-Built in phases. **Phases 00–13 are shipped; Phase 14 is next.** Specs and gate
+Built in phases. **Phases 00–15 are shipped; Phase 16 is next.** Specs and gate
 results in [`docs/phases/`](docs/phases/); the narrative of what shipped when, including the fix passes
 between phases, is in [`docs/history.md`](docs/history.md). `prompts.pdf` holds the original spec.
 
@@ -41,7 +41,8 @@ npm run build:sprites    # pack raw frames (concepts/characters/sprites/<id>/<st
 npm run check:sprites    # gate: cell size, frame count == JSON, feet-anchored, height, NO-PURPLE hue, attack MOTION_MIN
 npm run check:sync       # gate: measure each attack sheet's CONTACT frame, check against render.sheets.<state>.hit; --write records it
 npm run audit:anim       # roster-wide animation REPORT (advisory, always exit 0)
-npm run gen:placeholder  # regenerate 18 states x 3 fighters of placeholder sheets
+npm run gen:placeholder  # regenerate 19 states x 3 fighters of placeholder sheets
+                         # (`-- --state <name>` limits it — without it this OVERWRITES the real art)
 npm run key:layers       # re-key + validate the Phase 04 parallax layers
 npm run copy:stages      # pre-bake keyed layers to runtime 1697x720 into public/backgrounds
 npm run copy:portraits   # Phase 06 masters (1792x2400) -> select cards at 448x600 AND hud/<id>.png at 192x294
@@ -163,11 +164,34 @@ bridge. What follows is only what you cannot learn by opening the file.
   animation, so the top ~40% of the attacker was invulnerable mid-heavy. Both now match the art
   (`body: "stand"`, hit `y 95`). `config.ts`'s `TEST_DUMMY` still authors its heavy low **on purpose**
   (it's the fixture that exercises the low path) — don't "fix" it to match the roster.
-- **Six attack states**: ground `attackLight/attackHeavy`, air `airLight/airHeavy`, crouch
-  `crouchLight/crouchHeavy`. The single source of truth is `ATTACK_STATE_TO_KEY` + `isAttackState()` in
-  `types.ts`; every consumer keys off it, never hardcoded literals. `startAttack` picks the variant by
-  stance: **crouch (grounded+down) > air (!grounded) > ground**, and the attack check in `think` runs
-  before the airborne gate.
+- **Seven attack states**: ground `attackLight/attackHeavy`, air `airLight/airHeavy`, crouch
+  `crouchLight/crouchHeavy`, plus the meter `special`. The single source of truth is
+  `ATTACK_STATE_TO_KEY` + `isAttackState()` in `types.ts`; every consumer keys off it, never hardcoded
+  literals. `variantFor()` picks a normal's variant by stance: **crouch (grounded+down) > air
+  (!grounded) > ground**, and the attack check in `think` runs before the airborne gate.
+  **`startAttack(state)` is the ONE entry into every attack state**, because it is also the only place
+  `lastHitId` is cleared — see below.
+- **Multi-hit is per-WINDOW dedup, not per-attack** (Phase 15). `FrameBoxes.hitId` tags each frame with
+  the hit window it belongs to; `Fighter.lastHitId` refuses a window that already connected. A normal
+  has one window (id 0) so it still lands exactly once; `AttackData.repeat = {count, gap}` lays the
+  active window down `count` times so a special lands `count` times. **Window ids restart at 0 for
+  every attack**, so `startAttack` clearing `lastHitId` is load-bearing: without it a normal that just
+  connected swallows the special's first window (the test that pins this drops 5 hits to 4).
+  `attackSimTicks()` in `types.ts` is the ONE place the repeat length arithmetic lives — mirrored by
+  `check-attack-sync.py` and `audit-animations.py`, and consumed by the validator and `anim-timing.ts`.
+- **The meter is earned by playing WELL, never by being hit**: landing a clean hit pays the attacker
+  `+damage`; a successful BLOCK pays the *blocker* `+floor(damage * BLOCK_METER_SHARE)` (0.5) off the
+  damage the attack *would* have dealt, so guarding is rewarded and landing it is rewarded more. Eating
+  a hit pays nothing, and a blocked attacker earns nothing either — chip is damage, but it is not a
+  successful hit. Always credited from the **applied** (rounded, difficulty-scaled) number — the spec's
+  raw `damage` is not required to be an integer, so reading it would leak floats into the sim.
+  `METER_MAX` is spent whole; the special is grounded-only, and the
+  edge is **consumed even when refused** or a press on an empty bar stays latched and fires itself the
+  instant the bar fills. `reset()` deliberately keeps the meter (it carries between rounds, like
+  `damageScale`); `World.restart()` zeroes it.
+- **The super freeze rides the existing hitstop channel**, folded in at step 3b **after**
+  `checkRoundOver` — a fighter KO'd on the tick they started a special gets neither the freeze nor the
+  cut-in. `Fighter.pendingFreeze` is consumed on read (left set, it re-freezes every tick).
 - **Block is a dedicated key**, not hold-back: `guardIntent = input.block && grounded`, and holding block
   PLANTS the fighter. Use the **`guarding` getter** (block held, grounded, and the current FRAME carries
   a guard box) for any guard cue — `guardIntent` alone is set even in hitstun/attack where no guard box
@@ -257,8 +281,22 @@ bridge. What follows is only what you cannot learn by opening the file.
   banked the win and left a fighter in `ko`, so the next tick banks it again until `matchWinner` sets;
   and a 15-tick `advance` batch can KO mid-loop, so a pre-loop pin can't catch it anyway. It pins the
   clock only while `phase === "intro"` and does a full `world.restart()` on any non-`fight` phase.
+  **…and `restart()` zeroes the meter, so `resetWorld` must save and restore it** — right for a fresh
+  match, wrong for a training scene whose whole purpose is trying a super repeatedly. Without it,
+  farming meter on the dummy and KO'ing it confiscated the bar, which made the specials untestable
+  exactly where you go to test them. The scene's panel also has **fighter select · regen hp · fill
+  meter**, now named in the on-screen legend: a training feature nobody can find is not one.
 - **Block can't use Left/Right Shift** — Phaser 4.2.1 dispatches by keyCode and both shifts are 16.
-  Bindings: P1 WASD + F/G, block `Q`; P2 arrows + `,`/`.`, block `/`.
+  Bindings: P1 WASD + F/G, block `Q`, super `E`; P2 arrows + `,`/`.`, block `/`, super `M`.
+- **The super cut-in is derived arithmetic, not a tween** (`render/super-cutin.ts`, Phaser-free +
+  unit-tested; `render/cutin-view.ts` is the shared scene-side owner, used by BOTH MatchScene and
+  PlaygroundScene because the dummy is where you try the move). It reads `World.hitstop` counting
+  down, so it advances under the e2e pump and cannot outlive the freeze it belongs to. The art is the
+  **Phase 06 select portrait** drawn near 1:1 — an UPSCALE, so the no-mipmaps-on-NPOT softness that
+  forced the HUD's own portrait bake does not apply.
+- **A combo counter must be a persistent per-defender tally**, reset when the defender leaves
+  `hitstun` — not a count of one drained batch. A 15-tick `advance` can carry several hits, and
+  `hitId` restarts at 0 on every attack, so neither is usable as an identity.
 - Input **edge presses are latched** in `pending[]` until a sim tick consumes them (held fields like
   `block` pass straight through) — **plus the `down` held at press time, surfaced as
   `InputSnapshot.downAtPress`**, so a buffered crouch normal doesn't come out standing when the player
@@ -313,6 +351,16 @@ because the tests only ever compared code to other code.
 - **A box is a claim about a sprite.** The ground heavy had a crouching hurt box and a shin-height hit box
   on top of a standing punch. One-liner that catches the class: read the sheet's alpha, take the topmost
   opaque row per frame, compare to `hurt.h`. `scripts/` still has no gate for box-vs-art agreement.
+  **It happened again in Phase 15**, one phase after this was written: the jiujitsu's `special` is a
+  spinning FLOOR SWEEP and shipped with `hit.y 75 h 85` + `body:"stand"` — a chest-height box, so a
+  STANDING guard stopped it and a crouching one ate all five hits. Inverted, not merely off. Measure the
+  strike, don't eyeball it: difference each frame against frame 0 and take the y band of the
+  furthest-forward moved pixels (that put the leg at 22–99px above the feet, and the box at `y 12 h 50`).
+  **`registry.test.ts` now sweeps every special × every defender × three spacings** for which stance
+  turns damage into chip — the same shape as the normals' blocking matrix, which had no special row.
+  When body and art disagree on a state whose frames are mostly crouched, prefer the CROUCH profile: a
+  hurt box larger than the art means you get hit by things that visually miss, one smaller means attacks
+  pass through you, and the second is the worse failure.
 - **An ANIMATION is a claim about a move — measure its length against that move.** Attack anims used an
   authored per-state `fps` that had drifted: every fighter's `attackLight` had 0.43s of art over a
   0.25–0.27s move, so playback was cut at ~60% and **the strike was never drawn** ("the light attack does
@@ -341,6 +389,21 @@ because the tests only ever compared code to other code.
   attacks are the sole carriers of durations and `stunFrameRate` returns `null` for every attack state.
   The unit test proves the arithmetic; the **browser** test is the one that matters, because the
   arithmetic was already right and what could still fail is the override reaching Phaser's clock.
+- **…and an ATTACK animation is a claim about REACHING the other fighter — every metric here is
+  direction-blind.** Phase 15's brawler super measured beautifully (silhouette height alternating
+  `100/115/115/100/…`, no dead pairs, motion floor cleared) and was still wrong: the uppercut travelled
+  purely VERTICALLY, up beside his own head, while the hit box reaches 145px forward — so nothing on
+  screen ever crossed the gap ("he is not moving the hands through the enemy"). `check:sprites`' motion
+  floor, `audit:anim`'s per-pair change and silhouette height all score a big vertical swing exactly as
+  well as a big horizontal one, **and the vertical one is the one that misses**. Same blindness passed
+  the frame where the fighter had fallen flat on his back — a body on the floor is a large silhouette
+  change, which is what the metric rewards. Fix in the prompt by naming the TARGET ("at an opponent
+  standing just in front of him to the RIGHT … reaching well past where his own toes are"); the tell
+  that it worked is the minimum adjacent change (0.01 → 0.36) and heights going FLAT, not taller.
+- **The forgotten prompt variable is the SAMPLING RATE, and it is not the same problem as amplitude.**
+  ffmpeg takes N frames evenly across the 4s clip, so a correct motion occupying a sliver of each swing
+  lands 6 of 8 samples mid-return and reads as *standing still*. Ask the model to **HOLD** at full
+  extension (or name the cycle COUNT for a cyclic state) — describing the motion harder does nothing.
 
 Related: **a held state must not loop if any frame leaves the pose** — a looping `crouch` sheet whose
 first frames are the standing wind-up reads as the fighter popping up out of the crouch. The inverse

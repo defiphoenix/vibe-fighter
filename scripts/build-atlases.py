@@ -67,6 +67,14 @@ check_job, check_blocks, shared_block = art_gate.check_job, art_gate.check_block
 # id -> aspect. The aspect label lies (`3:4` really returns 1792x2400 = 0.7467:1), so it is only ever
 # used to check the job record against itself; the pixel truth comes from params.width/height.
 UI_ASSETS = {"health-bar": "21:9", "portrait-base": "3:4"}
+# Phase 15 leaves `meter-bar` OUT of this table on purpose: the prompt is written
+# (concepts/ui/2026-07-17/meter-bar.prompt.txt, sharing the identical FRAMING/STYLE/PALETTE block
+# check_blocks enforces) but the art has not been generated, and listing an id whose -raw.png is
+# missing turns this whole gate red. The HUD draws the meter into its existing fill Graphics until
+# then (src/render/hud.ts METER_*). To finish it: generate the raw at 21:9, drop it in beside its
+# job.json, add "meter-bar": "21:9" here, and give it a branch mirroring the health-bar one below
+# (bbox -> find_slot -> pack, emitting `meter-bar` + `meter-bar-slot`) plus its own share of the
+# HUD_BAND_MAX vertical budget, which the meter now also consumes.
 PROP_ASPECTS = {"crowd": "16:9", "vents": "1:1", "beacon": "1:1", "steam": "2:3"}
 PROP_FRAMES = 4  # frames 1..3 are --image-chained from frame 0, so refs=0 for -0 and refs=1 after
 

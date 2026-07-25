@@ -45,6 +45,7 @@ ATTACK_KEY = {
     "attackLight": "light", "attackHeavy": "heavy",
     "airLight": "airLight", "airHeavy": "airHeavy",
     "crouchLight": "crouchLight", "crouchHeavy": "crouchHeavy",
+    "special": "special",
 }
 # Held or looping: they repeat until the player stops, so there is no duration to check them against.
 OPEN_ENDED = {"idle", "walkF", "walkB", "crouch", "block", "blockCrouch", "ko"}
@@ -92,7 +93,13 @@ def sim_ms(fid: str, state: str, data: dict, reg: dict) -> float | None:
     """How long the SIM holds this state, or None when it is open-ended."""
     if state in ATTACK_KEY:
         a = data["attacks"][ATTACK_KEY[state]]
-        return (a["startup"] + a["active"] + a["recovery"]) * TICK_MS
+        # Mirrors attackSimTicks() in src/sim/types.ts: a `repeat` attack is `count` active windows
+        # with `gap` ticks between them, not one. Miss this and a multi-hit special is reported as
+        # having far more art than move, which is the exact false alarm this audit exists to avoid.
+        rep = a.get("repeat") or {}
+        count, gap = rep.get("count", 1), rep.get("gap", 0)
+        ticks = a["startup"] + count * a["active"] + (count - 1) * gap + a["recovery"]
+        return ticks * TICK_MS
     if state in STUN_TICKS:
         return STUN_TICKS[state] * TICK_MS
     if state in ("hitstun", "blockstun"):

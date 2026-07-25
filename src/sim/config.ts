@@ -38,6 +38,12 @@ export const TEST_DUMMY: CharacterData = {
     // Crouch normals: LOW hit boxes (overlap guardCrouch y0-80, miss guardStand y70-175) => true lows.
     crouchLight: { body: "crouch", startup: 4, active: 3, recovery: 9, hit: { x: 38, y: 18, w: 66, h: 40 }, damage: 5, hitstun: 11, blockstun: 8, hitstop: 6, knockback: { x: 110, y: 0 }, chip: 1 },
     crouchHeavy: { body: "crouch", startup: 8, active: 4, recovery: 20, hit: { x: 48, y: 6, w: 100, h: 42 }, damage: 13, hitstun: 18, blockstun: 14, hitstop: 10, knockback: { x: 220, y: -240 }, chip: 3 },
+    // The meter special, and the fixture every multi-hit test runs on. Two numbers make its hit count
+    // EXACTLY `repeat.count` rather than "however many happened to connect": knockback.x is 0 (a push
+    // would walk the defender out from under the later windows) and hitstun (20) outlives the 7-tick
+    // window pitch, so the defender stays planted in a hurt box for the whole flurry. The shipped
+    // roster is looser and is proved separately against its own geometry in registry.test.ts.
+    special: { body: "stand", startup: 8, active: 3, recovery: 18, repeat: { count: 5, gap: 4 }, freeze: 30, hit: { x: 30, y: 40, w: 110, h: 120 }, damage: 4, hitstun: 20, blockstun: 12, hitstop: 2, knockback: { x: 0, y: 0 }, chip: 1 },
   },
   frames: { idle: 4, walkF: 6, walkB: 6, crouch: 2, block: 2, blockCrouch: 2, jumpRise: 1, jumpFall: 1, hitstun: 1, blockstun: 1, knockdown: 1, ko: 1 },
 };

@@ -34,6 +34,10 @@ export type CharacterRegistry = Record<string, FighterEntry>;
 /** Phaser texture key for a fighter's per-state sheet. Globally unique so keys never collide. */
 export const textureKey = (id: string, state: StateName): string => `${id}-${state}`;
 
+/** Phaser texture key for a fighter's 448x600 select portrait, queued by BootScene. Also what the
+ *  Phase 15 super cut-in draws. Shared so the string literal lives in one place. */
+export const portraitKey = (id: string): string => `portrait-${id}`;
+
 /** Read + validate the cached character-gym.json. Throws fail-fast (like buildStage) so a bad
  *  registry never boots a broken match. Returns only the fighter entries (`_`-keys dropped). */
 export function loadRegistry(jsonCache: Phaser.Cache.BaseCache): CharacterRegistry {

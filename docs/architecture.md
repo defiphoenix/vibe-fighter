@@ -76,7 +76,7 @@ phases:
 | Delta nuance | Why it's not "validate" | Owning phase |
 |---|---|---|
 | Guard boxes were **character-level** arrays, not per-frame | **Shipped in Phase 13** — `FrameBoxes` carries `guardStand`/`guardCrouch` per frame, `CharacterConfig`'s two arrays are gone, and `Fighter.guarding` is derived from the box data | [13 ✓](phases/13-guard-box-migration.md) |
-| `hasHit` dedups an attack to **one** connect | Multi-hit combos missing | [15](phases/15-specials-meter-combos.md) |
+| `hasHit` dedups an attack to **one** connect | **Shipped in Phase 15** — replaced by per-hit-WINDOW dedup (`FrameBoxes.hitId` + `Fighter.lastHitId`), so a `repeat` special lands one hit per authored window while every normal still lands exactly once | [15 ✓](phases/15-specials-meter-combos.md) |
 | `constants.ts` modelled a **fixed single screen** | **Scrolling shipped in Phase 08** (world `STAGE_WIDTH=1696` > `VIEW_WIDTH=1280`, follow-camera); only group-camera / zoom framing remains | [08 ✓](phases/08-stage-runtime-and-preview.md) scroll · [12](phases/12-core-combat-camera-integration.md) zoom |
 | Fighters were **hardcoded duplicates** | **Shipped in Phase 09** — JSON registry (`character-gym.json`) + distinct data-driven fighters | [09 ✓](phases/09-fighter-registry-gym-config.md) |
 

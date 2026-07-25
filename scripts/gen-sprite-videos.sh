@@ -90,6 +90,26 @@ declare -A MOTION=(
   [airHeavy]="leaps into the air and throws one heavy diving punch angled downward, staying airborne"
   [crouchLight]="is squatting all the way down in a deep full crouch the entire time, buttocks near his heels and thighs parallel to the ground, torso upright. He NEVER stands up tall and NEVER lies down. From that deep squat he throws one fast straight punch: the lead arm shoots forward at knee height until the elbow is completely straight and the fist is far out in front of his knees, then snaps back. The legs stay folded in the deep squat while only the arm moves"
   [crouchHeavy]="is squatting all the way down in a deep full crouch the entire time, thighs parallel to the ground, and swings one heavy low sweeping attack along the floor at ankle height. He NEVER stands up tall and NEVER lies down"
+  # Phase 15 supers. Each is a MULTI-HIT flurry, so unlike every other attack here the prompt names a
+  # repeat COUNT: the sim lands one hit per authored window (brawler 4, jiujitsu 5, monk 5) and the art
+  # has to show that many blows or the count on screen disagrees with the count in the boxes. The clip
+  # also has to open on the charge — the sheet's first frames ARE the wind-up (there is no separate
+  # specialCharge state), which is why the charge is described first and explicitly given "a moment".
+  # Do NOT append SPAN_CLIP to these: it forbids repeating the motion, which is the whole move.
+  # First pass asked for a "REVOLVING uppercut — spinning as he rises ... comes down and rises again"
+  # and the model put him FLAT ON HIS BACK on frame 1. Same failure the crouch prompts hit: any wording
+  # that lets the body leave vertical gets taken to the floor. The spin is decoration; the four rising
+  # fists are the move. Drop the spin, name the arm travel, and forbid the ground by name.
+  # Pass 3 got the fist high but PURELY VERTICAL — the arm rose beside his own head and never travelled
+  # toward the opponent, so on screen the super never reached across the gap the hit box claims (the
+  # box reaches 145px forward). An attack animation has to move the striking hand FORWARD, into the
+  # space where the other fighter stands; height alone reads as raising your arm, not as hitting.
+  [brawler/special]="throws FOUR big rising uppercuts, one after another, at an opponent standing just in front of him to the RIGHT. On each one his fist starts down beside his hip and drives FORWARD and upward together, punching out to the RIGHT far in front of his own body — the arm ends completely straight and stretched out ahead of him, elbow locked, the fist reaching well past where his own toes are and up at head height — and he HOLDS it stretched out there for a beat before pulling it back to his hip and immediately driving the other fist forward the same way. The fist reaching FAR OUT IN FRONT OF HIM to the right is the single biggest and most obvious thing in the clip; he is at full forward stretch far more of the time than he is with his arms in. He stays standing upright on his feet the ENTIRE time — he NEVER falls over, NEVER lies down, NEVER goes to the ground, NEVER spins, and never leaves the frame. Perfectly flat uniform magenta background, no texture or speckle"
+  [jiujitsu/special]="drops into a low braced stance for a moment with his arms tucked, then launches into a SPINNING BREAKDANCE SWEEP — rotating on one hand and one foot with his legs scything around him in a wide circle — completing FIVE full distinct rotations across the clip, each sweep of the legs clearly separate from the last. He stays low and centred and never leaves the frame. Perfectly flat uniform magenta background, no texture or speckle"
+  # First pass named the move ("a RISING PALM BARRAGE") but never named the ARM TRAVEL, and measured the
+  # lowest motion on the roster (0.31 peak, 8 near-identical horse-stance frames). Describing the limb
+  # reaching full extension is what made attackLight work; describing the move's name is not enough.
+  [monk/special]="sinks into a deep horse stance for a moment with both palms drawn back at his waist, then drives out FIVE distinct open-palm thrusts, alternating hands: on each one the arm shoots forward and upward until the elbow is completely straight and the open palm is far out in front of him, then pulls all the way back to his waist ready for the next. Each strike reaches higher than the last, from chest height up to above his own head. The arm fully extending is the single biggest movement in the clip. His feet stay planted, he stays standing, and he never leaves the frame. Perfectly flat uniform magenta background, no texture or speckle"
 )
 # Motion text used only when a START_OVERRIDE supplies the stance: the pose is already correct in the
 # start frame, so the prompt asks for the ARM ALONE and explicitly freezes everything else.
@@ -110,7 +130,7 @@ declare -A MOTION_FROM_START=(
   [jiujitsu/blockCrouch]="stays in a deep low crouch the ENTIRE time, hips down and forearms up at his face guarding — and BOUNCES with a big, obvious, springy up-and-down bob, his whole torso and head dropping several inches lower and springing back up, repeating this bounce about FOUR times across the clip so the movement is unmistakable. His guard hands and shoulders visibly bob and sway with each bounce. His feet stay planted and his legs stay bent in the deep crouch — he NEVER stands up or straightens his legs, but everything above the hips moves a lot. Perfectly flat uniform magenta background, no texture or speckle"
   [monk/blockCrouch]="stays in a deep low horse-stance crouch the ENTIRE time, hips down and forearms up guarding — and bobs with a clear steady bounce, dipping down a little lower and springing back up to the crouch, repeating this bob about THREE times across the clip. He also weaves his shoulders and guard side to side as he bobs, so there is obvious continuous movement. He NEVER stands up, NEVER straightens his legs, and NEVER lowers the guard — only the bob and weave move. Perfectly flat uniform magenta background, no texture or speckle"
 )
-STATES=("$@"); [ ${#STATES[@]} -eq 0 ] && STATES=(walkF walkB crouch block blockCrouch jumpRise jumpFall attackLight attackHeavy airLight airHeavy crouchLight crouchHeavy hitstun blockstun knockdown ko)
+STATES=("$@"); [ ${#STATES[@]} -eq 0 ] && STATES=(walkF walkB crouch block blockCrouch jumpRise jumpFall attackLight attackHeavy airLight airHeavy crouchLight crouchHeavy special hitstun blockstun knockdown ko)
 
 for ST in "${STATES[@]}"; do
   DIR="concepts/characters/sprites/$FID/$ST"; MP4="concepts/characters/video/$FID/$ST.mp4"
@@ -119,7 +139,11 @@ for ST in "${STATES[@]}"; do
   if [ "$have" -ge "$N" ]; then echo "skip $FID/$ST (have $have/$N)"; continue; fi
   mkdir -p "$DIR" "concepts/characters/video/$FID"
   SI="$START"; [ -n "${START_OVERRIDE[$FID/$ST]:-}" ] && [ -f "${START_OVERRIDE[$FID/$ST]}" ] && SI="${START_OVERRIDE[$FID/$ST]}"
-  MOT="${MOTION[$ST]}"; [ "$SI" != "$START" ] && MOT="${MOTION_FROM_START[$FID/$ST]:-$MOT}"
+  # A motion may be keyed per-fighter (<fid>/<state>) when the move itself differs between fighters —
+  # the specials do, since each has its own super. Fall back to the shared per-state text.
+  MOT="${MOTION[$FID/$ST]:-${MOTION[$ST]:-}}"
+  [ -n "$MOT" ] || { echo "FAIL $FID/$ST (no MOTION entry)"; continue; }
+  [ "$SI" != "$START" ] && MOT="${MOTION_FROM_START[$FID/$ST]:-$MOT}"
   PROMPT="The SAME single $FID fighter from the start image ${MOT}, side view facing RIGHT, centered in place. Keep his exact appearance every frame: ${OUTFIT[$FID]}. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons."
   echo "$PROMPT" > "$DIR/00.prompt.txt"
   ok=0

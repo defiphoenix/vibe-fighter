@@ -1,0 +1,41 @@
+[
+  {
+    "created_at": "2026-07-25T15:29:06.13457Z",
+    "display_name": "Seedance 2.0",
+    "id": "921c5d66-c4d5-4250-a85d-e594659f5466",
+    "job_type": "seedance_2_0",
+    "min_result_url": null,
+    "params": {
+      "aspect_ratio": "3:4",
+      "bitrate_mode": "standard",
+      "duration": 4,
+      "generate_audio": false,
+      "genre": "auto",
+      "height": 960,
+      "medias": [
+        {
+          "data": {
+            "id": "afaf177a-1ad8-4fa5-b710-9ebbe6dc8b98",
+            "type": "media_input",
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/afaf177a-1ad8-4fa5-b710-9ebbe6dc8b98.png"
+          },
+          "role": "start_image"
+        }
+      ],
+      "mode": "fast",
+      "model": "seedance_2_0_fast",
+      "multi_prompt": [],
+      "multi_shot_mode": "custom",
+      "multi_shots": false,
+      "prompt": "The SAME single jiujitsu fighter from the start image drops into a low braced stance for a moment with his arms tucked, then launches into a SPINNING BREAKDANCE SWEEP — rotating on one hand and one foot with his legs scything around him in a wide circle — completing FIVE full distinct rotations across the clip, each sweep of the legs clearly separate from the last. He stays low and centred and never leaves the frame. Perfectly flat uniform magenta background, no texture or speckle, side view facing RIGHT, centered in place. Keep his exact appearance every frame: white judo gi with a blue belt, barefoot, short dark navy hair (hair colour identical every frame). Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt_language": "en",
+      "reference_elements": [],
+      "resolution": "720p",
+      "speedramp": "auto",
+      "width": 720
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_152906_921c5d66-c4d5-4250-a85d-e594659f5466.mp4",
+    "status": "completed",
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_152906_921c5d66-c4d5-4250-a85d-e594659f5466_thumbnail.webp"
+  }
+]

@@ -121,6 +121,12 @@
           "fps": 10,
           "loop": false,
           "hit": 2
+        },
+        "special": {
+          "path": "sprites/brawler/special.png",
+          "frames": 8,
+          "fps": 9,
+          "loop": false
         }
       }
     },
@@ -344,6 +350,32 @@
             "y": -240
           },
           "chip": 3
+        },
+        "special": {
+          "body": "stand",
+          "startup": 10,
+          "active": 3,
+          "recovery": 22,
+          "repeat": {
+            "count": 4,
+            "gap": 3
+          },
+          "freeze": 36,
+          "hit": {
+            "x": 40,
+            "y": 80,
+            "w": 105,
+            "h": 80
+          },
+          "damage": 7,
+          "hitstun": 16,
+          "blockstun": 12,
+          "hitstop": 5,
+          "knockback": {
+            "x": 35,
+            "y": 0
+          },
+          "chip": 2
         }
       },
       "frames": {
@@ -482,6 +514,12 @@
           "path": "sprites/jiujitsu/crouchHeavy.png",
           "frames": 4,
           "fps": 10,
+          "loop": false
+        },
+        "special": {
+          "path": "sprites/jiujitsu/special.png",
+          "frames": 8,
+          "fps": 8,
           "loop": false
         }
       }
@@ -706,6 +744,32 @@
             "y": -240
           },
           "chip": 3
+        },
+        "special": {
+          "body": "crouch",
+          "startup": 9,
+          "active": 3,
+          "recovery": 22,
+          "repeat": {
+            "count": 5,
+            "gap": 3
+          },
+          "freeze": 36,
+          "hit": {
+            "x": 38,
+            "y": 12,
+            "w": 100,
+            "h": 50
+          },
+          "damage": 6,
+          "hitstun": 16,
+          "blockstun": 12,
+          "hitstop": 4,
+          "knockback": {
+            "x": 30,
+            "y": 0
+          },
+          "chip": 2
         }
       },
       "frames": {
@@ -844,6 +908,12 @@
           "fps": 10,
           "loop": false,
           "hit": 1
+        },
+        "special": {
+          "path": "sprites/monk/special.png",
+          "frames": 8,
+          "fps": 8,
+          "loop": false
         }
       }
     },
@@ -1067,6 +1137,32 @@
             "y": -240
           },
           "chip": 3
+        },
+        "special": {
+          "body": "stand",
+          "startup": 9,
+          "active": 3,
+          "recovery": 22,
+          "repeat": {
+            "count": 5,
+            "gap": 3
+          },
+          "freeze": 36,
+          "hit": {
+            "x": 40,
+            "y": 80,
+            "w": 110,
+            "h": 80
+          },
+          "damage": 6,
+          "hitstun": 16,
+          "blockstun": 12,
+          "hitstop": 4,
+          "knockback": {
+            "x": 30,
+            "y": 0
+          },
+          "chip": 2
         }
       },
       "frames": {

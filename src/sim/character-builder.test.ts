@@ -49,6 +49,12 @@ function sampleData(): CharacterData {
         hit: { x: 48, y: 6, w: 100, h: 42 },
         damage: 13, hitstun: 18, blockstun: 14, hitstop: 10, knockback: { x: 220, y: -240 }, chip: 3,
       },
+      special: {
+        body: "stand", startup: 8, active: 3, recovery: 18,
+        repeat: { count: 5, gap: 4 }, freeze: 30,
+        hit: { x: 42, y: 60, w: 96, h: 90 },
+        damage: 8, hitstun: 14, blockstun: 10, hitstop: 6, knockback: { x: 40, y: 0 }, chip: 2,
+      },
     },
     frames: {
       idle: 4, walkF: 6, walkB: 6, crouch: 2, block: 2, blockCrouch: 2, jumpRise: 1, jumpFall: 1,
@@ -72,6 +78,47 @@ describe("assembleCharacter", () => {
     expect(c.states.attackHeavy.frames.length).toBe(9 + 4 + 18);
     expect(c.states.airLight.frames.length).toBe(6 + 3 + 12);
     expect(c.states.crouchHeavy.frames.length).toBe(8 + 4 + 20);
+  });
+
+  // Phase 15: a `repeat` attack lays its active window down `count` times, separated by `gap` idle
+  // frames. This is what makes a multi-hit special's hit count AUTHORED rather than emergent.
+  it("repeats the active window `count` times, tagged with distinct hit ids", () => {
+    const c = assembleCharacter("test", sampleData());
+    const f = c.states.special.frames;
+    // 8 startup + 5 windows x 3 active + 4 gaps x 4 + 18 recovery
+    expect(f.length).toBe(8 + 5 * 3 + 4 * 4 + 18);
+
+    // Every frame that carries a hit box reports which window it belongs to; the ids run 0..count-1
+    // in order, and no window is merged with its neighbour (that would dedup two hits into one).
+    const windows: number[] = [];
+    for (const frame of f) {
+      if (frame.hit.length === 0) {
+        expect(frame.hitId).toBeUndefined();
+        continue;
+      }
+      expect(typeof frame.hitId).toBe("number");
+      if (windows[windows.length - 1] !== frame.hitId) windows.push(frame.hitId!);
+    }
+    expect(windows).toEqual([0, 1, 2, 3, 4]);
+
+    // startup is still bare, and each window is exactly `active` frames long
+    for (let i = 0; i < 8; i++) expect(f[i].hit.length).toBe(0);
+    for (let w = 0; w < 5; w++) {
+      const start = 8 + w * (3 + 4);
+      for (let i = start; i < start + 3; i++) {
+        expect(f[i].hit.length).toBe(1);
+        expect(f[i].hitId).toBe(w);
+      }
+    }
+  });
+
+  it("leaves an attack without `repeat` exactly as it was (single window, id 0)", () => {
+    const c = assembleCharacter("test", sampleData());
+    const f = c.states.attackLight.frames;
+    expect(f.length).toBe(4 + 3 + 8);
+    for (let i = 0; i < 4; i++) expect(f[i].hitId).toBeUndefined();
+    for (let i = 4; i < 7; i++) expect(f[i].hitId).toBe(0);
+    for (let i = 7; i < 15; i++) expect(f[i].hitId).toBeUndefined();
   });
 
   it("carries loop flags for locomotion, not for one-shots", () => {

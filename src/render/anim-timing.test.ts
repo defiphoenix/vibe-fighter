@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { stateFrameRate, stunFrameRate, attackFrameDurations } from "./anim-timing";
-import { ATTACK_STATE_TO_KEY, isAttackState } from "../sim/types";
+import { ATTACK_STATE_TO_KEY, attackSimTicks, isAttackState } from "../sim/types";
 import type { CharacterData, StateName } from "../sim/types";
 import { TICK_HZ } from "../sim/constants";
 import { STATE_NAMES } from "../sim/validate-character";
@@ -30,13 +30,29 @@ describe("attack animations span their move exactly", () => {
         if (!isAttackState(state)) continue;
         const meta = render.sheets[state];
         const a = data.attacks[ATTACK_STATE_TO_KEY[state]];
-        const simSec = (a.startup + a.active + a.recovery) / TICK_HZ;
+        // attackSimTicks, not the raw sum: a `repeat` special occupies several windows plus the gaps
+        // between them, and this test is the thing that notices if the render clock forgets that.
+        const simSec = attackSimTicks(a) / TICK_HZ;
         const animSec = meta.frames / stateFrameRate(state, meta, data);
         // Exact by construction; a tolerance only to allow float noise.
         expect(animSec, `${id}.${state}`).toBeCloseTo(simSec, 6);
       }
     });
   }
+
+  // Phase 15. `meta.hit` is ONE measured contact frame; a multi-hit special has N. Splitting the
+  // animation into wind-up/strike around a single number would phase-align window 0 and smear every
+  // window after it, so a repeat attack keeps uniform timing — the same answer an unmeasurable sheet
+  // already gets. Guessing a second contact frame is the failure this whole module exists to prevent.
+  it("gives a repeat (multi-hit) attack uniform timing, never a guessed phase split", () => {
+    const { data, render } = reg[FIGHTERS[0]];
+    const meta = { ...render.sheets.special, hit: 3 }; // even WITH a contact frame authored
+    expect(data.attacks.special.repeat!.count).toBeGreaterThan(1);
+    expect(attackFrameDurations("special", meta, data)).toBeNull();
+
+    // ...while a single-window normal still gets its phase split, so this isn't a blanket opt-out.
+    expect(attackFrameDurations("attackLight", render.sheets.attackLight, data)).not.toBeNull();
+  });
 
   it("leaves the genuinely open-ended states on their authored fps", () => {
     // The looping ones (idle/walk repeat until the player stops) plus the held guard braces

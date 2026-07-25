@@ -6,6 +6,8 @@ import type { CharacterData, InputSnapshot } from "../sim/types";
 import { EdgeLatch, InputReader } from "./input";
 import { drawDebugBoxes, allBounds, BOUND_KINDS, type BoundsToggles } from "../render/boxes";
 import { Hud } from "../render/hud";
+import { CutInView } from "../render/cutin-view";
+import { METER_MAX } from "../sim/fighter";
 import { buildStage } from "../render/stage";
 import type { StagesFile } from "../render/stage";
 import { loadRegistry, buildConfig, type CharacterRegistry } from "../render/characters";
@@ -48,6 +50,12 @@ export class PlaygroundScene extends Phaser.Scene {
   private latch = new EdgeLatch();
   private sprites!: [FighterSprite, FighterSprite];
   private hud!: Hud;
+  private cutIn!: CutInView;
+  /** Training-dummy toggles (Phase 15). Off by default so the Playground still behaves like a match
+   *  until you ask for a dummy: regen keeps the target alive so repeated hits stay comparable, and
+   *  the meter fill is what makes the special reachable without farming a bar first. */
+  private regenDummy = false;
+  private fillMeter = false;
   private debugG!: Phaser.GameObjects.Graphics;
   private bounds: BoundsToggles = allBounds(true);
   private boundInputs: Partial<Record<keyof BoundsToggles | "all", HTMLInputElement>> = {};
@@ -75,13 +83,14 @@ export class PlaygroundScene extends Phaser.Scene {
 
     this.debugG = this.add.graphics().setDepth(50);
     this.hud = new Hud(this, [this.playerId, this.dummyId]);
+    this.cutIn = new CutInView(this);
     this.reader = new InputReader(this);
 
     this.add
       .text(
         VIEW_WIDTH / 2,
         STAGE_HEIGHT - 6,
-        "Playground — A/D move · W jump · S crouch · Q block · F/G attack (S+F/G = LOW)   |   1-4 bounds · B all · R reset",
+        "Playground — A/D move · W jump · S crouch · Q block · F/G attack (S+F/G = LOW) · E super   |   1-4 bounds · B all · R reset   |   panel: fighter select · regen hp · fill meter",
         { fontFamily: "monospace", fontSize: "14px", color: "#ffffff", stroke: "#000000", strokeThickness: 3 },
       )
       .setOrigin(0.5, 1)
@@ -111,6 +120,12 @@ export class PlaygroundScene extends Phaser.Scene {
         resets: () => this.resets,
         focusPanel: () => this.statInputs.walkSpeed.focus(),
         select: (player: string, dummy?: string) => this.selectFighters(player, dummy),
+        // Phase 15 dummy toggles + the cut-in, so a spec can drive them without touching the DOM.
+        dummy: (v: { regenHp?: boolean; fillMeter?: boolean }) => {
+          if (v.regenHp !== undefined) this.regenDummy = v.regenHp;
+          if (v.fillMeter !== undefined) this.fillMeter = v.fillMeter;
+        },
+        cutIn: () => this.cutIn.snapshot(),
       };
     }
   }
@@ -168,7 +183,13 @@ export class PlaygroundScene extends Phaser.Scene {
 
   private resetWorld(keepX?: number): void {
     this.resets++;
+    // A training scene must not confiscate the bar you just farmed. `World.restart()` zeroing the
+    // meter is right for a fresh MATCH, but every restart here is bookkeeping — the KO cleanup above,
+    // or the R key — and the whole point of the scene is to try a super repeatedly. Losing the meter
+    // on each KO makes a special you have to build meter for effectively untestable.
+    const meters = this.world.fighters.map((f) => f.meter);
     this.world.restart();
+    this.world.fighters.forEach((f, i) => { f.meter = meters[i]; });
     this.world.fighters[1].x = DUMMY_X;
     if (keepX !== undefined) this.world.fighters[0].x = this.safeKeepX(keepX);
     this.latch.clear();
@@ -185,16 +206,33 @@ export class PlaygroundScene extends Phaser.Scene {
     const p1: InputSnapshot = typing ? emptyInput() : { ...raw[0], ...this.hold };
     const inputs: [InputSnapshot, InputSnapshot] = [this.latch.apply(0, p1), emptyInput()];
 
+    // Training-dummy helpers, applied BEFORE the advance. After is too late: health reaching 0 sets
+    // `ko` and flips the match to roundEnd inside that same advance, and resetIfRoundOver() below
+    // fires immediately after — restoring health then cannot undo the KO. Before is also sufficient,
+    // not merely necessary: an advance batch is at most 15 ticks and the biggest single hit on the
+    // roster is 15 damage, so a dummy starting every frame at full health cannot be brought to 0
+    // inside one batch.
+    const dummy = this.world.fighters[1];
+    if (this.regenDummy) dummy.health = dummy.cfg.stats.maxHealth;
+    if (this.fillMeter) this.world.fighters[0].meter = METER_MAX;
+
     this.world.advance(delta / 1000, inputs);
     // Clear only the edges the sim ACTED on, so an attack pressed while the fighter is locked in a
     // move/stun stays buffered until it can come out (a light→heavy no longer drops the heavy).
     this.latch.consume(0, this.world.consumedInputs[0]);
-    this.world.drainEvents(); // no camera juice here, but World accumulates events until drained
+    // No camera juice here, but the special's cut-in DOES belong in the Playground — the dummy is
+    // where you try the move. (World also accumulates events until something drains them.)
+    for (const e of this.world.drainEvents()) {
+      if (e.type === "special" && e.player !== undefined) {
+        this.cutIn.play(this.world.fighters[e.player].cfg.id, this.world.hitstop);
+      }
+    }
     this.resetIfRoundOver();
 
     this.render();
     this.cameras.main.centerOnX(this.world.fighters[0].x);
     this.hud.update(this.world, time);
+    this.cutIn.update(this.world.hitstop);
   }
 
   private render(): void {
@@ -289,6 +327,15 @@ export class PlaygroundScene extends Phaser.Scene {
     }
     this.boundInputs.all = checkRow(panel, "all", () => this.toggleBound("all"));
     this.syncBoundInputs();
+
+    const dummyHead = document.createElement("div");
+    dummyHead.textContent = "training dummy";
+    dummyHead.style.cssText = "margin:8px 0 4px;color:#8fa";
+    panel.append(dummyHead);
+    // Regen makes the impact of successive attacks comparable (the bar always starts full), and the
+    // meter fill is what makes the special reachable without farming a bar first.
+    checkRow(panel, "regen hp", (on) => { this.regenDummy = on; });
+    checkRow(panel, "fill meter", (on) => { this.fillMeter = on; });
 
     const saveBtn = document.createElement("button");
     saveBtn.textContent = "Save JSON";

@@ -11,8 +11,8 @@ import type { InputSnapshot } from "../sim/types";
  *  buffering rules can be unit-tested directly. */
 export class EdgeLatch {
   private pending = [
-    { up: false, light: false, heavy: false, down: undefined as boolean | undefined },
-    { up: false, light: false, heavy: false, down: undefined as boolean | undefined },
+    { up: false, light: false, heavy: false, special: false, down: undefined as boolean | undefined },
+    { up: false, light: false, heavy: false, special: false, down: undefined as boolean | undefined },
   ];
 
   /** OR this frame's edges into the latch and return the latched snapshot. */
@@ -22,6 +22,10 @@ export class EdgeLatch {
     p.up = p.up || r.upPressed;
     p.light = p.light || r.lightPressed;
     p.heavy = p.heavy || r.heavyPressed;
+    // The special latches like any other edge but is deliberately OUTSIDE the stance capture below:
+    // it is grounded-only with no crouch variant, so it has no use for downAtPress and must not be
+    // able to strand the stance bit for a light/heavy that is still waiting.
+    p.special = p.special || r.specialPressed;
     // ponytail: ONE stance bit per buffer window — captured on the first attack edge and held until
     // clear(). Light and heavy buffered in the same window with different stances share it; that
     // needs two frames of input inside one non-actionable window, and we accept it.
@@ -31,6 +35,7 @@ export class EdgeLatch {
       upPressed: p.up,
       lightPressed: p.light,
       heavyPressed: p.heavy,
+      specialPressed: p.special,
       downAtPress: p.down,
     };
   }
@@ -39,18 +44,22 @@ export class EdgeLatch {
    *  fighter could not act on — because it was locked in an attack or stun — stays buffered until it
    *  can, which is what makes a light→heavy reliable instead of dropping the heavy pressed during the
    *  light. Replaces the old "clear the whole latch on any fight tick", which threw the heavy away. */
-  consume(i: 0 | 1, c: { up: boolean; light: boolean; heavy: boolean }): void {
+  consume(i: 0 | 1, c: { up: boolean; light: boolean; heavy: boolean; special: boolean }): void {
     const p = this.pending[i];
     if (c.up) p.up = false;
     if (c.light) p.light = false;
     if (c.heavy) p.heavy = false;
+    // The sim reports the special edge consumed even when it REFUSED the move (empty meter). That is
+    // the point: otherwise a press on an empty bar stays latched and fires itself the moment the bar
+    // fills, which reads as the special going off on its own.
+    if (c.special) p.special = false;
     if (!p.light && !p.heavy) p.down = undefined; // the stance bit only matters while an attack waits
   }
 
   /** Drop everything held — on a restart/world rebuild (not per-tick; use consume() for that). */
   clear(): void {
     for (const p of this.pending) {
-      p.up = p.light = p.heavy = false;
+      p.up = p.light = p.heavy = p.special = false;
       p.down = undefined;
     }
   }

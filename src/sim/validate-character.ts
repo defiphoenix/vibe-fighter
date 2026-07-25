@@ -11,7 +11,7 @@ const PLAY_LAG_TICKS = 1;
 
 export const STATE_NAMES: StateName[] = [
   "idle", "walkF", "walkB", "crouch", "block", "blockCrouch", "jumpRise", "jumpFall",
-  "attackLight", "attackHeavy", "airLight", "airHeavy", "crouchLight", "crouchHeavy",
+  "attackLight", "attackHeavy", "airLight", "airHeavy", "crouchLight", "crouchHeavy", "special",
   "hitstun", "blockstun", "knockdown", "ko",
 ];
 
@@ -52,6 +52,20 @@ function checkAttack(v: unknown, where: string, errs: string[], expectBody?: "ai
     if (!isFiniteNum(v[k]) || (v[k] as number) < 0 || !Number.isInteger(v[k])) errs.push(`${where}.${k}: non-negative integer required`);
   }
   if (isFiniteNum(v.active) && (v.active as number) < 1) errs.push(`${where}.active: must be >= 1`);
+  // Phase 15 multi-hit. count >= 1 because 0 windows is an attack with no hit box at all, spelled
+  // obscurely; gap may be 0 (back-to-back windows are still separate ids, so still separate hits).
+  if (v.repeat !== undefined) {
+    if (!isObj(v.repeat)) errs.push(`${where}.repeat: not an object`);
+    else {
+      if (!isPosInt(v.repeat.count)) errs.push(`${where}.repeat.count: positive integer required`);
+      if (!isFiniteNum(v.repeat.gap) || !Number.isInteger(v.repeat.gap) || (v.repeat.gap as number) < 0) {
+        errs.push(`${where}.repeat.gap: non-negative integer required`);
+      }
+    }
+  }
+  if (v.freeze !== undefined && (!isFiniteNum(v.freeze) || !Number.isInteger(v.freeze) || (v.freeze as number) < 0)) {
+    errs.push(`${where}.freeze: non-negative integer required`);
+  }
   checkBox(v.hit, `${where}.hit`, errs);
   // effects must be non-negative (negative damage/chip would HEAL the victim past max health).
   for (const k of ["damage", "hitstun", "blockstun", "hitstop", "chip"]) {
@@ -93,19 +107,31 @@ function checkHitFrame(
   if (startup <= PLAY_LAG_TICKS) p(`${where}: needs startup > ${PLAY_LAG_TICKS} to spread over frames 0..${sh.hit - 1} (got ${startup})`);
 }
 
-/** Assembled frame count + active window (or null) for a state, from the authored data. */
-function stateShape(data: Record<string, unknown>, state: StateName): { len: number; active: [number, number] | null } | null {
+/** Assembled frame count + active windows (empty for a non-attack) for a state, from the authored
+ *  data. A `repeat` attack has one window per hit, so this is a LIST — mirrors attackState() in
+ *  character-builder.ts, which lays the frames out the same way. */
+function stateShape(data: Record<string, unknown>, state: StateName): { len: number; active: [number, number][] } | null {
   const attacks = isObj(data.attacks) ? data.attacks : {};
   const frames = isObj(data.frames) ? data.frames : {};
   if (isAttackState(state)) {
     const a = attacks[ATTACK_STATE_TO_KEY[state]];
     if (!isObj(a) || !isFiniteNum(a.startup) || !isFiniteNum(a.active) || !isFiniteNum(a.recovery)) return null;
     const s = a.startup as number, ac = a.active as number, r = a.recovery as number;
-    return { len: s + ac + r, active: [s, s + ac] };
+    const rep = isObj(a.repeat) ? a.repeat : undefined;
+    const count = isPosInt(rep?.count) ? (rep.count as number) : 1;
+    const gap = isFiniteNum(rep?.gap) ? (rep.gap as number) : 0;
+    const active: [number, number][] = [];
+    let at = s;
+    for (let w = 0; w < count; w++) {
+      if (w > 0) at += gap;
+      active.push([at, at + ac]);
+      at += ac;
+    }
+    return { len: at + r, active };
   }
   const n = frames[state];
   if (!isFiniteNum(n)) return null;
-  return { len: n as number, active: null };
+  return { len: n as number, active: [] };
 }
 
 /** Validate one `{ render, data }` fighter entry. Returns human-readable errors ([] = valid). */
@@ -200,7 +226,9 @@ export function validateFighterEntry(id: string, entry: unknown): string[] {
           if (ov.push !== undefined) checkBox(ov.push, `overrides.${key}[${frame}].push`, errs);
           if (ov.hit !== undefined) {
             checkBoxArray(ov.hit, `overrides.${key}[${frame}].hit`, errs);
-            const inActive = shape?.active && frame >= shape.active[0] && frame < shape.active[1];
+            // ANY of the windows — a `repeat` special has one per hit, and a hit override is legal
+            // inside each of them (that is how a later window gets different reach).
+            const inActive = shape?.active.some(([lo, hi]) => frame >= lo && frame < hi);
             if (!inActive) p(`overrides.${key}: hit override on frame ${frame} is outside the attack active window`);
           }
           // Guard, same shape of rule as `hit` above: the box has to be well-formed AND the state has

@@ -34,7 +34,7 @@ HEIGHT_TOL = 30  # px spread allowed among a fighter's upright states
 # box for 16 ticks and the sprite never moved, which reads to a player as "this character can't do
 # the move". Measured as the peak symmetric pixel difference against frame 0, as a fraction of the
 # figure's own area — scale-free, so it doesn't care how big the fighter is.
-ATTACK_STATES = ("attackLight", "attackHeavy", "airLight", "airHeavy", "crouchLight", "crouchHeavy")
+ATTACK_STATES = ("attackLight", "attackHeavy", "airLight", "airHeavy", "crouchLight", "crouchHeavy", "special")
 MOTION_MIN = 0.20
 # Threshold placement, measured rather than guessed. The sheet that triggered this check was a still
 # image at 0.14. With it regenerated, the roster runs 0.22 -> 1.27 and every sheet in that range has a

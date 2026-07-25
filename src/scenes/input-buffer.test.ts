@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { World } from "../sim/world";
 import { FIGHTER_A, FIGHTER_B } from "../sim/config";
+import { METER_MAX } from "../sim/fighter";
 import { EdgeLatch } from "./edge-latch";
 import { emptyInput, type InputSnapshot } from "../sim/types";
 import { GROUND_Y } from "../sim/constants";
@@ -100,5 +101,46 @@ describe("attack input buffering (latch consume)", () => {
     const seq = [frame(w2, l2, { heavyPressed: true })];
     for (let i = 0; i < 10; i++) seq.push(frame(w2, l2));
     expect(seq).toContain("attackHeavy");
+  });
+});
+
+// Phase 15. The special is grounded-only and all-or-nothing, which makes its latch contract subtler
+// than light/heavy's — and it only shows up through the REAL adapter loop, because the leak is the
+// latch re-offering an edge the sim never reported consuming. Both cases below were found by the
+// Phase 15 diff review / QA pass.
+describe("the meter special's latch contract", () => {
+  it("a refused press does NOT re-fire once combat tops the bar up", () => {
+    const w = fight();
+    const latch = new EdgeLatch();
+    w.fighters[0].reset(640 - 45, 1);
+    w.fighters[1].reset(640 + 45, -1);
+    // Exactly one light short of full, so the attack that comes out INSTEAD of the special is what
+    // fills the bar. With the special checked after the normals it was never reported consumed, the
+    // latch kept re-offering it, and it fired itself the moment the light connected.
+    w.fighters[0].meter = METER_MAX - FIGHTER_A.attacks.light.damage;
+
+    expect(frame(w, latch, { lightPressed: true, specialPressed: true })).toBe("attackLight");
+    for (let i = 0; i < 90; i++) {
+      expect(frame(w, latch), `self-fired on frame ${i}`).not.toBe("special");
+    }
+    expect(w.fighters[0].meter).toBeGreaterThanOrEqual(METER_MAX); // the bar really did fill
+  });
+
+  it("a press made AIRBORNE is buffered and comes out on landing", () => {
+    const w = fight();
+    const latch = new EdgeLatch();
+    w.fighters[0].meter = METER_MAX;
+
+    expect(frame(w, latch, { upPressed: true })).toBe("jumpRise");
+    // Pressed mid-air, where the fighter cannot act on it. Eating the edge here (as the first cut did)
+    // reads to a player as "my super didn't come out" and strands a full bar; jump behaves this way
+    // behind the same airborne gate, so the special does too.
+    frame(w, latch, { specialPressed: true });
+    expect(w.fighters[0].state).not.toBe("special");
+
+    let landed = "";
+    for (let i = 0; i < 120 && landed !== "special"; i++) landed = frame(w, latch);
+    expect(landed).toBe("special");
+    expect(w.fighters[0].meter).toBe(0);
   });
 });

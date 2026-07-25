@@ -19,30 +19,42 @@ const cloneBoxes = (bs: Box[]): Box[] => bs.map(cloneBox);
 
 /** Guard starts EMPTY on every frame; seedGuard fills the guardable states in one later pass, so
  *  the body templates below stay purely about hurt/push/hit. */
-function fb(hurt: Box[], push: Box, hit: Box[] = []): FrameBoxes {
-  return { hurt: cloneBoxes(hurt), push: cloneBox(push), hit: cloneBoxes(hit), guardStand: [], guardCrouch: [] };
+function fb(hurt: Box[], push: Box, hit: Box[] = [], hitId?: number): FrameBoxes {
+  const f: FrameBoxes = {
+    hurt: cloneBoxes(hurt), push: cloneBox(push), hit: cloneBoxes(hit), guardStand: [], guardCrouch: [],
+  };
+  if (hitId !== undefined) f.hitId = hitId;
+  return f;
 }
 
 /** n independent copies of a frame (never aliased — the Gym overwrites single frames). */
 function seq(n: number, frame: FrameBoxes): FrameBoxes[] {
-  return Array.from({ length: n }, () => fb(frame.hurt, frame.push, frame.hit));
+  return Array.from({ length: n }, () => fb(frame.hurt, frame.push, frame.hit, frame.hitId));
 }
 
 function simpleState(n: number, loop: boolean, frame: FrameBoxes): StateSpec {
   return { frames: seq(n, frame), loop };
 }
 
-/** Body during every frame; hit box only during the active window. */
+/** Body during every frame; hit box only during the active window(s).
+ *  Phase 15: `repeat` lays the active window down `count` times separated by `gap` bare frames, and
+ *  tags each window with its own `hitId` so combat can dedup PER WINDOW instead of per attack. With
+ *  no `repeat` this is byte-identical to the single-window layout it replaced (one window, id 0). */
 function attackState(body: FrameBoxes, a: AttackData): StateSpec {
   const frames: FrameBoxes[] = [];
+  const count = a.repeat?.count ?? 1;
+  const gap = a.repeat?.gap ?? 0;
   for (let i = 0; i < a.startup; i++) frames.push(fb(body.hurt, body.push));
-  for (let i = 0; i < a.active; i++) frames.push(fb(body.hurt, body.push, [a.hit]));
+  for (let w = 0; w < count; w++) {
+    if (w > 0) for (let i = 0; i < gap; i++) frames.push(fb(body.hurt, body.push));
+    for (let i = 0; i < a.active; i++) frames.push(fb(body.hurt, body.push, [a.hit], w));
+  }
   for (let i = 0; i < a.recovery; i++) frames.push(fb(body.hurt, body.push));
   return { frames, loop: false };
 }
 
 function toSpec(a: AttackData, kind: AttackKey): AttackSpec {
-  return {
+  const spec: AttackSpec = {
     kind,
     startup: a.startup,
     active: a.active,
@@ -54,6 +66,10 @@ function toSpec(a: AttackData, kind: AttackKey): AttackSpec {
     knockback: { x: a.knockback.x, y: a.knockback.y },
     chip: a.chip,
   };
+  // Copied explicitly, like every field above — an omission here silently drops the super freeze.
+  if (a.repeat) spec.repeat = { count: a.repeat.count, gap: a.repeat.gap };
+  if (a.freeze !== undefined) spec.freeze = a.freeze;
+  return spec;
 }
 
 /** Every DISTINCT hit box a state can produce, across all its frames — the total reach of the move.
@@ -101,6 +117,7 @@ export function assembleCharacter(id: string, data: CharacterData): CharacterCon
     airHeavy: attackState(bodyFor(data.attacks.airHeavy.body), data.attacks.airHeavy),
     crouchLight: attackState(bodyFor(data.attacks.crouchLight.body), data.attacks.crouchLight),
     crouchHeavy: attackState(bodyFor(data.attacks.crouchHeavy.body), data.attacks.crouchHeavy),
+    special: attackState(bodyFor(data.attacks.special.body), data.attacks.special),
     hitstun: simpleState(data.frames.hitstun, false, stand),
     blockstun: simpleState(data.frames.blockstun, false, stand),
     knockdown: simpleState(data.frames.knockdown, false, fb(b.knockdown.hurt, b.knockdown.push)),
@@ -140,7 +157,7 @@ export function assembleCharacter(id: string, data: CharacterData): CharacterCon
     }
   }
 
-  // Build all six attack specs from the single state->key mapping (no per-key drift).
+  // Build every attack spec from the single state->key mapping (no per-key drift).
   const attacks = {} as Record<AttackKey, AttackSpec>;
   for (const key of Object.values(ATTACK_STATE_TO_KEY)) {
     attacks[key] = toSpec(data.attacks[key], key);

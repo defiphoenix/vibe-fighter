@@ -46,6 +46,7 @@ const POSE = {
   airHeavy: { bodyH: 128, bodyW: 38, punch: "low", armsUp: true },
   crouchLight: { bodyH: 92, bodyW: 48, punch: "low" },
   crouchHeavy: { bodyH: 88, bodyW: 52, punch: "low" },
+  special: { bodyH: 146, bodyW: 44, flurry: true, armsUp: true },
   hitstun: { bodyH: 140, bodyW: 40, lean: -8 },
   blockstun: { bodyH: 138, bodyW: 44, guard: true },
   knockdown: { bodyH: 56, bodyW: 96, lying: true },
@@ -94,7 +95,16 @@ function emit(id, state, frames) {
     fillCell(baseX, cx - headW / 2 + lean, headBottom - headH, headW, headH, [...tint.head, 255]);
 
     // forward marker / gesture on the +x side (mirrored by setFlipX at runtime)
-    if (pose.punch) {
+    if (pose.flurry) {
+      // A multi-hit special is a BARRAGE, so the stub strikes repeatedly instead of extending once:
+      // alternating full extension / retraction at two heights. Reads as several blows rather than
+      // one slow reach, and that is also what carries it past check-sprites' motion floor honestly —
+      // a single 8->68px extend measures ~13% silhouette change and looks like nothing happening.
+      const out = f % 2 === 0;
+      const reach = out ? 88 : 10;
+      const y = FRAME_H - (out ? 150 : 120);
+      fillCell(baseX, cx + pose.bodyW / 2, y, reach, 24, MARKER);
+    } else if (pose.punch) {
       const reach = 8 + Math.round(t * 60); // arm extends over the animation
       const y = pose.punch === "high" ? FRAME_H - 150 : FRAME_H - 70;
       fillCell(baseX, cx + pose.bodyW / 2, y, reach, 16, MARKER);
@@ -173,13 +183,22 @@ function assert(cond, msg) {
   if (!cond) { console.error(`self-check FAILED: ${msg}`); process.exit(1); }
 }
 
+// `--state <name>` (repeatable) limits the run to those states. Without it EVERY state is rewritten,
+// which now means overwriting the whole REAL Seedance roster — fine when bootstrapping from nothing,
+// destructive once real art has shipped. A new state only needs its own sheet stubbed so BootScene
+// stops refusing to route; the filter is how you get that without touching the other 18.
+const argv = process.argv.slice(2);
+const only = new Set(argv.flatMap((a, i) => (a === "--state" ? [argv[i + 1]] : [])).filter(Boolean));
+
 let count = 0;
 for (const id of Object.keys(REGISTRY)) {
   if (id.startsWith("_")) continue;
   const sheets = REGISTRY[id].render.sheets;
   for (const state of Object.keys(sheets)) {
+    if (only.size && !only.has(state)) continue;
     emit(id, state, sheets[state].frames);
     count++;
   }
 }
-console.log(`ok: wrote ${count} placeholder sheets (320x256 cells) under public/sprites/<id>/`);
+const scope = only.size ? `[${[...only].join(", ")}]` : "all states";
+console.log(`ok: wrote ${count} placeholder sheets ${scope} (320x256 cells) under public/sprites/<id>/`);

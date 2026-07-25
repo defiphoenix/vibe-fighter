@@ -9,6 +9,7 @@ import type { Difficulty } from "../sim/cpu";
 import type { MatchConfig } from "./flow-state";
 import type { MatchPhase } from "../sim/match";
 import { Hud } from "../render/hud";
+import { CutInView } from "../render/cutin-view";
 import { buildStage } from "../render/stage";
 import type { StagesFile } from "../render/stage";
 import { loadRegistry, buildConfig } from "../render/characters";
@@ -72,6 +73,9 @@ export class MatchScene extends Phaser.Scene {
   private debugG!: Phaser.GameObjects.Graphics;
   private sprites!: [FighterSprite, FighterSprite];
   private hud!: Hud;
+  private cutIn!: CutInView;
+  /** Consecutive hits each fighter has TAKEN without leaving hitstun. Index = the one being hit. */
+  private combo: [number, number] = [0, 0];
   private cfg: MatchConfig = DEFAULT_CONFIG;
   private cpu?: CpuController;
   // Debug bounds default OFF in the shipped match (the Playground defaults them on — that's a
@@ -166,6 +170,8 @@ export class MatchScene extends Phaser.Scene {
         __quitArmed: () => boolean;
         __endMenu: () => { shown: boolean; sel: number };
         __hud: () => ReturnType<Hud["snapshot"]>;
+        __cutIn: () => ReturnType<CutInView["snapshot"]>;
+        __combo: () => [number, number];
       };
       w.__world = this.world;
       w.__quitArmed = () => this.quitArmed;
@@ -173,6 +179,8 @@ export class MatchScene extends Phaser.Scene {
       // Lazy on purpose: the HUD is built further down create(), and a spec can only call this once
       // the scene is running anyway.
       w.__hud = () => this.hud.snapshot();
+      w.__cutIn = () => this.cutIn.snapshot();
+      w.__combo = () => [...this.combo] as [number, number];
       w.__holdP1 = (v) => { this.testHoldP1 = v ?? {}; };
       w.__holdP2 = (v) => { this.testHoldP2 = v ?? {}; };
       // Drop the hooks with the scene. Since Esc returns to the flow, a surviving `__world` is a
@@ -180,7 +188,7 @@ export class MatchScene extends Phaser.Scene {
       // write into a dead scene's fields.
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
         const g = window as unknown as Record<string, unknown>;
-        for (const k of ["__world", "__holdP1", "__holdP2", "__sprites", "__stage", "__quitArmed", "__endMenu", "__hud"]) delete g[k];
+        for (const k of ["__world", "__holdP1", "__holdP2", "__sprites", "__stage", "__quitArmed", "__endMenu", "__hud", "__cutIn", "__combo"]) delete g[k];
       });
     }
 
@@ -200,6 +208,7 @@ export class MatchScene extends Phaser.Scene {
 
     this.debugG = this.add.graphics().setDepth(50);
     this.hud = new Hud(this, [idA, idB]);
+    this.cutIn = new CutInView(this);
 
     // Both fighters are sprite-driven with per-state animation switching (feet-anchored, mirrored).
     this.sprites = [
@@ -236,8 +245,8 @@ export class MatchScene extends Phaser.Scene {
         STAGE_HEIGHT - 6,
         // Two lines: as one it measured 1535px against a 1280 viewport, so ~128px fell off each
         // end — including the P1 bindings. Measured, not eyeballed; it had been clipped for phases.
-        "P1 A/D·W·S crouch·Q block·F/G   |   P2 ←→·↑·↓·/ block·,/.   |   B hitboxes · 1-4 kinds · Esc menu\n"
-          + "CROUCH attacks are LOWS: block CROUCHING   (ground normals and jump-ins are HIGH: block STANDING)",
+        "P1 A/D·W·S·Q block·F/G·E super   |   P2 ←→·↑·↓·/ block·,/.·M super   |   B hitboxes · 1-4 kinds · Esc menu\n"
+          + "CROUCH attacks are LOWS: block CROUCHING   ·   SUPER needs a full meter and spends all of it",
         { fontFamily: "monospace", fontSize: "14px", color: "#ffffff", stroke: "#000000", strokeThickness: 3, align: "center" },
       )
       .setOrigin(0.5, 1)
@@ -268,6 +277,7 @@ export class MatchScene extends Phaser.Scene {
     this.uiCam.ignore([...stage.objects, ...this.sprites.map((s) => s.sprite), this.debugG]);
     this.cameras.main.ignore([
       ...this.hud.objects,
+      ...this.cutIn.objects,
       this.legend,
       this.quitPrompt,
       this.endScrim,
@@ -371,6 +381,8 @@ export class MatchScene extends Phaser.Scene {
     this.disarmQuit();
     this.setEndMenu(false);
     this.latch.clear();
+    this.cutIn.stop();
+    this.combo = [0, 0];
     for (const s of this.sprites) s.clearFx();
   }
 
@@ -476,6 +488,9 @@ export class MatchScene extends Phaser.Scene {
     cam.setZoom(this.zoom);
     cam.centerOn((f0.x + f1.x) / 2, STAGE_HEIGHT - cam.displayHeight / 2);
     this.hud.update(this.world, time);
+    // Driven by the sim's freeze countdown, not a tween: it advances under the e2e's pumped step and
+    // cannot outlive the freeze it belongs to.
+    this.cutIn.update(this.world.hitstop);
   }
 
   /**
@@ -493,8 +508,19 @@ export class MatchScene extends Phaser.Scene {
     let maxDamage = 0;
     for (const e of events) {
       if (e.type === "ko") ko = true;
-      else if (e.type === "hit") { sawHit = true; maxDamage = Math.max(maxDamage, Number(e.data?.damage ?? 0)); }
-      else if (e.type === "block") {
+      else if (e.type === "special") {
+        // Arm the cut-in with the freeze the sim just started. Reading world.hitstop rather than the
+        // event means the animation is driven by the same countdown that holds the fight still, so
+        // the two can never disagree — and a freeze cut short by a KO takes the cut-in with it.
+        if (e.player !== undefined) this.cutIn.play(this.world.fighters[e.player].cfg.id, this.world.hitstop);
+      } else if (e.type === "hit") {
+        sawHit = true;
+        maxDamage = Math.max(maxDamage, Number(e.data?.damage ?? 0));
+        // Combo count is a PERSISTENT per-defender tally, not a count of this batch: a 15-tick
+        // advance can carry several hits, and one flurry spans many batches. It resets when the
+        // defender leaves hitstun (below), which is the actual definition of a combo dropping.
+        if (e.player !== undefined) this.combo[e.player]++;
+      } else if (e.type === "block") {
         sawBlock = true;
         // Flash the fighter who blocked. The tint must be set THROUGH the sprite (it owns the only
         // write to tint, applied in its update() below) — tinting here would be overwritten instantly.
@@ -510,6 +536,11 @@ export class MatchScene extends Phaser.Scene {
       cam.shake(HIT_SHAKE_MS, intensity, true);
     } else if (sawBlock) {
       cam.shake(BLOCK_SHAKE_MS, BLOCK_SHAKE_INTENSITY, true);
+    }
+    // Drop the tally the moment the defender can act again. Checked AFTER the events so a hit landing
+    // this frame is counted before its own hitstun is read.
+    for (const i of [0, 1] as const) {
+      if (this.world.fighters[i].state !== "hitstun") this.combo[i] = 0;
     }
   }
 

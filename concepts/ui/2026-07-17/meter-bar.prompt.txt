@@ -1,0 +1,31 @@
+A single super-meter bar from a 16-bit arcade fighting game HUD, drawn face-on: one long very
+shallow horizontal box, about sixteen times as wide as it is tall -- distinctly thinner and meaner
+than a health bar.
+It is a heavy bevelled metal frame with a deep empty channel sunk into it. The channel is the slot
+the game fills in later with the player's super meter, so paint the channel flat #FF00FF magenta --
+the identical magenta as the void outside the bar -- and keep the metal frame unbroken all the way
+around the channel on every side: top, bottom, left and right. The channel is therefore a completely
+enclosed hole sitting inside the frame. The channel must not run out to either end of the bar, and
+must not touch the outside of the bar anywhere.
+The channel is a plain empty rectangle. There is nothing inside it: no fill, no coloured bar, no
+segments, no divisions, no notches.
+The frame is thick warm gunmetal, with a brightly lit bevel along its top and left, a dark shadowed
+bevel along its bottom and right, and one small rivet at each of its two ends.
+
+FRAMING:
+One object only, alone, drawn face-on and flat to the camera with no perspective and no tilt, painted
+over a completely flat #FF00FF magenta void. Do not paint scenery, a background, a character, a
+portrait, or any second object into the magenta. Nothing casts a shadow onto the magenta.
+Leave a clear band of magenta on all four sides: the object must not touch or run off any edge of
+the canvas.
+The magenta is one single uniform colour from edge to edge of the canvas, with no gradient, no
+texture, no noise and no light falling on it. Do not put a decorative border, a CRT bezel, a
+vignette, scanlines or a matte around the canvas.
+STYLE: 16-bit SNES arcade fighting-game interface art, hand-painted, chunky readable shapes, hard cel
+edges, flat blocks of colour, heavy bevels with a clearly lit edge and a clearly shadowed edge,
+rivets and panel lines, no photographic detail, no 3D render, no airbrush gradient.
+PALETTE: use only these colours, sampled from the locked rooftop-dusk stage -- hot highlight #F07830
+#F09048; warm metal #C04848 #904860 #906060 #A86060 #786060 #786078; midtones #784860 #604860
+#604848 #483060; deep shadow #483048 #301848 #300048 #180030.
+No text, no letters, no numbers, no digits, no signage, no logo, no watermark, no signature, no name
+plate, no icon, no tick marks, no gauge markings, no scale, no graduations.

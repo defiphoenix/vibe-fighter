@@ -51,16 +51,21 @@ replayed the stand-up twice a second and read as "crouch doesn't hold". `loop: f
 
 ## Animation keys
 
-One animation per authoritative sim `StateName` — the 18 states in `src/sim/types.ts`:
+One animation per authoritative sim `StateName` — the 19 states in `src/sim/types.ts`:
 `idle, walkF, walkB, crouch, block, blockCrouch, jumpRise, jumpFall, attackLight, attackHeavy,
-airLight, airHeavy, crouchLight, crouchHeavy, hitstun, blockstun, knockdown, ko`.
+airLight, airHeavy, crouchLight, crouchHeavy, special, hitstun, blockstun, knockdown, ko`.
 
 Art-list extras in the manifest map to later phases, not here:
 - **block high / block low** → shipped in Phase 13b as the dedicated held-guard states `block` (high)
   and `blockCrouch` (low). High/low is still box geometry (`GUARD_STAND` vs `GUARD_CROUCH`, per-frame
   since Phase 13); the FSM now plants a guarding fighter in these states, and `crouchIntent` picks the
-  stance. `blockstun` remains the separate hit-reaction. Sheet list is **18**.
-- **special-charge / special-exec** → no special state yet → Phase 15.
+  stance. `blockstun` remains the separate hit-reaction.
+- **special-charge / special-exec** → shipped in Phase 15 as ONE state, `special`: the sheet's opening
+  frames ARE the charge (they cover the attack's `startup`) and the rest is the execution, so there is
+  no separate `specialCharge` sheet. It is a real attack state (`ATTACK_STATE_TO_KEY`), and the only
+  one carrying `repeat` — several hit windows in one animation. Because a multi-hit move has N contact
+  frames and `render.sheets.<state>.hit` holds ONE number, a `repeat` sheet gets **uniform** playback
+  and `check-attack-sync.py` deliberately skips it. Sheet list is **19**.
 
 ## Transparency
 

@@ -240,4 +240,27 @@ test.describe("Phase 10 — fighter playground", () => {
     await page.evaluate(() => (window as any).__playground.toggleBound("all"));
     expect(await bounds()).toEqual({ hurt: false, hit: false, push: false, guard: false });
   });
+
+  // The Playground has to `world.restart()` after a KO (forcing the phase back to "fight" would
+  // re-bank the same win every tick), and restart() zeroes the meter — correct for a fresh match,
+  // wrong for a training scene. A super you must FARM meter for is untestable if every KO
+  // confiscates the bar, which is exactly how it played: build meter on the dummy, KO it, start over.
+  test("the meter survives a KO reset and an explicit R reset", async ({ page }) => {
+    await ready(page);
+    const meter = () => page.evaluate(() => (window as any).__playground.world().fighters[0].meter as number);
+
+    await page.evaluate(() => { (window as any).__playground.world().fighters[0].meter = 60; });
+    expect(await meter()).toBe(60);
+
+    // The KO path: resetIfRoundOver() reacts to a DECIDED phase, so bank one and pump a frame.
+    await page.evaluate(() => { (window as any).__playground.world().match.phase = "roundEnd"; });
+    await pump(page, 2);
+    expect(await page.evaluate(() => (window as any).__playground.world().match.phase as string)).toBe("fight");
+    expect(await meter()).toBe(60);
+
+    // ...and the R key / __playground.reset() path, which goes through the same resetWorld().
+    await page.evaluate(() => (window as any).__playground.reset());
+    await pump(page, 2);
+    expect(await meter()).toBe(60);
+  });
 });

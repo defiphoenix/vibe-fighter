@@ -23,6 +23,7 @@ function sampleData(): CharacterData {
       airHeavy: { body: "air", startup: 8, active: 4, recovery: 16, hit: { x: 45, y: 40, w: 90, h: 60 }, damage: 12, hitstun: 16, blockstun: 12, hitstop: 9, knockback: { x: 180, y: 0 }, chip: 3 },
       crouchLight: { body: "crouch", startup: 4, active: 3, recovery: 9, hit: { x: 38, y: 18, w: 66, h: 40 }, damage: 5, hitstun: 11, blockstun: 8, hitstop: 6, knockback: { x: 110, y: 0 }, chip: 1 },
       crouchHeavy: { body: "crouch", startup: 8, active: 4, recovery: 20, hit: { x: 48, y: 6, w: 100, h: 42 }, damage: 13, hitstun: 18, blockstun: 14, hitstop: 10, knockback: { x: 220, y: -240 }, chip: 3 },
+      special: { body: "stand", startup: 8, active: 3, recovery: 18, repeat: { count: 5, gap: 4 }, freeze: 30, hit: { x: 40, y: 80, w: 105, h: 80 }, damage: 6, hitstun: 16, blockstun: 12, hitstop: 4, knockback: { x: 30, y: 0 }, chip: 2 },
     },
     frames: { idle: 4, walkF: 6, walkB: 6, crouch: 2, block: 2, blockCrouch: 2, jumpRise: 1, jumpFall: 1, hitstun: 1, blockstun: 1, knockdown: 1, ko: 1 },
   };
@@ -55,6 +56,43 @@ describe("validateFighterEntry", () => {
     const e = sampleEntry();
     e.data.stats.scale = 1.3;
     expect(validateFighterEntry("brawler", e)).toEqual([]);
+  });
+
+  // Phase 15 multi-hit. `repeat` decides how many windows the builder lays down, so a bad count is a
+  // silently wrong hit count rather than a crash — the validator is the only thing that catches it.
+  it.each([0, -1, 2.5, "3"])("rejects attacks.special.repeat.count = %s", (count) => {
+    const e = sampleEntry();
+    (e.data.attacks.special.repeat as unknown) = { count, gap: 4 };
+    // NOTE: checkAttack pushes unprefixed messages (pre-existing quirk — every other check goes
+    // through `p`, which prepends "[id] "). Asserted as-is rather than "fixed" here.
+    expect(validateFighterEntry("brawler", e)).toContain("attacks.special.repeat.count: positive integer required");
+  });
+
+  it("rejects a negative repeat.gap but accepts zero (back-to-back windows are still separate hits)", () => {
+    const bad = sampleEntry();
+    bad.data.attacks.special.repeat = { count: 3, gap: -1 };
+    expect(validateFighterEntry("brawler", bad).some((m) => m.includes("repeat.gap"))).toBe(true);
+
+    const ok = sampleEntry();
+    ok.data.attacks.special.repeat = { count: 3, gap: 0 };
+    expect(validateFighterEntry("brawler", ok)).toEqual([]);
+  });
+
+  it.each([-1, 1.5])("rejects a bad super freeze = %s", (freeze) => {
+    const e = sampleEntry();
+    e.data.attacks.special.freeze = freeze;
+    expect(validateFighterEntry("brawler", e).some((m) => m.includes("freeze"))).toBe(true);
+  });
+
+  it("accepts a hit override inside ANY of a repeat attack's windows, not just the first", () => {
+    // windows for startup 8 / active 3 / gap 4 / count 5 are [8,11) [15,18) [22,25) [29,32) [36,39)
+    const ok = sampleEntry();
+    ok.data.overrides = { special: [{ frame: 23, hit: [{ x: 50, y: 80, w: 120, h: 80 }] }] };
+    expect(validateFighterEntry("brawler", ok)).toEqual([]);
+
+    const gapFrame = sampleEntry();
+    gapFrame.data.overrides = { special: [{ frame: 20, hit: [{ x: 50, y: 80, w: 120, h: 80 }] }] };
+    expect(validateFighterEntry("brawler", gapFrame).some((m) => m.includes("outside the attack active window"))).toBe(true);
   });
 
   it("rejects a missing render sheet state", () => {

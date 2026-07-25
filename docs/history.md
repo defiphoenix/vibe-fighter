@@ -86,6 +86,51 @@ between phases and therefore have no phase log of their own.
   figures (two in `asset-manifest.md`, two in the Phase 07 log) that described an abandoned first
   design, and put the preload atlases behind Boot's own missing-texture guard.
 
+### Phase 15 — Specials, Meter & Multi-Hit Combos (2026-07-25)
+
+The spec named its own blocker: `Fighter.hasHit` was one boolean that ended an attack's ability to
+connect after the first hit, so a special could never land more than once. It is now **per hit
+WINDOW**: the builder stamps a `hitId` on every hit-bearing frame, `Fighter.lastHitId` refuses a window
+that already connected, and `AttackData.repeat = {count, gap}` lays the active window down `count`
+times. A normal has one window and still lands exactly once — the original single-connect test is
+unmodified and was the guard rail for the swap. On top of that: a meter earned by **playing well**
+(landing a clean hit pays the attacker in full; a successful *block* pays the blocker half of what the
+attack would have dealt him; being hit pays nothing) that carries between rounds and is spent whole on
+a grounded-only special; a **super freeze** riding the existing
+hitstop channel, folded in *after* the round-over check so a fighter KO'd on the tick they started a
+special gets neither the freeze nor the flourish; and the Phase 06 select portrait sweeping in over it,
+derived from the freeze countdown rather than a tween (`render/super-cutin.ts`, Phaser-free and unit
+tested) and shared by MatchScene *and* the Playground, because the dummy is where you try the move. The
+Playground gained **regen hp** and **fill meter** toggles, applied before `advance` — after is too late,
+since health reaching 0 sets `ko` and ends the round inside that same advance.
+
+Codex rejected the first plan with six findings. The one that would have shipped as a real bug: window
+ids restart at 0 for every attack, so a normal that had just connected left a stale `lastHitId = 0` and
+silently swallowed the special's first window. Fixed structurally — `startAttack(state)` is now the one
+door into every attack state, since it is also the only place `lastHitId` is cleared — and verified by
+deleting the reset and watching the pinning test drop from 5 hits to 4 while everything else stayed
+green. Also caught: `toSpec()` copies fields explicitly, so `freeze` would have vanished without a
+sound.
+
+Then the game was played, and everything the tests could not see turned up at once. **The meter was
+invisible** — positioned below the health bar's fill *slot* rather than below the *plate*, drawing
+correctly every frame underneath an opaque bezel, with the browser test happily asserting a real
+width. **The meter economy was wrong** as originally specced: crediting the defender for damage taken
+meant a cornered player watched his own super charge as a consolation prize, so it now pays for landing
+a hit or blocking one and nothing for being beaten up. **The Playground kept confiscating the bar** —
+it must `world.restart()` after a KO, and that zeroes the meter, which made a super you have to farm
+for effectively untestable. And **the jiujitsu's spinning floor sweep shipped as a HIGH**: a
+chest-height hit box on top of a leg scything along the ground, so you blocked it by standing up. The
+ground-heavy defect exactly, one phase after it was written down.
+
+The art took **8 Seedance clips for 3 sheets (~98 credits)**, and every failure had a different cause:
+a `set -u` lookup bug that aborted all three instantly; a prompt whose word "spinning" put the brawler
+flat on his back; a monk prompt that named the *move* but never the arm travel; sampling that caught 6
+of 8 frames mid-return; and finally **direction** — a perfectly-measuring uppercut that travelled
+straight up beside his own ear and never crossed the gap to the opponent. Worth keeping: every metric
+in the pipeline is direction-blind, and the motion gate passed the frame where the fighter was lying
+down. The meter's own atlas plate is the one thing still vector-drawn.
+
 ## Passes between phases
 
 ### Gameplay resolution pass (2026-07-18)

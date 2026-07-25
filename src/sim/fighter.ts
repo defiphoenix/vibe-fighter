@@ -1,10 +1,21 @@
 import type { AttackStateName, Box, CharacterConfig, FrameBoxes, InputSnapshot, StateName } from "./types";
-import { isAttackState } from "./types";
+import { ATTACK_STATE_TO_KEY, isAttackState } from "./types";
 import { DT, GROUND_Y } from "./constants";
 
 /** States in which a fighter can start a new action. Exported: cpu.ts gates its reaction timer on it. */
 export const ACTIONABLE: ReadonlySet<StateName> = new Set(["idle", "walkF", "walkB", "crouch", "block", "blockCrouch"]);
 const STUN: ReadonlySet<StateName> = new Set(["hitstun", "blockstun", "knockdown"]);
+
+/** A full meter. Earned in combat, spent whole on one special — there are no partial stocks. */
+export const METER_MAX = 100;
+
+/** Pick a normal's variant from stance: crouch (grounded+down) > air (!grounded) > ground.
+ *  `down` is the press-time stance (see think), NOT necessarily this tick's crouchIntent. */
+function variantFor(strength: "light" | "heavy", grounded: boolean, down: boolean): AttackStateName {
+  if (grounded && down) return strength === "light" ? "crouchLight" : "crouchHeavy";
+  if (!grounded) return strength === "light" ? "airLight" : "airHeavy";
+  return strength === "light" ? "attackLight" : "attackHeavy";
+}
 
 /** Resolved local box set for the current tick. */
 export interface ActiveBoxes {
@@ -12,6 +23,8 @@ export interface ActiveBoxes {
   push: Box;
   hit: Box[];
   guard: Box[];
+  /** Which hit window the live hit boxes belong to (undefined when `hit` is empty). Combat's dedup key. */
+  hitId?: number;
 }
 
 export class Fighter {
@@ -33,13 +46,26 @@ export class Fighter {
   guardIntent = false; // dedicated block key held this tick, grounded (NOT hold-away; separate from FSM)
   crouchIntent = false;
 
-  hasHit = false; // dedup: did the current active attack already connect? reset on a new attack
+  /** Dedup: the id of the last hit WINDOW that connected. A normal has one window (id 0) so it still
+   *  lands once; a `repeat` special has one id per window, so it lands once per window. Ids restart at
+   *  0 for every attack, which is why startAttack() clearing this is load-bearing — a stale 0 from the
+   *  previous move would swallow the next move's first window. */
+  lastHitId = -1;
+
+  /** Super meter, 0..METER_MAX. Filled in combat.ts by damage dealt and taken. Deliberately NOT
+   *  cleared by reset() (which runs on every round transition — the meter carries between rounds, as
+   *  the genre expects); World.restart() zeroes it for a fresh match. */
+  meter = 0;
+
+  /** Ticks of super freeze this fighter's just-started special owes the world. Set by startAttack,
+   *  read-and-cleared once by world.tick() — if it lingered it would re-freeze after the countdown. */
+  pendingFreeze = 0;
 
   /** Which input EDGES this fighter's think() actually ACTED ON this tick (started an attack/jump).
    *  The render latch clears only these, so an edge think() ignored because the fighter was locked in
    *  an attack/stun stays buffered until it can act — without this a light→heavy drops the heavy that
    *  was pressed during the light. Reset every tick in world.tick(), set here on consumption. */
-  consumed = { up: false, light: false, heavy: false };
+  consumed = { up: false, light: false, heavy: false, special: false };
 
   /** Multiplier on the damage this fighter DEALS. 1 = the authored numbers; the render layer lowers
    *  it for a CPU opponent (see cpu.ts DAMAGE_SCALE). Deliberately NOT touched by reset(): it is a
@@ -65,7 +91,9 @@ export class Fighter {
     this.health = this.cfg.stats.maxHealth;
     this.guardIntent = false;
     this.crouchIntent = false;
-    this.hasHit = false;
+    this.lastHitId = -1;
+    this.pendingFreeze = 0;
+    // meter is NOT cleared: reset() runs on every round transition and the bar carries. See restart().
   }
 
   get isKO(): boolean {
@@ -115,13 +143,35 @@ export class Fighter {
     // Attack states: locked until animation completes.
     if (isAttackState(this.state)) return;
 
+    // The meter special (Phase 15). Grounded-only and all-or-nothing: a full bar or nothing happens.
+    //
+    // Checked BEFORE the normals so a super outranks a normal pressed on the same frame — the genre's
+    // answer, and also the thing that stops the edge leaking: the normals `return`, so a special left
+    // unconsumed behind one would stay latched and then fire by itself the moment that very normal's
+    // damage topped the bar up.
+    //
+    // Consumed on every GROUNDED press, including a refused one — the render latch only clears what the
+    // sim reports consuming, and a press on a short bar has been answered ("nothing happens"), so
+    // holding it would make the special self-trigger later. AIRBORNE is the opposite case and the
+    // branch is skipped entirely: the fighter simply cannot act on it yet, so the edge stays buffered
+    // and comes out on landing — exactly how `upPressed` behaves behind the same gate below.
+    if (input.specialPressed && this.grounded) {
+      this.consumed.special = true;
+      if (this.meter >= METER_MAX) {
+        this.meter = 0;
+        return this.startAttack("special");
+      }
+    }
+
     // Attacks work grounded OR airborne; the variant (ground/air/crouch) is chosen in startAttack.
     // Stance for the attack variant comes from when the press HAPPENED (downAtPress), falling back to
     // the live `down` — a buffered crouch normal must not come out standing just because the tick
     // that consumed it landed after `down` was released.
     const attackDown = input.downAtPress ?? input.down;
-    if (input.lightPressed) { this.consumed.light = true; return this.startAttack("light", attackDown); }
-    if (input.heavyPressed) { this.consumed.heavy = true; return this.startAttack("heavy", attackDown); }
+    if (input.lightPressed) { this.consumed.light = true; return this.startAttack(variantFor("light", this.grounded, attackDown)); }
+    if (input.heavyPressed) { this.consumed.heavy = true; return this.startAttack(variantFor("heavy", this.grounded, attackDown)); }
+
+
 
     // Airborne: no other ground actions (no air walk/crouch/block/double-jump).
     if (!this.grounded) return;
@@ -157,20 +207,14 @@ export class Fighter {
     }
   }
 
-  /** Pick the attack variant from stance: crouch (grounded+down) > air (!grounded) > ground.
-   *  `down` is the press-time stance (see think), NOT necessarily this tick's crouchIntent. */
-  private startAttack(strength: "light" | "heavy", down: boolean): void {
-    let state: AttackStateName;
-    if (this.grounded && down) {
-      state = strength === "light" ? "crouchLight" : "crouchHeavy";
-    } else if (!this.grounded) {
-      state = strength === "light" ? "airLight" : "airHeavy";
-    } else {
-      state = strength === "light" ? "attackLight" : "attackHeavy";
-    }
+  /** Enter an attack state. THE single entry point for every attack — normals and the special alike —
+   *  because it is also the only place `lastHitId` is cleared, and a missed clear silently eats the
+   *  next move's first hit window. */
+  private startAttack(state: AttackStateName): void {
     this.setState(state);
     if (this.grounded) this.vx = 0; // grounded attacks plant; air attacks keep jump momentum
-    this.hasHit = false;
+    this.lastHitId = -1;
+    this.pendingFreeze = this.cfg.attacks[ATTACK_STATE_TO_KEY[state]].freeze ?? 0;
   }
 
   private setState(s: StateName): void {
@@ -282,6 +326,7 @@ export class Fighter {
       hurt: frame.hurt,
       push: frame.push,
       hit: frame.hit,
+      hitId: frame.hitId,
       guard: this.guarding ? this.guardBoxes() : [],
     };
   }

@@ -1,4 +1,4 @@
-import { ACTIONABLE } from "./fighter";
+import { ACTIONABLE, METER_MAX } from "./fighter";
 import { emptyInput, isAttackState } from "./types";
 import type { InputSnapshot } from "./types";
 import type { CpuSeam, World } from "./world";
@@ -30,12 +30,15 @@ interface Knobs {
   jumpChance: number;
   /** 0..1 chance an in-range attack is the slower, longer heavy */
   heavyChance: number;
+  /** 0..1 chance a FULL meter is spent on the special when the opponent is in range. Below 1 so the
+   *  CPU doesn't fire the instant the bar fills — a super that is perfectly punctual is unreadable. */
+  specialChance: number;
 }
 
 const KNOBS: Record<Difficulty, Knobs> = {
-  easy: { attackCooldown: 105, cooldownJitter: 50, reactionTicks: 22, blockChance: 0.05, approachBias: 0.3, jumpChance: 0, heavyChance: 0.1 },
-  normal: { attackCooldown: 66, cooldownJitter: 30, reactionTicks: 14, blockChance: 0.12, approachBias: 0.45, jumpChance: 0.001, heavyChance: 0.2 },
-  hard: { attackCooldown: 48, cooldownJitter: 18, reactionTicks: 8, blockChance: 0.22, approachBias: 0.55, jumpChance: 0.003, heavyChance: 0.28 },
+  easy: { attackCooldown: 105, cooldownJitter: 50, reactionTicks: 22, blockChance: 0.05, approachBias: 0.3, jumpChance: 0, heavyChance: 0.1, specialChance: 0.15 },
+  normal: { attackCooldown: 66, cooldownJitter: 30, reactionTicks: 14, blockChance: 0.12, approachBias: 0.45, jumpChance: 0.001, heavyChance: 0.2, specialChance: 0.4 },
+  hard: { attackCooldown: 48, cooldownJitter: 18, reactionTicks: 8, blockChance: 0.22, approachBias: 0.55, jumpChance: 0.003, heavyChance: 0.28, specialChance: 0.7 },
 };
 
 /** Multiplier on the damage the CPU DEALS, applied by the render layer to the CPU fighter.
@@ -130,6 +133,14 @@ export class CpuController implements CpuSeam {
       // applies to EVERY commitment, not just the first time you walked into range.
       this.cooldown = this.knobs.attackCooldown + Math.floor(this.rand() * this.knobs.cooldownJitter);
       this.inReachTicks = 0;
+      // Spend a full bar first when the roll says so. The special is grounded-only and lands HIGH, so
+      // it needs neither the stance bit below nor a separate range — it reaches at least as far as the
+      // heavy on every fighter. A refused press is harmless: think() just consumes the edge.
+      if (me.meter >= METER_MAX && this.rand() < this.knobs.specialChance) {
+        input.special = true;
+        input.specialPressed = true;
+        return input;
+      }
       const low = opp.crouchIntent || opp.state === "crouch";
       if (low) {
         input.down = true;
