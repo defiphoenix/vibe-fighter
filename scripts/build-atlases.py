@@ -66,15 +66,7 @@ check_job, check_blocks, shared_block = art_gate.check_job, art_gate.check_block
 # --- what gets generated -----------------------------------------------------------------------
 # id -> aspect. The aspect label lies (`3:4` really returns 1792x2400 = 0.7467:1), so it is only ever
 # used to check the job record against itself; the pixel truth comes from params.width/height.
-UI_ASSETS = {"health-bar": "21:9", "portrait-base": "3:4"}
-# Phase 15 leaves `meter-bar` OUT of this table on purpose: the prompt is written
-# (concepts/ui/2026-07-17/meter-bar.prompt.txt, sharing the identical FRAMING/STYLE/PALETTE block
-# check_blocks enforces) but the art has not been generated, and listing an id whose -raw.png is
-# missing turns this whole gate red. The HUD draws the meter into its existing fill Graphics until
-# then (src/render/hud.ts METER_*). To finish it: generate the raw at 21:9, drop it in beside its
-# job.json, add "meter-bar": "21:9" here, and give it a branch mirroring the health-bar one below
-# (bbox -> find_slot -> pack, emitting `meter-bar` + `meter-bar-slot`) plus its own share of the
-# HUD_BAND_MAX vertical budget, which the meter now also consumes.
+UI_ASSETS = {"health-bar": "21:9", "portrait-base": "3:4", "meter-bar": "21:9"}
 PROP_ASPECTS = {"crowd": "16:9", "vents": "1:1", "beacon": "1:1", "steam": "2:3"}
 PROP_FRAMES = 4  # frames 1..3 are --image-chained from frame 0, so refs=0 for -0 and refs=1 after
 
@@ -92,6 +84,18 @@ MARGIN = 40     # layout budget only (the shipped HUD uses its own MARGIN + a po
 TOP = 34        # ditto -- these two only feed the vertical-budget assertion below
 PIP_GAP = 8     # src/render/hud.ts PIP_GAP
 PIP_H = 22      # pip font size, src/render/hud.ts
+# Phase 15's meter plate rides under the health bar at the same width, so it consumes the same
+# vertical budget. Its own art is much shallower (the prompt asks for ~16:1 against the health bar's
+# ~8:1), so what this costs the budget is whatever the model actually painted -- measured, not
+# assumed, which is why METER_W is a width we impose and the height falls out of the art.
+METER_W = BAR_W  # both plates resize to the same width so their bevels line up
+METER_GAP = 6   # src/render/hud.ts METER_GAP
+# The HUD draws both plates NON-UNIFORMLY at half height (their bezel above and below the slot is
+# frame art, not padding, so "thinner and wider" has no uniform-scale answer). The vertical budget
+# below has to measure what is DRAWN, not what is packed: on packed heights alone the health bar and
+# meter together read as 246px of HUD and the assertion fails on art that in fact fits with 90px to
+# spare. src/render/hud.ts:24 BAR_SCALE_Y.
+BAR_SCALE_Y = 0.5
 
 # The HUD's vertical budget is DERIVED from the sim, not chosen. CLAUDE.md: check art against the
 # sim's real constants, not against how it looks. The first cut of this file used a round 200 and it
@@ -162,7 +166,12 @@ MAX_ATLAS_DIM = 2048
 # reported rather than fatal.
 SLOT_ELONGATION = 3.0    # a health channel is a long horizontal box, not a rivet hole
 SLOT_W_FRAC = 0.60       # ...spanning most of the bar
-SLOT_H_FRAC = 0.40       # ...and a real fraction of its height
+# ...and a real fraction of its height. Placed at 0.40 when the health bar was the only sample
+# (its channel measures 43%). Phase 15's meter bar is by DESIGN the shallower plate and its channel
+# comes in at 38% — rejected by two points, for being exactly what it was asked to be. Lowered to
+# 0.33 on two samples instead of one; the decorative panel lines this floor exists to reject measure
+# 1%, so the margin is still two orders of magnitude. Widen it only against a third real bar.
+SLOT_H_FRAC = 0.33
 SLOT_CENTER_TOL = 0.10   # ...centred on the bar's mid-line
 SLOT_FILL_MIN = 0.85     # ...and actually a filled rectangle, not a T/L/cross with a wide bbox
 # The portrait window need only be MOSTLY a window: the portrait composites UNDER the plate, so the
@@ -760,12 +769,32 @@ def build_ui(fail: list) -> tuple[Image.Image, dict, dict]:
     fail += [f"health-bar: {b}" for b in bad]
     facts["health-bar"].update(scale=scale, size=(BAR_W, bar_h), others=[h["bbox"] for h in others])
 
-    pip_y = TOP + bar_h + PIP_GAP
+    # --- meter bar: same treatment, same imposed width, its own (much shallower) art height -------
+    meter = plates["meter-bar"]
+    mh, mw = meter.shape[:2]
+    mscale = METER_W / mw
+    meter_h = round(mh * mscale)
+    meter_im = Image.fromarray(meter).resize((METER_W, meter_h), Image.LANCZOS)
+    mslot, m_others, m_bad = find_slot(np.array(meter_im)[..., 3])
+    fail += [f"meter-bar: {b}" for b in m_bad]
+    facts["meter-bar"].update(scale=mscale, size=(METER_W, meter_h),
+                              others=[h["bbox"] for h in m_others])
+    # The meter is meant to read as the LEANER sibling of the health bar; if the model paints it as
+    # tall it is not a meter, it is a second health bar, and the HUD reads wrong at a glance.
+    if meter_h > bar_h:
+        fail.append(f"meter-bar: {meter_h}px tall against the health bar's {bar_h}px -- the meter is "
+                    "supposed to be the shallower of the two")
+
+    # The vertical budget is now health bar + meter + pips, all of it above a jumping head, and all
+    # of it measured at the height the HUD actually DRAWS (see BAR_SCALE_Y).
+    drawn_bar, drawn_meter = round(bar_h * BAR_SCALE_Y), round(meter_h * BAR_SCALE_Y)
+    pip_y = TOP + drawn_bar + METER_GAP + drawn_meter + PIP_GAP
     hud_bottom = pip_y + PIP_H
     if hud_bottom > HUD_BAND_MAX:
-        fail.append(f"health-bar: at {BAR_W}px wide the bar is {bar_h}px tall, putting the HUD's "
-                    f"bottom at y={hud_bottom}; a fighter's head reaches y={HUD_BAND_MAX} at the "
-                    f"apex of a jump, so the HUD would be drawn over him")
+        fail.append(f"health-bar: at {BAR_W}px wide the bar draws {drawn_bar}px tall and the meter "
+                    f"{drawn_meter}px, putting the HUD's bottom at y={hud_bottom}; a fighter's head "
+                    f"reaches y={HUD_BAND_MAX} at the apex of a jump, so the HUD would be drawn "
+                    "over him")
     if 2 * (MARGIN + BAR_W) > VIEW_W:
         fail.append(f"health-bar: two bars + margins = {2*(MARGIN+BAR_W)} > {VIEW_W} viewport")
     facts["health-bar"].update(pip_y=pip_y, hud_bottom=hud_bottom)
@@ -795,7 +824,8 @@ def build_ui(fail: list) -> tuple[Image.Image, dict, dict]:
                                       inside=inside, trim=trim, scale=pscale,
                                       size=base_im.size, slot=pslot)
 
-    sheet, frames = pack([[("health-bar", np.array(bar_im))], [("portrait-base", np.array(base_im))]])
+    sheet, frames = pack([[("health-bar", np.array(bar_im))], [("meter-bar", np.array(meter_im))],
+                          [("portrait-base", np.array(base_im))]])
     # Slots are frames too: a rect is a rect, Phaser hands it back via texture.get(name), and it
     # needs no schema Phaser does not already have. They are sub-rects of their plate, so they are
     # offset by the plate's packed origin. Phase 14 gets the slot's position relative to the bar by
@@ -809,6 +839,15 @@ def build_ui(fail: list) -> tuple[Image.Image, dict, dict]:
                                      "spriteSourceSize": {"x": 0, "y": 0, "w": sx1-sx0, "h": sy1-sy0},
                                      "sourceSize": {"w": sx1-sx0, "h": sy1-sy0}}
         facts["health-bar"]["slot"] = (sx0, sy0, sx1 - sx0, sy1 - sy0)
+    if mslot:
+        mx, my = frames["meter-bar"]["frame"]["x"], frames["meter-bar"]["frame"]["y"]
+        tx0, ty0, tx1, ty1 = mslot["bbox"]
+        frames["meter-bar-slot"] = {"frame": {"x": mx + tx0, "y": my + ty0,
+                                              "w": tx1 - tx0, "h": ty1 - ty0},
+                                    "rotated": False, "trimmed": False,
+                                    "spriteSourceSize": {"x": 0, "y": 0, "w": tx1-tx0, "h": ty1-ty0},
+                                    "sourceSize": {"w": tx1-tx0, "h": ty1-ty0}}
+        facts["meter-bar"]["slot"] = (tx0, ty0, tx1 - tx0, ty1 - ty0)
     if pslot:
         px, py = frames["portrait-base"]["frame"]["x"], frames["portrait-base"]["frame"]["y"]
         frames["portrait-slot"] = {"frame": {"x": px + pslot[0], "y": py + pslot[1],

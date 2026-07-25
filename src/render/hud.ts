@@ -51,15 +51,15 @@ const HEALTH_GRADIENT: Record<number, [number, number]> = {
 const LOW_HEALTH = 0.25;
 const MID_HEALTH = 0.5;
 
-/** Super meter (Phase 15). A thin strip under the health bar, inset from it so the two never read as
- *  one control. Its slot is derived from the health bar's own slot rather than authored, so a re-cut
- *  `health-bar` moves both together.
- *  ponytail: the meter has no plate ART yet — it is drawn into the same `fillG` as the health fill.
- *  When the Phase 07 `meter-bar` plate is generated, add it at depth 101 the way `barPlates` is and
- *  swap METER_* below for a `slotIn()` off its frame; the fill code here does not change. */
-const METER_H = 12;
-const METER_GAP = 6; // health slot bottom -> meter top
-const METER_INSET = 18; // narrower than the health slot on each side, so the two are visibly separate
+/** Super meter (Phase 15). Its own Phase 07 atlas plate, packed to the same 460 px width as the
+ *  health bar so the two bevels line up, and drawn with the SAME anisotropic scales — the meter's
+ *  frame art has bezel above and below its channel exactly like the bar's, so a uniform scale cannot
+ *  make it "thinner and wider" either. Geometry comes off the frame (`slotIn`), never authored here:
+ *  a re-cut plate moves the fill with it. The fill is drawn into `fillG` at depth 100, BEHIND the
+ *  plate at 101, so it shows through the transparent `meter-bar-slot`. */
+const METER_PLATE = "meter-bar";
+const METER_SLOT = "meter-bar-slot";
+const METER_GAP = 6; // bar plate bottom -> meter plate top
 const METER_EMPTY = 0x241a30;
 const METER_FILL: [number, number] = [0x6fd8ff, 0x2a6ea8];
 /** Full bar: a hotter colour AND a pulse, because "you have a super" has to be readable at a glance
@@ -118,6 +118,10 @@ export class Hud {
   private barTop: number;
   private barX: [number, number];
   private slot: Slot;
+  private meterW = 0;
+  private meterH = 0;
+  private meterSlot!: Slot;
+  private meterPlates!: [Phaser.GameObjects.Image, Phaser.GameObjects.Image];
   private window: Slot;
   private shownIds: [string, string] = ["", ""];
   private lastFill: [number, number] = [0, 0];
@@ -135,14 +139,18 @@ export class Hud {
     // Validate the whole atlas up front and throw naming the frame, the way stage.ts does for props.
     // A HUD with a hole in it is worse than a scene that refuses to start.
     const tex = scene.textures.get(ATLAS);
-    for (const frame of [BAR_PLATE, BAR_SLOT, PORTRAIT_PLATE, PORTRAIT_SLOT]) {
+    for (const frame of [BAR_PLATE, BAR_SLOT, METER_PLATE, METER_SLOT, PORTRAIT_PLATE, PORTRAIT_SLOT]) {
       if (!tex || !tex.has(frame)) throw new Error(`hud: missing frame "${frame}" in atlas "${ATLAS}"`);
     }
     const barFrame = tex.get(BAR_PLATE);
+    const meterFrame = tex.get(METER_PLATE);
     const faceFrame = tex.get(PORTRAIT_PLATE);
     this.barW = barFrame.width * BAR_SCALE_X;
     this.barH = barFrame.height * BAR_SCALE_Y;
     this.slot = slotIn(barFrame, tex.get(BAR_SLOT), BAR_SCALE_X, BAR_SCALE_Y);
+    this.meterW = meterFrame.width * BAR_SCALE_X;
+    this.meterH = meterFrame.height * BAR_SCALE_Y;
+    this.meterSlot = slotIn(meterFrame, tex.get(METER_SLOT), BAR_SCALE_X, BAR_SCALE_Y);
     const plateW = faceFrame.width * PORTRAIT_SCALE;
     const win = slotIn(faceFrame, tex.get(PORTRAIT_SLOT), PORTRAIT_SCALE, PORTRAIT_SCALE);
     this.scene = scene;
@@ -162,7 +170,7 @@ export class Hud {
     // Every test still passed: the width it reported was real, it was just underneath the bezel. Only
     // looking at the screen caught it.
     this.meterY = this.barTop + this.barH + METER_GAP;
-    const pipY = this.meterY + METER_H + PIP_GAP;
+    const pipY = this.meterY + this.meterH + PIP_GAP;
 
     // Depth 100/101 with creation order deciding within a band (Phaser sorts stably by depth). The
     // faces must NOT drop to 99: the match-end scrim is depth 99 and is created later, so it would
@@ -185,12 +193,15 @@ export class Hud {
     const plate = (x: number, y: number, frame: string, flip: boolean): Phaser.GameObjects.Image =>
       scene.add.image(x, y, ATLAS, frame)
         .setOrigin(0, 0) // the slot arithmetic is top-left based; an Image defaults to centred
-        .setScale(...(frame === BAR_PLATE ? [BAR_SCALE_X, BAR_SCALE_Y] : [PORTRAIT_SCALE, PORTRAIT_SCALE]) as [number, number])
+        .setScale(...(frame === PORTRAIT_PLATE ? [PORTRAIT_SCALE, PORTRAIT_SCALE] : [BAR_SCALE_X, BAR_SCALE_Y]) as [number, number])
         .setFlipX(flip)
         .setDepth(101)
         .setScrollFactor(0);
     this.facePlates = [plate(faceX[0], TOP, PORTRAIT_PLATE, false), plate(faceX[1], TOP, PORTRAIT_PLATE, false)];
     this.barPlates = [plate(this.barX[0], this.barTop, BAR_PLATE, false), plate(this.barX[1], this.barTop, BAR_PLATE, true)];
+    // P2's meter is flipped for the same reason its bar is: the plate art is lit from the top-left,
+    // so an unmirrored copy on the right reads as a different piece of furniture.
+    this.meterPlates = [plate(this.barX[0], this.meterY, METER_PLATE, false), plate(this.barX[1], this.meterY, METER_PLATE, true)];
 
     const font = { fontFamily: "monospace", color: "#ffffff" };
     // Timer under the bars, not above them: the plates now run nearly to the centre, and a number
@@ -205,13 +216,14 @@ export class Hud {
       this.fillG,
       ...this.facePlates,
       ...this.barPlates,
+      ...this.meterPlates,
       this.timerText,
       this.centerText,
       this.p1Pips,
       this.p2Pips,
     ];
     // The announce text is centre-screen and belongs to the round, not to the band — it stays put.
-    for (const o of [...this.faces, ...this.facePlates, ...this.barPlates, this.timerText, this.p1Pips, this.p2Pips]) {
+    for (const o of [...this.faces, ...this.facePlates, ...this.barPlates, ...this.meterPlates, this.timerText, this.p1Pips, this.p2Pips]) {
       this.slides.push({ obj: o, baseY: o.y });
     }
 
@@ -271,16 +283,18 @@ export class Hud {
     this.fillG.fillRect(i === 0 ? x + dx : x + dx + this.slot.w - w, y, w, this.slot.h);
   }
 
-  /** The super meter strip. Geometry is derived from the health slot (see METER_* above), so it
-   *  mirrors for P2 exactly like `bar()` does and cannot drift from the plate it sits under. */
+  /** The super meter strip, drawn into its own plate's channel. Slot frames are packed in ATLAS
+   *  space, so a flipped (P2) plate needs the mirrored slot `meterW - dx - w` — the same arithmetic
+   *  `bar()` does, off the meter's own frame rather than the health bar's. */
   private meter(i: 0 | 1, frac: number, pulse: boolean, dy: number): void {
     const x = this.barX[i];
-    const dx = (i === 0 ? this.slot.dx : this.barW - this.slot.dx - this.slot.w) + METER_INSET;
-    const y = this.meterY + dy;
-    const w = this.slot.w - METER_INSET * 2;
+    const s = this.meterSlot;
+    const dx = i === 0 ? s.dx : this.meterW - s.dx - s.w;
+    const y = this.meterY + s.dy + dy;
+    const w = s.w;
 
     this.fillG.fillStyle(METER_EMPTY, 0.85);
-    this.fillG.fillRect(x + dx, y, w, METER_H);
+    this.fillG.fillRect(x + dx, y, w, s.h);
 
     const full = frac >= 1;
     const fw = w * Phaser.Math.Clamp(frac, 0, 1);
@@ -296,7 +310,7 @@ export class Hud {
     this.fillG.fillStyle(top, alpha);
     this.fillG.fillGradientStyle(top, top, bottom, bottom, alpha);
     // Both meters fill from the OUTBOARD edge, matching their health bar above.
-    this.fillG.fillRect(i === 0 ? x + dx : x + dx + w - fw, y, fw, METER_H);
+    this.fillG.fillRect(i === 0 ? x + dx : x + dx + w - fw, y, fw, s.h);
     this.lastMeter[i] = fw;
   }
 
@@ -373,8 +387,8 @@ export class Hud {
       // Drawn width and the width a FULL bar would be, so a spec can assert a fraction without
       // re-deriving the meter's geometry from the atlas.
       meter: [
-        { w: this.lastMeter[0], max: this.slot.w - METER_INSET * 2 },
-        { w: this.lastMeter[1], max: this.slot.w - METER_INSET * 2 },
+        { w: this.lastMeter[0], max: this.meterSlot.w },
+        { w: this.lastMeter[1], max: this.meterSlot.w },
       ],
       blinkOff: this.lastBlinkOff,
       portraitKeys: this.faces.map((f) => f.texture.key),

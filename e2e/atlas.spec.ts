@@ -82,7 +82,7 @@ test("hud-atlas loads in Phaser and every declared frame resolves", async ({ pag
   // The plates, and the slots Phase 14 composites the dynamic fill / the portrait into. Slots are
   // frames because a rect is a rect — no schema Phaser does not already have.
   expect(r.frames.sort()).toEqual(
-    ["health-bar", "health-bar-slot", "portrait-base", "portrait-slot"].sort(),
+    ["health-bar", "health-bar-slot", "meter-bar", "meter-bar-slot", "portrait-base", "portrait-slot"].sort(),
   );
   expect(await rectsInsideSheet(page, "hud-atlas")).toEqual([]);
 });

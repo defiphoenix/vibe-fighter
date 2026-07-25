@@ -216,14 +216,48 @@ would want: minimum adjacent change **0.01 → 0.36**, dead pairs **1 → 0**, a
 `check:sync` reports the three specials as MULTI-HIT and skips them by design; 18 attack sheets still
 measured, unchanged.
 
-## Carry-over — the meter plate
+## The meter plate, and the box-vs-art gate
 
-The one thing still staged: `concepts/ui/2026-07-17/meter-bar.prompt.txt` is written and shares the
-identical FRAMING/STYLE/PALETTE block `check_blocks` enforces. Generate at 21:9, add
-`"meter-bar": "21:9"` to `UI_ASSETS`, and give it a branch mirroring the health-bar one (bbox →
-`find_slot` → pack, emitting `meter-bar` + `meter-bar-slot`) plus its share of the `HUD_BAND_MAX`
-budget. `hud.ts`'s `METER_*` constants then become a `slotIn()` off the new frame; the fill code does
-not change. Until then the meter is vector-drawn.
+Both closed after the first deploy.
+
+**The meter plate** generated correctly on the first try (an enclosed magenta channel, rivets, clear
+margins) and then failed the packer twice — both times because the gate had only ever seen one bar:
+
+- The slot rule's height floor was `SLOT_H_FRAC = 0.40`, placed from a single sample (the health
+  channel measures 43%). The meter's channel comes in at **38%** and was rejected *for being exactly
+  the shallower plate it was asked to be*. Now `0.33`, on two samples; the decorative panel lines the
+  floor exists to reject measure 1%, so the margin is still two orders of magnitude.
+- The HUD's vertical budget summed the **packed** plate heights, which read as 246 px of HUD and
+  failed. The HUD draws both plates at `BAR_SCALE_Y = 0.5` — the real bottom clears a jumping head by
+  90 px. The assertion now measures what is drawn. A conservative check that was harmless with one
+  plate became simply wrong with two.
+
+`hud.ts`'s `METER_H`/`METER_INSET` are gone; the strip's rect is a `slotIn()` off `meter-bar-slot`
+with the same mirrored-for-P2 arithmetic the health bar uses, and the fill code did not change.
+
+**`scripts/audit-boxes.py` (`npm run audit:boxes`)** is the gate CLAUDE.md has been asking for since
+Phase 12 and that this phase shipped a bug without. It measures the two claims an attack's boxes make
+about its own sheet: hurt height against the tallest frame, and the hit band against the **measured
+strike** — differenced against frame 0, because the furthest opaque column is a planted leg. A sheet
+it cannot call reports INDETERMINATE rather than a guess, and it runs four synthetic fixtures first
+(including the planted-leg trap) because a wrong metric is more dangerous than no metric.
+
+It is **advisory, exit 0**, like `audit:anim` — because **four shipped sheets flag today**:
+
+| sheet | box | measured strike |
+|---|---|---|
+| `jiujitsu/airLight` | 80..130 | 163..193 |
+| `jiujitsu/airHeavy` | 40..100 | 113..169 |
+| `monk/crouchLight` | 18..58 | 100..123 |
+| `monk/crouchHeavy` | 6..48 | 73..126 |
+
+Every one is a box sitting entirely BELOW where its art actually strikes. The monk's two are the
+known "he never really crouches" problem (his crouch frames measure 154 px against a 184 px stand),
+so his crouch normals punch at chest height while the sim sweeps at the knee — and unlike the
+jiujitsu special these cannot be fixed by lowering the box, because crouch normals are *defined* as
+lows: the art has to come down instead. That is an art pass, not a number change, which is exactly
+why this ships advisory rather than red. Hard enforcement of the high/low semantics stays in
+`registry.test.ts`; a red gate nobody can make green just gets bypassed.
 
 ## Not taken
 

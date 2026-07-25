@@ -129,7 +129,18 @@ flat on his back; a monk prompt that named the *move* but never the arm travel; 
 of 8 frames mid-return; and finally **direction** — a perfectly-measuring uppercut that travelled
 straight up beside his own ear and never crossed the gap to the opponent. Worth keeping: every metric
 in the pipeline is direction-blind, and the motion gate passed the frame where the fighter was lying
-down. The meter's own atlas plate is the one thing still vector-drawn.
+down.
+
+A follow-up pass closed the two things the phase left open. The meter got its own Phase 07 atlas
+plate, which cost two packer fixes that were both artefacts of the gate having only ever seen one
+bar: a slot-height floor set from a single sample rejected the meter for being the shallower plate it
+was asked to be, and a vertical budget that summed PACKED heights failed art that in fact clears a
+jumping head by 90px (the HUD draws both plates at half height). And `scripts/audit-boxes.py`
+finally measures boxes against the sprites they describe -- hurt height against the figure, hit band
+against the strike, differenced against frame 0 so a planted leg is not mistaken for a fist. It ships
+ADVISORY because four shipped sheets flag: the monk's crouch normals punch at chest height while the
+sim sweeps at the knee, and since crouch normals are defined as lows, that one is an art pass rather
+than a number change.
 
 ## Passes between phases
 

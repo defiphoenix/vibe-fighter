@@ -27,3 +27,7 @@ concepts/**/*.gif
 !.env.example
 
 e2e/.registry-lock/
+
+# Python bytecode — build junk; scripts chain by importlib so these appear on any run.
+__pycache__/
+*.pyc

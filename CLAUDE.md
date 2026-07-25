@@ -41,6 +41,8 @@ npm run build:sprites    # pack raw frames (concepts/characters/sprites/<id>/<st
 npm run check:sprites    # gate: cell size, frame count == JSON, feet-anchored, height, NO-PURPLE hue, attack MOTION_MIN
 npm run check:sync       # gate: measure each attack sheet's CONTACT frame, check against render.sheets.<state>.hit; --write records it
 npm run audit:anim       # roster-wide animation REPORT (advisory, always exit 0)
+npm run audit:boxes      # roster-wide BOX-vs-ART report: hurt height vs the figure, hit band vs the
+                         # measured strike (advisory, always exit 0 — 4 shipped sheets flag today)
 npm run gen:placeholder  # regenerate 19 states x 3 fighters of placeholder sheets
                          # (`-- --state <name>` limits it — without it this OVERWRITES the real art)
 npm run key:layers       # re-key + validate the Phase 04 parallax layers
@@ -318,6 +320,14 @@ bridge. What follows is only what you cannot learn by opening the file.
   plate — but never letterbox one (that is Phase 11's black band). The bar plate is drawn
   **non-uniformly** (`BAR_SCALE_X`/`BAR_SCALE_Y`): its 40 px of bezel above and below the slot is
   frame art, not padding, so "thinner and wider" has no uniform-scale answer.
+  **Phase 15's `meter-bar` is a second plate on the same contract** — packed to the same 460 px width
+  so the bevels line up, drawn at the same anisotropic scales, its fill read off `meter-bar-slot` with
+  the same mirrored-for-P2 arithmetic. Two things the packer needed: the slot rule's height floor was
+  `0.40` of the plate on a sample size of ONE (the health channel is 43%) and rejected the meter's 38%
+  for being exactly the shallower bar it was asked to be — now `0.33`, still 30× the 1% decorative
+  panel lines it exists to reject; and the HUD's vertical budget had to start measuring the **drawn**
+  height (`BAR_SCALE_Y`), because on packed heights alone two plates read as 246 px of HUD and failed
+  an assertion that in truth clears a jumping head by 90 px.
 - **Phaser only builds mipmaps for POWER-OF-TWO textures**, so a heavy downscale of an NPOT texture is
   a raw bilinear squeeze and reads as low-res. That is why the HUD faces are their own bake
   (`copy-portraits.py --hud` → `ui/portraits/hud/<id>.png`, loaded as `hud-portrait-<id>`) rather than
@@ -358,6 +368,12 @@ because the tests only ever compared code to other code.
   furthest-forward moved pixels (that put the leg at 22–99px above the feet, and the box at `y 12 h 50`).
   **`registry.test.ts` now sweeps every special × every defender × three spacings** for which stance
   turns damage into chip — the same shape as the normals' blocking matrix, which had no special row.
+  **`scripts/audit-boxes.py` (`npm run audit:boxes`) finally closes the measurement gap**: hurt height
+  vs the figure, hit band vs the measured strike, for all 21 attack sheets. Advisory (exit 0) like
+  `audit:anim`, because **4 shipped sheets flag today** — `jiujitsu/airLight`+`airHeavy` and
+  `monk/crouchLight`+`crouchHeavy` all carry boxes entirely BELOW where their art actually strikes,
+  and each needs an art regen or a design call, not a silent number change. The hard enforcement stays
+  in `registry.test.ts`; a red gate nobody can make green just gets bypassed.
   When body and art disagree on a state whose frames are mostly crouched, prefer the CROUCH profile: a
   hurt box larger than the art means you get hit by things that visually miss, one smaller means attacks
   pass through you, and the second is the worse failure.

@@ -1,0 +1,23 @@
+[
+  {
+    "created_at": "2026-07-25T16:49:47.037037Z",
+    "display_name": "Nano Banana Pro",
+    "id": "ea93885f-4d06-4826-9789-ae429ee046fb",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_164947_ea93885f-4d06-4826-9789-ae429ee046fb_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "21:9",
+      "batch_size": 1,
+      "height": 1344,
+      "input_image": null,
+      "input_images": [],
+      "prompt": "A single super-meter bar from a 16-bit arcade fighting game HUD, drawn face-on: one long very\r\nshallow horizontal box, about sixteen times as wide as it is tall -- distinctly thinner and meaner\r\nthan a health bar.\r\nIt is a heavy bevelled metal frame with a deep empty channel sunk into it. The channel is the slot\r\nthe game fills in later with the player's super meter, so paint the channel flat #FF00FF magenta --\r\nthe identical magenta as the void outside the bar -- and keep the metal frame unbroken all the way\r\naround the channel on every side: top, bottom, left and right. The channel is therefore a completely\r\nenclosed hole sitting inside the frame. The channel must not run out to either end of the bar, and\r\nmust not touch the outside of the bar anywhere.\r\nThe channel is a plain empty rectangle. There is nothing inside it: no fill, no coloured bar, no\r\nsegments, no divisions, no notches.\r\nThe frame is thick warm gunmetal, with a brightly lit bevel along its top and left, a dark shadowed\r\nbevel along its bottom and right, and one small rivet at each of its two ends.\r\n\r\nFRAMING:\r\nOne object only, alone, drawn face-on and flat to the camera with no perspective and no tilt, painted\r\nover a completely flat #FF00FF magenta void. Do not paint scenery, a background, a character, a\r\nportrait, or any second object into the magenta. Nothing casts a shadow onto the magenta.\r\nLeave a clear band of magenta on all four sides: the object must not touch or run off any edge of\r\nthe canvas.\r\nThe magenta is one single uniform colour from edge to edge of the canvas, with no gradient, no\r\ntexture, no noise and no light falling on it. Do not put a decorative border, a CRT bezel, a\r\nvignette, scanlines or a matte around the canvas.\r\nSTYLE: 16-bit SNES arcade fighting-game interface art, hand-painted, chunky readable shapes, hard cel\r\nedges, flat blocks of colour, heavy bevels with a clearly lit edge and a clearly shadowed edge,\r\nrivets and panel lines, no photographic detail, no 3D render, no airbrush gradient.\r\nPALETTE: use only these colours, sampled from the locked rooftop-dusk stage -- hot highlight #F07830\r\n#F09048; warm metal #C04848 #904860 #906060 #A86060 #786060 #786078; midtones #784860 #604860\r\n#604848 #483060; deep shadow #483048 #301848 #300048 #180030.\r\nNo text, no letters, no numbers, no digits, no signage, no logo, no watermark, no signature, no name\r\nplate, no icon, no tick marks, no gauge markings, no scale, no graduations.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 3168
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_164947_ea93885f-4d06-4826-9789-ae429ee046fb.png",
+    "status": "completed"
+  }
+]

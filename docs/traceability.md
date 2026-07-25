@@ -43,7 +43,7 @@ Parity list from [GitHub README](https://github.com/chongdashu/vibe-fighter).
 | Z-order + facing flip on crossover | 12 | Present in sim (facing/depth) | Recent mover draws in front; boxes flip on side-swap |
 | Three fighters (brawler, boxer, jiu-jitsu) | 05, 09 | Missing (A/B duplicate) | Three distinct configs selectable |
 | UI-atlas HUD, dynamic fill, low-health blink, entrance | 07, 14 | **Present** (atlas plates + portraits + `introTicks`-derived entrance) | `e2e/phase14-hud.spec.ts` + `hud-entrance.test.ts` |
-| Meter specials, multi-hit combos, super cut-in | 15 | **Present** (per-window dedup, `METER_MAX` bar, `repeat` specials, freeze + portrait cut-in, real Seedance `special` sheets) — *the meter's own atlas plate is still vector-drawn* | `combat.test.ts` hit-count + `registry.test.ts` high/low sweep + `e2e/phase15-special.spec.ts` |
+| Meter specials, multi-hit combos, super cut-in | 15 | **Present** (per-window dedup, `METER_MAX` bar, `repeat` specials, freeze + portrait cut-in, real Seedance `special` sheets, `meter-bar` atlas plate) | `combat.test.ts` hit-count + `registry.test.ts` high/low sweep + `e2e/phase15-special.spec.ts` |
 | Parallax stage (twilight, sunset) | 04, 08 | **04 art done** (8 layers, 2 stages, `concepts/backgrounds/`); 08 runtime missing | Two stages render with independent layer scroll |
 | Audio | — | **Non-goal** | n/a (out of scope) |
 

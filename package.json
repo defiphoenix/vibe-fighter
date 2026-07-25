@@ -20,7 +20,8 @@
     "build:sprites": "python scripts/build-sprites.py",
     "audit:anim": "python scripts/audit-animations.py",
     "check:sprites": "python scripts/check-sprites.py",
-    "check:sync": "python scripts/check-attack-sync.py"
+    "check:sync": "python scripts/check-attack-sync.py",
+    "audit:boxes": "python scripts/audit-boxes.py"
   },
   "dependencies": {
     "phaser": "^4.2.1"

@@ -193,9 +193,10 @@ test("every HUD object is screen-space — no plate scrolls with the world", asy
         type: o.type, depth: o.depth, sx: o.scrollFactorX, sy: o.scrollFactorY,
       }));
   });
-  // The HUD owns 6 Images (2 faces + 2 portrait plates + 2 bar plates) and 1 Graphics in this band;
-  // the Texts in it are the HUD's four plus the scene's own legend, so only the art is counted.
-  expect(band.filter((o: { type: string }) => o.type === "Image").length).toBe(6);
+  // The HUD owns 8 Images (2 faces + 2 portrait plates + 2 bar plates + Phase 15's 2 meter plates)
+  // and 1 Graphics in this band; the Texts in it are the HUD's four plus the scene's own legend, so
+  // only the art is counted.
+  expect(band.filter((o: { type: string }) => o.type === "Image").length).toBe(8);
   expect(band.filter((o: { type: string }) => o.type === "Graphics").length).toBe(1);
   for (const o of band) {
     expect(o.sx, `${o.type}@${o.depth}`).toBe(0);

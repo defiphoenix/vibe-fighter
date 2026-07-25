@@ -20,10 +20,30 @@
         "h": 144
       }
     },
-    "portrait-base": {
+    "meter-bar": {
       "frame": {
         "x": 0,
         "y": 144,
+        "w": 460,
+        "h": 102
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 460,
+        "h": 102
+      },
+      "sourceSize": {
+        "w": 460,
+        "h": 102
+      }
+    },
+    "portrait-base": {
+      "frame": {
+        "x": 0,
+        "y": 246,
         "w": 463,
         "h": 625
       },
@@ -60,10 +80,30 @@
         "h": 62
       }
     },
+    "meter-bar-slot": {
+      "frame": {
+        "x": 45,
+        "y": 176,
+        "w": 370,
+        "h": 39
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 370,
+        "h": 39
+      },
+      "sourceSize": {
+        "w": 370,
+        "h": 39
+      }
+    },
     "portrait-slot": {
       "frame": {
         "x": 81,
-        "y": 225,
+        "y": 327,
         "w": 300,
         "h": 460
       },
@@ -88,7 +128,7 @@
     "format": "RGBA8888",
     "size": {
       "w": 463,
-      "h": 769
+      "h": 871
     },
     "scale": "1",
     "phase": "07",
