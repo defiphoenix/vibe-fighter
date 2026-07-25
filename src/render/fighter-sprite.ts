@@ -14,7 +14,7 @@ export class FighterSprite {
   private paused = false;
   /** Render frames left on the block flash. Counted down in update() rather than held on a timer
    *  because update() is the ONLY writer of the tint — anything tinting from outside is overwritten
-   *  by the guard-tint branch on the very next frame. */
+   *  by update()'s clearTint on the very next frame. */
   private blockFlash = 0;
 
   constructor(
@@ -60,20 +60,16 @@ export class FighterSprite {
   update(f: Fighter, isFront: boolean, frozen: boolean): void {
     this.sprite.setPosition(f.x, f.y).setFlipX(f.facing < 0).setDepth(isFront ? 11 : 9);
 
-    // Guard-armed cue: tint only while a guard box is actually active (f.guarding, NOT f.guardIntent
-    // — intent is set even during hitstun/attack, which would advertise protection that isn't there).
-    // Legible BEFORE any hit lands, unlike a post-contact flash. ponytail: a tint is the cheapest
-    // legible cue; swap for a shield sprite if it needs to read louder.
-    // A landed block flashes white for a few frames and outranks the guard tint; then it falls back
-    // to blue-while-guarding. ponytail: frame-counted, not ms — good enough for a 4-frame pop.
+    // A landed block flashes the fighter white for a few frames as hit feedback. Phase 13b: the
+    // steady blue "guard-armed" tint was REMOVED — the dedicated block/blockCrouch pose (arms up) is
+    // the guard cue now, so tinting the whole fighter blue while holding guard just read as "the
+    // character turned blue". ponytail: if guard needs to read louder, add a shield sprite, not a tint.
     // In Phaser 4 tint COLOR and tint MODE are separate settings and setTintFill() is a deprecated
     // no-op — a white MULTIPLY tint is a no-op too, so the flash must switch the mode to FILL and
     // switch it back, or the fighter stays a white silhouette forever.
     if (this.blockFlash > 0) {
       this.blockFlash--;
       this.sprite.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
-    } else if (f.guarding) {
-      this.sprite.setTint(0x7fb2ff).setTintMode(Phaser.TintModes.MULTIPLY);
     } else {
       this.sprite.clearTint();
       this.sprite.setTintMode(Phaser.TintModes.MULTIPLY);

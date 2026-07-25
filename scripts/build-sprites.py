@@ -83,7 +83,15 @@ def resize_premult(rgba: np.ndarray, scale: float) -> np.ndarray:
     return np.dstack([rgb, arr[:, :, 3]])
 
 
-def clean_rgba(rgba: np.ndarray) -> np.ndarray:
+# States whose pose is always ONE connected blob (a held guard — arms tucked/up against the body, no
+# extended limb that a chroma-key AA gap could split off). For these it is safe to keep ONLY the
+# largest component, which scrubs the stray green key debris a noisy generated background leaves in the
+# void (measured up to 211px on a jiujitsu blockCrouch frame — well above the 0.5% speck floor). Do NOT
+# add jump/air/attack states here: those extend a fist or foot that can legitimately detach.
+SOLID_BLOB_STATES = {"block", "blockCrouch"}
+
+
+def clean_rgba(rgba: np.ndarray, frac: float = 0.005) -> np.ndarray:
     """Post-resize magenta cleanup so NO purple survives: despill, erode the 1px anti-aliased ring
     where fringe lives, and hard-kill any residual magenta-family pixel."""
     rgb = rgba[:, :, :3] * 255.0
@@ -98,7 +106,7 @@ def clean_rgba(rgba: np.ndarray) -> np.ndarray:
     fringe = (a < 1.0) & (rgb[:, :, 0] > 200) & (rgb[:, :, 2] > 200) & (rgb[:, :, 1] < 80)
     a = np.where((d < KEY_HI) | family | fringe, 0.0, a)
     rgb = np.where(a[:, :, None] > 0, rgb, 0.0)
-    return drop_specks(np.dstack([rgb / 255.0, a]))
+    return drop_specks(np.dstack([rgb / 255.0, a]), frac)
 
 
 def drop_specks(rgba: np.ndarray, frac: float = 0.005) -> np.ndarray:
@@ -164,8 +172,9 @@ def build_fighter(fid: str, sheets: dict) -> list[str]:
             continue
         frames = allframes[:need]  # tolerate ffmpeg's off-by-one (fps sampling can yield N+1)
         strip = np.zeros((CELL_H, CELL_W * meta["frames"], 4), np.uint8)
+        frac = 1.0 if state in SOLID_BLOB_STATES else 0.005  # keep-largest-only for held guards
         for i, fp in enumerate(frames):
-            cell = place_cell(clean_rgba(resize_premult(keyed_rgba(fp), scale)))
+            cell = place_cell(clean_rgba(resize_premult(keyed_rgba(fp), scale), frac))
             strip[:, i * CELL_W:(i + 1) * CELL_W, :] = cell
         outp = OUT / fid / f"{state}.png"
         outp.parent.mkdir(parents=True, exist_ok=True)
