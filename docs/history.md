@@ -115,6 +115,20 @@ knockdown. The Phase 12 fix for *attacks* had never been swept across the other 
 barely-moving sheets were regenerated in the same pass; see the sampling-rate section of
 [`docs/art-pipeline.md`](art-pipeline.md) for why they came out frozen.
 
+### Block art + in-game polish pass (2026-07-25)
+
+After Phase 13b shipped the block art, three issues showed up only in the running game (no test caught
+them): (1) a guarding fighter turned **blue** — a leftover steady guard tint from before block had its
+own pose; removed, the pose is the cue now. (2) **green key debris** floating around jiujitsu's
+crouch-block — its generated background was noisy and left fragments the 0.5% speck floor kept;
+`build-sprites` now keeps only the largest component for the always-connected guard states
+(`SOLID_BLOB_STATES`). (3) crouch-block **looked frozen / like standing** — the real cause was
+`blockCrouch` being `loop:false` (it played once and froze) compounded by regens that drifted up out of
+the crouch. Fixed by making `blockCrouch` **loop** a contained crouch bob (every frame stays low, so
+looping never pops up), with monk's real cyclic bob, a synthetic breathing bob for jiujitsu (the
+generator would not give a contained crouch bounce), and brawler's subtle motion. The block-art work
+cost ~168 credits across the initial gen and the polish regens.
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git

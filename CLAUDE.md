@@ -63,6 +63,14 @@ INDETERMINATE. Always:
 
 The build itself is deterministic (same md5).
 
+**`build-sprites.py` keeps ONLY the largest connected component for `SOLID_BLOB_STATES` (`block`,
+`blockCrouch`)** — a held guard is one connected piece, so this scrubs the stray green key debris a
+noisy generated background leaves floating in the void (measured up to 211px, above the 0.5% speck
+floor `drop_specks` uses for every other state). Do NOT add jump/air/attack states to that set: they
+extend a fist or foot that a chroma-key AA gap can legitimately split off, and keep-largest would eat
+it. (Also updated `requirements.txt`: `scipy` is now used by `build-sprites.py` too, not only
+`build-atlases.py`.)
+
 **Python deps are declared in `requirements.txt`** (Pillow, numpy, scipy — scipy only for
 `build-atlases.py`'s `ndimage.label`). None ship in the bundle. The scripts chain by `importlib` (a
 hyphenated filename blocks a plain import) so they can't drift apart: **`art_gate.py` owns the
@@ -195,7 +203,10 @@ bridge. What follows is only what you cannot learn by opening the file.
   MULTIPLY tint is invisible, so a flash must `setTint(0xffffff).setTintMode(Phaser.TintModes.FILL)` and
   switch the mode back, or the fighter stays a white silhouette. `FighterSprite.update()` is the ONLY
   writer of the tint — `applyHitFeedback` runs before `render()`, so tinting from the event loop is
-  overwritten the same frame; a block flash can only be set THROUGH the sprite.
+  overwritten the same frame; a block flash can only be set THROUGH the sprite. **There is NO steady
+  guard tint** — a guarding fighter used to be tinted blue every frame, but once `block`/`blockCrouch`
+  got real poses that pose IS the cue, and a whole-body blue tint just read as "the character turned
+  blue". Only the white block-flash (a landed block) tints now.
 - **`setScrollFactor(0)` does NOT exempt an object from ZOOM.** Hence the second, non-zooming camera for
   HUD/legend/quit-prompt/end-menu (`cameras.add` + reciprocal `ignore()` lists). An object missing from
   both lists renders TWICE; one in both renders never. The lists must stay exhaustive —
