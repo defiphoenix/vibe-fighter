@@ -1,4 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
+import { MATCH, pump, ready as harnessReady } from "./harness";
+
+/** Boot straight into a match. The globals below are what THIS spec drives; waiting on
+ *  the wrong set is how a spec ends up poking a half-built scene. */
+const ready = (page: Page): Promise<void> =>
+  harnessReady(page, { route: MATCH, needs: ["__world", "__game", "__hud"] });
 
 // Phase 14 acceptance: the HUD is skinned with the Phase 07 atlas, the portraits are wired, and the
 // match-start entrance runs at a readable pace.
@@ -12,28 +18,6 @@ import { test, expect, type Page } from "@playwright/test";
 // so a plate that quietly scrolled with the world would ship.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-async function ready(page: Page): Promise<void> {
-  await page.goto("/?scene=match");
-  await page.waitForFunction(
-    () => {
-      const w = window as any;
-      return w.__world != null && w.__game != null && w.__hud != null;
-    },
-    null,
-    { timeout: 30_000 },
-  );
-  await page.evaluate(() => (window as any).__game.loop.stop());
-}
-
-async function pump(page: Page, frames: number): Promise<void> {
-  await page.evaluate((n) => {
-    const g = (window as any).__game;
-    let t = g.loop?.now ?? performance.now();
-    const d = 1000 / 60;
-    for (let i = 0; i < n; i++) { t += d; g.step(t, d); }
-  }, frames);
-}
-
 const hud = (page: Page) => page.evaluate(() => (window as any).__hud());
 
 /** Park the match in the fight phase with full health — the settled HUD state. */

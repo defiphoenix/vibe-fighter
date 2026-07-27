@@ -1,4 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
+import { MATCH, press, pump, ready as harnessReady } from "./harness";
+
+/** Boot straight into a match. The globals below are what THIS spec drives; waiting on
+ *  the wrong set is how a spec ends up poking a half-built scene. */
+const ready = (page: Page): Promise<void> =>
+  harnessReady(page, { route: MATCH, needs: ["__world", "__game", "__endMenu"] });
 
 // Phase 12 acceptance: the match-end screen offers a real choice instead of two undiscoverable keys.
 //
@@ -9,35 +15,6 @@ import { test, expect, type Page } from "@playwright/test";
 // matchEnd ticks never consume and which would otherwise fire into the new match.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-async function ready(page: Page): Promise<void> {
-  await page.goto("/?scene=match");
-  await page.waitForFunction(
-    () => {
-      const w = window as any;
-      return w.__world != null && w.__game != null && w.__endMenu != null;
-    },
-    null,
-    { timeout: 30_000 },
-  );
-  await page.evaluate(() => (window as any).__game.loop.stop());
-}
-
-async function pump(page: Page, frames: number): Promise<void> {
-  await page.evaluate((n) => {
-    const g = (window as any).__game;
-    let t = g.loop?.now ?? performance.now();
-    const d = 1000 / 60;
-    for (let i = 0; i < n; i++) { t += d; g.step(t, d); }
-  }, frames);
-}
-
-async function press(page: Page, key: string): Promise<void> {
-  await page.keyboard.down(key);
-  await pump(page, 4);
-  await page.keyboard.up(key);
-  await pump(page, 4);
-}
-
 /** Win the match for real: P1 already has a round, P2 is one hit from dead, P1 throws a light. */
 async function koTheMatch(page: Page): Promise<void> {
   await page.evaluate(() => {

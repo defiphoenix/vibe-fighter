@@ -1,4 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
+import { MATCH, pump, ready as harnessReady } from "./harness";
+
+/** Boot straight into a match. The globals below are what THIS spec drives; waiting on
+ *  the wrong set is how a spec ends up poking a half-built scene. */
+const ready = (page: Page): Promise<void> =>
+  harnessReady(page, { route: MATCH, needs: ["__sprites", "__world", "__game", "__holdP2"] });
 
 // Acceptance for the crouch / block / low-attack fix pass, measured through the REAL running game
 // (real input seams → real World → real sprites), not through the sim in isolation:
@@ -11,28 +17,6 @@ import { test, expect, type Page } from "@playwright/test";
 // pump game.step() ourselves, and drive input through the DEV __holdP1/__holdP2 seams.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-async function ready(page: Page): Promise<void> {
-  await page.goto("/?scene=match");
-  await page.waitForFunction(
-    () => {
-      const w = window as any;
-      return w.__sprites?.length === 2 && w.__world != null && w.__game != null && w.__holdP2 != null;
-    },
-    null,
-    { timeout: 30_000 }, // boot pulls the whole sprite+stage+portrait set; workers contend on a cold dev server
-  );
-  await page.evaluate(() => (window as any).__game.loop.stop());
-}
-
-async function pump(page: Page, frames: number): Promise<void> {
-  await page.evaluate((n) => {
-    const g = (window as any).__game;
-    let t = g.loop?.now ?? performance.now();
-    const d = 1000 / 60;
-    for (let i = 0; i < n; i++) { t += d; g.step(t, d); }
-  }, frames);
-}
-
 /** Drop straight into the fight phase with the fighters `gap` px apart. */
 async function fight(page: Page, gap: number): Promise<void> {
   await page.evaluate((g) => {

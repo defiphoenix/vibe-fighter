@@ -1,6 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
+import { keys, press, pump, ready as harnessReady, waitForMatch } from "./harness";
 import { readFileSync, writeFileSync } from "node:fs";
 import { withRegistryLock } from "./registry-lock";
+
+/** The flow route. `query` lets a case boot a DEV scene directly instead of walking the menus. */
+const ready = (page: Page, query = ""): Promise<void> =>
+  harnessReady(page, { route: query, needs: query ? ["__game"] : ["__game", "__flow"] });
 
 // Phase 11 acceptance for the Play flow (title -> mode -> stage -> characters -> match), the CPU
 // opponent, and the Playground's save-to-config round trip.
@@ -10,60 +15,15 @@ import { withRegistryLock } from "./registry-lock";
 // through the DEV __flow.press seam — which calls the SAME handler the real keyboard does.
 //
 // Two flow-specific ones:
-//  - scene.start() is QUEUED, and the lock-in flash is a ~320ms tween that advances on pumped time,
-//    so "wait for the match" means pumping in a bounded loop, not pumping one extra frame.
+//  - scene.start() is QUEUED, so "wait for the match" means pumping in a bounded loop, not one extra
+//    frame. The lock-in flash is a TWEEN and does NOT advance under the pump at all (tweens run on
+//    Date.now()); what carries the flow to the match is FlowScene's `time.delayedCall`, which is
+//    delta-driven.
 //  - keypresses are batched into a single page.evaluate (Phase 10's lesson: ~45 round-trips grazed
 //    the test timeout and went flaky).
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const REGISTRY = "public/configs/character-gym.json";
-
-async function ready(page: Page, query = ""): Promise<void> {
-  await page.goto(`/${query}`);
-  await page.waitForFunction(() => (window as any).__flow != null && (window as any).__game != null, null, {
-    timeout: 30_000,
-  });
-  await page.evaluate(() => (window as any).__game.loop.stop());
-}
-
-async function pump(page: Page, frames: number, deltaMs = 1000 / 60): Promise<void> {
-  await page.evaluate(({ n, d }) => {
-    const g = (window as any).__game;
-    let t = g.loop?.now ?? performance.now();
-    for (let i = 0; i < n; i++) { t += d; g.step(t, d); }
-  }, { n: frames, d: deltaMs });
-}
-
-/** Send a whole key sequence in ONE round trip, pumping a frame between presses. */
-async function keys(page: Page, seq: string[]): Promise<any> {
-  return page.evaluate((names) => {
-    const w = window as any;
-    let t = w.__game.loop?.now ?? performance.now();
-    const step = () => { t += 1000 / 60; w.__game.step(t, 1000 / 60); };
-    for (const name of names) {
-      w.__flow.press(name);
-      step();
-    }
-    return w.__flow.state();
-  }, seq);
-}
-
-/** A real key press: down, a few frames so update() sees the rising edge, then up. */
-async function press(page: Page, key: string): Promise<void> {
-  await page.keyboard.down(key);
-  await pump(page, 4);
-  await page.keyboard.up(key);
-  await pump(page, 4);
-}
-
-/** Pump until the match scene has published its world (covers the flash tween + queued start). */
-async function waitForMatch(page: Page, maxFrames = 240): Promise<void> {
-  for (let i = 0; i < maxFrames; i += 20) {
-    await pump(page, 20);
-    if (await page.evaluate(() => (window as any).__world != null)) return;
-  }
-  throw new Error("match never started");
-}
 
 const matchInfo = (page: Page) =>
   page.evaluate(() => {

@@ -1,4 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
+import { MATCH, pump, ready as harnessReady } from "./harness";
+
+/** Boot straight into a match. The globals below are what THIS spec drives; waiting on
+ *  the wrong set is how a spec ends up poking a half-built scene. */
+const ready = (page: Page): Promise<void> =>
+  harnessReady(page, { route: MATCH, needs: ["__sprites", "__world", "__game", "__stage"] });
 
 // Phase 12 acceptance: the group camera frames BOTH fighters, and the world/UI camera split is
 // exhaustive.
@@ -11,28 +17,6 @@ import { test, expect, type Page } from "@playwright/test";
 // both ignore() lists draws twice, once zoomed and once not, which reads as a ghost/double image.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-async function ready(page: Page): Promise<void> {
-  await page.goto("/?scene=match");
-  await page.waitForFunction(
-    () => {
-      const w = window as any;
-      return w.__sprites?.length === 2 && w.__world != null && w.__game != null && w.__stage != null;
-    },
-    null,
-    { timeout: 30_000 },
-  );
-  await page.evaluate(() => (window as any).__game.loop.stop());
-}
-
-async function pump(page: Page, frames: number): Promise<void> {
-  await page.evaluate((n) => {
-    const g = (window as any).__game;
-    let t = g.loop?.now ?? performance.now();
-    const d = 1000 / 60;
-    for (let i = 0; i < n; i++) { t += d; g.step(t, d); }
-  }, frames);
-}
-
 /** Park the fighters `sep` apart around a world x, then let the eased zoom settle. */
 async function separate(page: Page, sep: number, mid = 848): Promise<void> {
   await page.evaluate(({ sep, mid }) => {

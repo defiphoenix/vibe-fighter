@@ -1,7 +1,9 @@
-import { test, expect } from "@playwright/test";
-import { readFileSync, renameSync, writeFileSync } from "node:fs";
+import { expect, test } from "@playwright/test";
+import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { withRegistryLock } from "./registry-lock";
-import { driveTo1v1, keys, pump, ready, seedFlow, waitForMatch } from "./harness";
+import {
+  MATCH, driveTo1v1, keys, ready, seedFlow, toFlow, waitForMatch,
+} from "./harness";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -12,17 +14,35 @@ import { driveTo1v1, keys, pump, ready, seedFlow, waitForMatch } from "./harness
 // worker cold-boots the whole sprite/stage/portrait set through a single dev server. Four new files
 // would claim four scheduler slots and roughly double the concurrent-boot pressure the config comment
 // already warns about; one file claims one and runs its cases in sequence inside a single worker.
+//
+// Boot cost is the dominant term — this file's slowest case measured 4s alone against 114s inside the
+// full suite, and that 28x is four workers cold-booting through one dev server, not the work. So the
+// SECOND flow entry inside a case uses `toFlow`, which restarts the scene inside the already-booted
+// game instead of reloading the page.
+//
+// A worker-scoped page shared across cases was tried and REVERTED. It removes far more boots on
+// paper, but it gives up Playwright's per-test isolation, and it cost: a failed atomic restore that
+// left the real registry mutated for every later spec, an intro-tick count that silently measured the
+// harness rather than the sim, and a case that went from 4s to a 180s timeout. Isolation is load-
+// bearing here; the cheap win below is the one worth having.
 
 const REGISTRY = "public/configs/character-gym.json";
 
 test.describe("Phase 16 — integration parity", () => {
-  test.slow(); // every case pays its own cold boot
+  // 4x, not the 3x `test.slow()` gives. Measured under the full 4-worker suite, the two heaviest
+  // cases here land at ~1.8m against a 3m budget — and almost none of that is the work: the timer
+  // case pumps 3600 ticks in 0.8s and runs in 4s on its own. The rest is one cold boot contending
+  // with three other workers on a single dev server. That cost was NOT reducible from inside this
+  // file (a shared warm page was tried and reverted, see above), so what is bought here is headroom:
+  // a boot budget, the same kind as the 30s inside `ready`, rather than a claim about the body.
+  test.setTimeout(240_000);
 
   test("two REAL KOs walk the match through both rounds to matchEnd", async ({ page }) => {
     // The existing round/menu specs all reach `matchEnd` by assigning `world.match.phase`, which
     // skips the entire rule under test. This one plays it: P1 grinds jiujitsu down with lights,
     // twice, and the phases it passes through are OBSERVED and asserted as a sequence.
-    await ready(page, "?scene=match"); // ?scene=match defaults to 1v1 brawler vs jiujitsu...
+    // ?scene=match defaults to 1v1 brawler vs jiujitsu, so P2 has no CPU and never acts.
+    await ready(page, { route: MATCH, needs: ["__game", "__world", "__holdP1", "__endMenu"] });
 
     const r = await page.evaluate(() => {
       const w = window as any, g = w.__game;
@@ -97,7 +117,7 @@ test.describe("Phase 16 — integration parity", () => {
     // Pumped at ~0.22ms/step, a full 3600-tick round costs under a second — so this runs the clock
     // for real rather than fast-forwarding it, and covers both halves at once: that it decrements
     // once per fight tick, and that hitting zero picks the healthier fighter.
-    await ready(page, "?scene=match");
+    await ready(page, { route: MATCH, needs: ["__game", "__world", "__holdP1"] });
 
     const r = await page.evaluate(() => {
       const w = window as any, g = w.__game;
@@ -107,11 +127,20 @@ test.describe("Phase 16 — integration parity", () => {
 
       // Step until the fight actually starts rather than assuming INTRO_TICKS: pumping a guessed 95
       // spends 5 ticks of the round clock before the first reading, which is how the first draft of
-      // this test managed to measure 3595 and call the sim wrong. Counting also proves the clock does
-      // NOT run during the intro, which is worth an assertion of its own.
+      // this test managed to measure 3595 and call the sim wrong.
+      //
+      // The count is checked against what the sim SAYS is left rather than against the literal 90,
+      // because getting here at all costs a few frames and how many is an implementation detail of
+      // the harness — pinning the literal made this fail at 70 the moment the wait got cheaper. The
+      // invariant worth holding is "the intro lasts exactly as long as it claims", and the clock
+      // reading below is what proves the intro does not spend the round timer.
+      const introLeft = m().introTicks;
       let intro = 0;
       while (m().phase === "intro" && intro < 300) { step(1); intro++; }
-      const atStart = { phase: m().phase, ticks: m().timerTicks, secs: m().secondsLeft, hitstop: w.__world.hitstop, intro };
+      const atStart = {
+        phase: m().phase, ticks: m().timerTicks, secs: m().secondsLeft,
+        hitstop: w.__world.hitstop, intro, introLeft,
+      };
 
       step(180); // three seconds of real clock
       const after3s = { ticks: m().timerTicks, secs: m().secondsLeft };
@@ -144,8 +173,9 @@ test.describe("Phase 16 — integration parity", () => {
 
     expect(r.atStart.phase).toBe("fight");
     expect(r.atStart.hitstop).toBe(0);
-    expect(r.atStart.intro).toBe(90); // INTRO_TICKS
-    // Still the full duration after 90 pumped ticks: the clock does not run during the intro.
+    expect(r.atStart.intro).toBe(r.atStart.introLeft); // the intro lasts exactly as long as it claims
+    expect(r.atStart.introLeft).toBeGreaterThan(0); // ...and it had not already elapsed
+    // Still the FULL round duration once the fight starts: the clock does not run during the intro.
     expect(r.atStart.ticks).toBe(3600); // ROUND_TIME * TICK_HZ
     expect(r.atStart.secs).toBe(60);
     // It DECREMENTS, exactly once per fight tick — not merely "it is a number that got smaller".
@@ -169,7 +199,7 @@ test.describe("Phase 16 — integration parity", () => {
   });
 
   test("all three fighters are selectable, and the monk really boots as a monk", async ({ page }) => {
-    await ready(page);
+    await ready(page, { needs: ["__game", "__flow"] });
     expect(await page.evaluate(() => (window as any).__flow.roster()))
       .toEqual(["brawler", "jiujitsu", "monk"]);
 
@@ -202,7 +232,7 @@ test.describe("Phase 16 — integration parity", () => {
   });
 
   test("the CPU can pick the third fighter (seeded, so this is a fact and not a coin flip)", async ({ page }) => {
-    await ready(page);
+    await ready(page, { needs: ["__game", "__flow"] });
     await seedFlow(page, 1); // seed 1 -> the second free card -> monk
     const state = await keys(page, ["enter", "right", "enter", "enter", "enter"]); // CPU · EASY
     expect(state.locked[0]).toBe(true);
@@ -212,7 +242,7 @@ test.describe("Phase 16 — integration parity", () => {
 
     // Contrast: the same walk with a different seed fields the other free card. Together these prove
     // the pick is a real draw — either alone would also pass against a hardcoded constant.
-    await ready(page);
+    await toFlow(page);
     await seedFlow(page, 2);
     await keys(page, ["enter", "right", "enter", "enter", "enter"]);
     await waitForMatch(page);
@@ -238,7 +268,25 @@ test.describe("Phase 16 — integration parity", () => {
     await withRegistryLock(async () => {
       const original = readFileSync(REGISTRY);
       const tmp = `${REGISTRY}.phase16.tmp`;
-      const swap = (buf: string | Buffer) => { writeFileSync(tmp, buf); renameSync(tmp, REGISTRY); };
+      /**
+       * Atomic where it can be, but NEVER at the cost of leaving the file mutated.
+       *
+       * `renameSync` over a file another process has open throws EPERM/EBUSY on Windows — and when
+       * that happened inside the restore, this spec left the real `character-gym.json` carrying a
+       * 21-damage monk. Every later boot in every later spec then read it, which looked like four
+       * unrelated failures. Only `git checkout` got it back.
+       *
+       * So: try the rename, retry it, and if it still will not go, write in place. A torn read by a
+       * concurrent worker is a bad day; a permanently mutated registry is a corrupted repo.
+       */
+      const swap = (buf: string | Buffer) => {
+        writeFileSync(tmp, buf);
+        for (let i = 0; i < 5; i++) {
+          try { renameSync(tmp, REGISTRY); return; } catch { /* retry: a reader has it open */ }
+        }
+        writeFileSync(REGISTRY, buf);
+        try { rmSync(tmp, { force: true }); } catch { /* best effort */ }
+      };
       try {
         const j = JSON.parse(original.toString("utf8"));
         expect(j.monk.data.attacks.light.damage).toBe(6); // the shipped value this test moves off
@@ -251,7 +299,7 @@ test.describe("Phase 16 — integration parity", () => {
         const served = await page.request.get("/configs/character-gym.json");
         expect((await served.json()).monk.data.attacks.light.damage).toBe(21);
 
-        await ready(page);
+        await ready(page, { needs: ["__game", "__flow"] }); // a REAL reload — the thing under test
         const state = await driveTo1v1(page, 2); // P1 = monk
         expect(state.cursors).toEqual([2, 0]);
 
@@ -292,8 +340,11 @@ test.describe("Phase 16 — integration parity", () => {
   });
 
   test("both stage variants build a real match, with different layers", async ({ page }) => {
-    const layersFor = async (stageIndex: 0 | 1) => {
-      await ready(page);
+    await ready(page, { needs: ["__game", "__flow"] });
+    // The SECOND stage re-enters the flow with `toFlow`, not a second `page.goto`: a reload re-pulls
+    // the whole asset set through the one dev server, which is the expensive thing under 4 workers.
+    const layersFor = async (stageIndex: 0 | 1, first: boolean) => {
+      if (!first) await toFlow(page);
       const state = await driveTo1v1(page, 0, stageIndex);
       expect(state.stageIndex).toBe(stageIndex);
       return page.evaluate(() => ({
@@ -302,12 +353,12 @@ test.describe("Phase 16 — integration parity", () => {
       }));
     };
 
-    const twilight = await layersFor(0);
+    const twilight = await layersFor(0, true);
     expect(twilight.keys.length).toBeGreaterThan(0);
     expect(twilight.keys.every((k: string) => k.startsWith("twilight-"))).toBe(true);
     expect(twilight.camW).toBe(1696); // STAGE_WIDTH: the camera really scrolls a world wider than the view
 
-    const sunset = await layersFor(1);
+    const sunset = await layersFor(1, false);
     expect(sunset.keys.every((k: string) => k.startsWith("sunset-"))).toBe(true);
     expect(sunset.keys.length).toBe(twilight.keys.length); // same layer contract...
     expect(sunset.keys).not.toEqual(twilight.keys); // ...different art

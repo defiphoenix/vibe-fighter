@@ -180,11 +180,40 @@ more than a few px of reach, and it is the one thing the four earlier attempts n
   inside the 60px air tolerance, so they keep uniform timing rather than costing a regeneration.
 - **`jiujitsu/crouch` stands upright for its first 167ms** (heights 100/100/79/68) while the sim's
   crouch box drops instantly.
-- **`e2e/harness.ts` is imported only by the new spec.** The other 14 specs still each re-declare their
-  own `ready`/`pump`/`keys`. Retrofitting them is worthwhile but is exactly the change most likely to
-  produce a "new spec broke three unrelated ones" result, so it does not belong inside a QA gate.
-- **Two of the new cases run close to their budget.** In the full 4-worker run the timer case took 1.9m
-  and the three-fighters case 2.0m against `test.slow()`'s 180s — the cost is cold boots and worker
-  contention, not the stepping (3600 pumped ticks measured 0.8s in isolation). The suite is green, but
-  these are now the first two specs that would go red if boot cost grows. The fix when that happens is
-  a shared warm page, not raising `workers`.
+### Follow-up: the harness retrofit, and one idea that did not survive contact
+
+Both items left open above were then taken.
+
+**`e2e/harness.ts` now backs all 12 driving specs.** Every one of them had its own copy of
+`ready`/`pump`/`keys`/`press`/`waitForMatch` — the same four Phaser constraints written out twelve
+times, and twelve places to get them wrong. `ready` is parameterised by route and by the DEV globals
+the spec actually drives (each scene publishes a different set at a different point in `create()`, and
+waiting on the wrong one is how a spec ends up poking a half-built scene); each spec keeps a one-line
+wrapper under its old name, so no call site changed. Two real bugs fell out of doing it:
+
+- `pumpUntil` advanced in **20-frame chunks**, so it routinely overshot by ~20 ticks. Invisible until
+  something tries to measure what the overshoot already consumed — it made the timer case read
+  `INTRO_TICKS` as 70. It now checks before each step and runs the loop inside one `page.evaluate`.
+- `phase11-flow.spec.ts`'s header claimed the lock-in flash "advances on pumped time". Tweens run on
+  `Date.now()` and do **not** advance under the pump at all; what carries the flow to the match is
+  `time.delayedCall`. The comment had been describing a mechanism that does not exist.
+
+**The shared warm page was tried and reverted, and the failure is the more useful half.** A
+worker-scoped page removes almost every boot on paper. In practice it cost three things: a `renameSync`
+restore that threw on Windows and left the **real `character-gym.json` carrying a 21-damage monk**, so
+four later cases failed for reasons that had nothing to do with them and only `git checkout` recovered
+it; an intro-tick assertion that silently began measuring the harness instead of the sim; and a case
+that went from 4s to a 180s timeout. Per-test isolation was load-bearing. What was kept is the cheap
+half — a second flow entry inside a case uses `toFlow`, restarting the scene inside the booted game
+rather than reloading the page.
+
+That restore is now un-loseable regardless: atomic where it can be, retried, and falling back to an
+in-place write. **A torn read by a concurrent worker is a bad day; a permanently mutated registry is a
+corrupted repo.**
+
+**The two heavy cases were NOT made faster** — that should be said plainly. They still run ~1.8m, and
+essentially none of it is the work (the timer case pumps 3600 ticks in 0.8s and runs in 4s alone). The
+cost is one cold boot contending with three other workers on a single dev server, and it was not
+reducible from inside this file. What changed is the exposure: they carry an explicit 240s **boot
+budget**, the same kind of allowance as the 30s inside `ready`, so the risk they were flagged for —
+going red first when boot cost grows — is bought off rather than left sitting at 60% of the limit.

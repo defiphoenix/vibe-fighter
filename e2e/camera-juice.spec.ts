@@ -1,4 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
+import { MATCH, pump, ready as harnessReady } from "./harness";
+
+/** Boot straight into a match. The globals below are what THIS spec drives; waiting on
+ *  the wrong set is how a spec ends up poking a half-built scene. */
+const ready = (page: Page): Promise<void> =>
+  harnessReady(page, { route: MATCH, needs: ["__sprites", "__world", "__game", "__stage"] });
 
 // A1 acceptance: the sim's drained hit/ko events drive camera juice (render-only, no sim coupling).
 // A `hit` shakes the camera; a `ko` flashes AND forces a stronger shake that overrides the
@@ -6,28 +12,6 @@ import { test, expect, type Page } from "@playwright/test";
 // ourselves — deterministic, no wall-clock waits — and read the effect state off __stage.cam.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-async function ready(page: Page): Promise<void> {
-  await page.goto("/?scene=match");
-  await page.waitForFunction(
-    () => {
-      const w = window as any;
-      return w.__sprites?.length === 2 && w.__world != null && w.__game != null && w.__stage != null;
-    },
-    null,
-    { timeout: 30_000 }, // boot pulls the whole sprite+stage+portrait set; workers contend on a cold dev server
-  );
-  await page.evaluate(() => (window as any).__game.loop.stop());
-}
-
-async function pump(page: Page, frames: number): Promise<void> {
-  await page.evaluate((n) => {
-    const g = (window as any).__game;
-    let t = g.loop?.now ?? performance.now();
-    const d = 1000 / 60;
-    for (let i = 0; i < n; i++) { t += d; g.step(t, d); }
-  }, frames);
-}
-
 // Put both fighters in light-attack range and drop into the fight phase immediately.
 async function engage(page: Page, oppHealth?: number): Promise<void> {
   await page.evaluate((hp) => {

@@ -1,4 +1,14 @@
 import { test, expect, type Page } from "@playwright/test";
+import { PLAYGROUND, pump, ready as harnessReady } from "./harness";
+
+/**
+ * The playground zeroes `introTicks`, but the intro EXIT still costs one non-actionable tick
+ * (`world.tick` returns false on it). Burn it here so a test can assert on a single pumped tick.
+ */
+async function ready(page: Page): Promise<void> {
+  await harnessReady(page, { route: PLAYGROUND, needs: ["__game", "__playground"] });
+  await pump(page, 2);
+}
 
 // Phase 10 acceptance for the Fighter Playground (?scene=playground): the fighter moves on the
 // fixed ground axis and reaches all six attack states, live stat edits really change the sim,
@@ -10,30 +20,6 @@ import { test, expect, type Page } from "@playwright/test";
 // through the DEV __playground.hold seam — which routes through the real latch -> world.advance path.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-async function ready(page: Page): Promise<void> {
-  await page.goto("/?scene=playground");
-  await page.waitForFunction(
-    () => {
-      const w = window as any;
-      return w.__playground != null && w.__game != null && w.__playground.world() != null;
-    },
-    null,
-    { timeout: 30_000 }, // boot pulls the whole sprite+stage+portrait set; workers contend on a cold dev server
-  );
-  await page.evaluate(() => (window as any).__game.loop.stop());
-  // The playground zeroes introTicks, but the intro EXIT still costs one non-actionable tick
-  // (world.tick returns false on it). Burn it here so a test can assert on a single pumped tick.
-  await pump(page, 2);
-}
-
-async function pump(page: Page, frames: number, deltaMs = 1000 / 60): Promise<void> {
-  await page.evaluate(({ n, d }) => {
-    const g = (window as any).__game;
-    let t = g.loop?.now ?? performance.now();
-    for (let i = 0; i < n; i++) { t += d; g.step(t, d); }
-  }, { n: frames, d: deltaMs });
-}
-
 const hold = (page: Page, v: Record<string, boolean>) =>
   page.evaluate((val) => (window as any).__playground.hold(val), v);
 

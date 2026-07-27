@@ -1,4 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
+import { MATCH, ready as harnessReady } from "./harness";
+
+/** Boot straight into a match. The globals below are what THIS spec drives; waiting on
+ *  the wrong set is how a spec ends up poking a half-built scene. */
+const ready = (page: Page): Promise<void> =>
+  harnessReady(page, { route: MATCH, needs: ["__sprites", "__world", "__game", "__holdP1", "__cutIn"] });
 
 // Acceptance for Phase 15 — meter, the multi-hit special and the super cut-in, measured through the
 // REAL running game (real input seams -> real World -> real sprites/HUD), not the sim in isolation.
@@ -13,19 +19,6 @@ import { test, expect, type Page } from "@playwright/test";
 // hold/pump/read dozens of times grazes the timeout and goes flaky.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-async function ready(page: Page): Promise<void> {
-  await page.goto("/?scene=match");
-  await page.waitForFunction(
-    () => {
-      const w = window as any;
-      return w.__sprites?.length === 2 && w.__world != null && w.__game != null && w.__holdP1 != null && w.__cutIn != null;
-    },
-    null,
-    { timeout: 30_000 },
-  );
-  await page.evaluate(() => (window as any).__game.loop.stop());
-}
-
 test.slow(); // boot pulls the whole asset set; each case re-boots
 
 test.describe("Phase 15 — meter, multi-hit special, cut-in", () => {

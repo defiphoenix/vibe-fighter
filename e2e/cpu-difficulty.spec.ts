@@ -1,4 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
+import { keys, pump, ready as harnessReady, waitForMatch } from "./harness";
+
+/** Enters through the real select screen, so it waits on the FLOW, not on a world. */
+const ready = (page: Page): Promise<void> =>
+  harnessReady(page, { needs: ["__game", "__flow"] });
 
 // The CPU difficulty handicap, checked through the REAL menu flow rather than the sim.
 // sim/cpu.test.ts already proves the knobs and the damageScale arithmetic; what only a browser can
@@ -11,40 +16,6 @@ import { test, expect, type Page } from "@playwright/test";
 // through the DEV __flow.press seam. Presses are batched into one page.evaluate.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
-async function ready(page: Page): Promise<void> {
-  await page.goto("/");
-  await page.waitForFunction(() => (window as any).__flow != null && (window as any).__game != null, null, {
-    timeout: 30_000,
-  });
-  await page.evaluate(() => (window as any).__game.loop.stop());
-}
-
-async function pump(page: Page, frames: number, deltaMs = 1000 / 60): Promise<void> {
-  await page.evaluate(({ n, d }) => {
-    const g = (window as any).__game;
-    let t = g.loop?.now ?? performance.now();
-    for (let i = 0; i < n; i++) { t += d; g.step(t, d); }
-  }, { n: frames, d: deltaMs });
-}
-
-async function keys(page: Page, seq: string[]): Promise<any> {
-  return page.evaluate((names) => {
-    const w = window as any;
-    let t = w.__game.loop?.now ?? performance.now();
-    const step = () => { t += 1000 / 60; w.__game.step(t, 1000 / 60); };
-    for (const name of names) { w.__flow.press(name); step(); }
-    return w.__flow.state();
-  }, seq);
-}
-
-async function waitForMatch(page: Page, maxFrames = 240): Promise<void> {
-  for (let i = 0; i < maxFrames; i += 20) {
-    await pump(page, 20);
-    if (await page.evaluate(() => (window as any).__world != null)) return;
-  }
-  throw new Error("match never started");
-}
 
 interface Outcome { scale: number; health: number; max: number }
 

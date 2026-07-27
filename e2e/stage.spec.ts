@@ -1,4 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
+import { MATCH, pump, ready } from "./harness";
+
+/** A match with its stage built. */
+const readyMatch = (page: Page): Promise<void> =>
+  ready(page, { route: MATCH, needs: ["__game", "__world", "__stage"] });
 
 // Phase 08 acceptance: parallax layers load at distinct scroll rates, the near layer occludes
 // fighters, the world is wider than the viewport and the follow-camera pans within bounds, the HUD
@@ -9,25 +14,6 @@ import { test, expect, type Page } from "@playwright/test";
 // factors far 0.1 / medium 0.3 / main 1.0 / near 1.0, depths 0/1/2/20, runtime layer size 1697x720.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
-async function pump(page: Page, frames: number): Promise<void> {
-  await page.evaluate((n) => {
-    const g = (window as any).__game;
-    let t = g.loop?.now ?? performance.now();
-    const d = 1000 / 60;
-    for (let i = 0; i < n; i++) { t += d; g.step(t, d); }
-  }, frames);
-}
-
-async function readyMatch(page: Page): Promise<void> {
-  await page.goto("/?scene=match");
-  await page.waitForFunction(
-    () => (window as any).__world != null && (window as any).__game != null && (window as any).__stage != null,
-    null,
-    { timeout: 30_000 }, // boot pulls the whole sprite+stage+portrait set; workers contend on a cold dev server
-  );
-  await page.evaluate(() => (window as any).__game.loop.stop());
-}
 
 test("parallax layers, occlusion, and camera bounds", async ({ page }) => {
   const errors: string[] = [];
