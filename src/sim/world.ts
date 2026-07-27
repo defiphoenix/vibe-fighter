@@ -272,8 +272,23 @@ export class World {
   private decrementClock(a: Fighter, b: Fighter): void {
     this.match.timerTicks--;
     if (this.match.timerTicks <= 0) {
-      // timeout: higher health wins; equal = draw
-      const winner: 0 | 1 | null = a.health === b.health ? null : a.health > b.health ? 0 : 1;
+      // Timeout: the larger REMAINING SHARE wins; equal shares = draw.
+      //
+      // Deliberately a fraction, not raw health (R-13). Fighters do not share a health pool — the
+      // brawler carries 105 against the other two's 100 — so `a.health > b.health` handed him every
+      // timeout where both had taken the same punishment, including NONE: two fighters who never
+      // touched each other ended 2-0 to the brawler with both bars visibly full. It survived every
+      // test because every test set both healths from the same implied pool, and it was found by
+      // watching a real match time out. The health BAR is a fraction, so the tiebreak is too.
+      // Cross-multiplied rather than divided: `a.health/aMax === b.health/bMax` would decide a DRAW
+      // on float equality, and a draw is the one outcome where being a hair off changes the result.
+      // Exact for the shipped roster, where healths and pools are integers and the products are tiny
+      // (<= 105*105). The validator only requires `maxHealth` to be finite and positive, so a
+      // fractional authored pool would put the DRAW case back on float equality — the win/lose cases
+      // stay correct either way, and no shipped fighter authors one.
+      const sa = a.health * b.cfg.stats.maxHealth;
+      const sb = b.health * a.cfg.stats.maxHealth;
+      const winner: 0 | 1 | null = sa === sb ? null : sa > sb ? 0 : 1;
       this.finishRound(winner);
     }
   }

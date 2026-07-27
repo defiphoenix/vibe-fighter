@@ -6,8 +6,9 @@ so this is a resize, not an art gate: no key-layers.py, no art_gate.check_job. S
 would push ~9 MB through the loader for cards drawn at ~300x400, so we downscale ONCE here (Pillow
 LANCZOS) to 2x the card size and ship those.
 
-All three fighters are baked even though Phase 11 only makes brawler + jiujitsu selectable -- monk
-costs ~40 KB and keeps Phase 16's roster restore a config change.
+All three fighters are baked. Phase 11 shipped with only brawler + jiujitsu selectable and baked the
+monk anyway (~40 KB), which is exactly why Phase 16's roster restore was a one-line change with no
+art work: the portraits were already here.
 
 Phase 14 took the --hud flag this file's ponytail note asked for, for a measured reason: the HUD draws
 the face at ~96x147, and the 448x600 card into that is a 4.7x GPU downscale. Phaser only builds

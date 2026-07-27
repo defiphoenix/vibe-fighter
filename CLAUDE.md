@@ -223,6 +223,15 @@ bridge. What follows is only what you cannot learn by opening the file.
   `Enter` rematch, so **`CpuSeam` has an optional `reset()` that `world.resetRound()` calls** — the
   render layer can't own this, because the automatic round transition happens inside `tick()`. The RNG
   is deliberately NOT re-seeded there (that would make every round identical).
+- **A timeout is decided on the health SHARE (`health / maxHealth`), never on raw health** — fighters
+  do not share a pool (brawler 105, jiujitsu/monk 100). Raw health handed the brawler every timeout in
+  which both fighters had taken equal punishment, *including none*: two fighters who never touched
+  each other, both bars visibly full, ended 2-0 to the brawler on time. It survived every test because
+  every test assigned both healths from the same implied pool — the asymmetry only exists BETWEEN
+  fighters, and nothing had ever timed out a mismatched pair. Pinned as R-13. Generalises: **any
+  cross-fighter comparison of an absolute stat is suspect** while `maxHealth`, `scale` and the
+  pushboxes all differ per fighter — this is the same shape as comparing raw hit-box reach instead of
+  effective reach (see Balance).
 - **`STAGE_WIDTH=1696` is the WORLD; `VIEW_WIDTH=1280` is the camera/canvas.** Splitting them is what
   gives the camera room to scroll. Timing is in ticks (60 Hz), space in pixels.
 
@@ -380,23 +389,23 @@ because the tests only ever compared code to other code.
   "every attack box agrees with its own sheet". Hard enforcement stays in `registry.test.ts`; this
   stays advisory so a regression reads as a report rather than a bypassed red gate.
 
-> ### OPEN WORK — `monk/crouchHeavy` (next session)
->
-> The single remaining `REACH-GAP` in `npm run audit:boxes`: the box far edge is 156px, the drawn leg
-> reaches 55px, so it **connects with ~87px of visible air** at max range (tolerance is 60; it was 92
-> before this pass). It is the ONLY sheet a box trim cannot fix — closing the last 27px means
-> `hit.w` 108→81, which drops the monk from 118 to 91 effective reach, makes him worst on the move and
-> turns `reach-parity.test.ts` red. **It needs ART.**
->
-> What is already known, so the next attempt does not re-buy it: five generations measured limb reach
-> **50 / 61 / 57 / 55 / 60px** (mean ≈ 56, sd ≈ 4.6) — run-to-run variance swamped every prompt change,
-> so a single good sample is not a better prompt. The sample kept is the 55px one because it is the
-> only one with a MEASURABLE contact frame (spread 9px clears the 8px floor), which bought phase
-> alignment for the first time; do not trade that away for a few px of reach. The prompt currently in
-> `gen-sprite-videos.sh` is the best-measuring one and deliberately self-contradicts (`SPAN_CLIP`'s
-> "never hold still" plus "HOLDS at full extension") — a tidy explicit timeline measured strictly
-> worse. The lever most likely left is the **START IMAGE**, as it was for `monk/blockCrouch`: his
-> `crouch-refs/monk-crouch.png` plants him low and wide, and his sweep never travels far from it.
+**CLOSED in Phase 16, and the way it closed is the reusable part.** `monk/crouchHeavy` sat at ~87px of
+visible air (tolerance 60) with **zero** box-trim budget — `reach-parity.test.ts` requires the monk to
+be tied-best and he already was, so every px had to come from art. Five generations had measured limb
+reach 50 / 61 / 57 / 55 / 60px (sd ≈ 4.6) against an 82px target: **run-to-run variance was larger than
+the effect every prompt edit was chasing**, which is the tell that the prompt is not the variable.
+It went in ONE generation once the start image changed. The prompt asks the leg to sweep *"past where
+his own toes are"* — and the shared `crouch-refs/monk-crouch.png` plants him low and **tucked**, toes
+under his hips, so the target the prompt names was parked under his own body. A purpose-built
+`crouch-refs/monk-crouchHeavy.png` (nano_banana_pro from `monk-crouch.png`, ONE thing changed: the lead
+leg stretched along the floor) measured **identical height 1558px, identical rear extent, forward
+extent 512 → 820px** against its parent, and took the sheet to limb 89px / air 53px while KEEPING the
+measurable contact frame. Two things worth stealing: **measure a new reference against the one it
+replaces before spending a video credit on it** (height held = the crouch hurt profile still agrees),
+and **check where the figure sits on the canvas** — the generated foot landed 4px from the right edge,
+leaving the sweep nowhere to travel, so it was shifted 260px left with the area preserved to the pixel.
+Do NOT rescale to fix that: `build-sprites` applies one idle-derived scale to every sheet, so a smaller
+figure in one state's frames ships a smaller fighter on that state alone.
 - **The model lands a strike HIGHER than you ask — aim a joint lower.** The vertical form of Phase 04's
   "inflates any requested band". `monk/crouchLight` asked for KNEE height and measured 61–127px against
   an 18–58 box; asking for the SHIN got the knee (55–126, in the box). Naming the *move* never does it

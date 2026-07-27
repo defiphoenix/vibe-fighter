@@ -232,6 +232,58 @@ parity rule passing unchanged; the parity test itself was extended to the air no
 had been quietly out-ranged (80 vs 82) for its whole life. Three gaps in the audit tooling were closed
 too — including an `art/sim` ratio that was 1.00 **by construction** and could never fail.
 
+## Phase 16 — integration, parity & QA
+
+The gate that checks whether the whole thing hangs together, and it mostly did — the interesting part
+was **what nothing was measuring.**
+
+The third fighter had been finished since Phase 05 and hidden by one line. `SELECTABLE =
+["brawler","jiujitsu"]` in `FlowScene`, with a comment naming Phase 16 as its owner; the monk's art,
+portraits, HUD face and registry entry were all shipped and loaded, and two unit tests already swept
+all three. Moving the list into the Phaser-free module and **cross-checking it against the registry**
+turns "a fighter exists but nobody can pick him" from a silent omission into a red test.
+
+Restoring him then exposed a rule that had been wrong for five phases without ever being wrong *yet*:
+`cpuPick` was `wrap(taken + 1)`, always the card to the player's right. At two cards that is the only
+legal answer, so it looked correct — at three it meant the CPU could never field the monk. Now a
+uniform draw with the sample injected by the caller, so `flow-state.ts` stays pure and an e2e can pin
+an exact opponent instead of flipping a coin.
+
+Two shipped tests were passing **for the wrong reason**, neither of them red. One asserted "no
+same-character pick" on the premise "P1 has nowhere to move" — false once a third card exists, and it
+kept passing by coincidence while testing the opposite of its name. The other compared two CPU runs on
+the premise "same fighters", but entered one through the select screen and direct-booted the other, so
+a randomised pick would have silently compared two different fighters. Codex's diff review of the plan
+caught the second; the plan had missed it.
+
+`best-of-3` and the 60-second timer had **no browser coverage at all** — both existing specs reached
+the end state by assigning `world.match.phase`, which skips the rule under test. The new spec plays two
+real KOs and asserts the phase sequence it *observed*, and runs the full 3600-tick clock out for real
+(a throughput probe put that at 0.8s, so the accelerated version the plan had budgeted for was
+unnecessary). Both were watched failing against genuine product breaks — `ROUNDS_TO_WIN` set to 1, and
+the clock decrement deleted.
+
+And `monk/crouchHeavy`, the one item the animation pass left open, closed **in a single generation**
+once the lever was the right one. Five earlier attempts had measured 50/61/57/55/60px of reach against
+an 82px target, i.e. run-to-run noise was larger than every prompt edit. The problem was never the
+wording: the prompt asks the leg to sweep "past where his own toes are", and the shared crouch
+reference has his toes tucked under his hips, so the *target itself* was parked under his body. A
+purpose-built reference — the same pose with one thing changed, measured against its parent at
+identical height and +160% forward extent — took limb reach 55 → 89px and the visible air 87 → 53px,
+without losing the measurable contact frame that made this sheet worth keeping. `audit:boxes` now
+reports zero gaps: *"every attack box agrees with its own sheet"*.
+
+Same lesson as `monk/blockCrouch`, one phase later and cheaper for having been written down: **the
+reference is the lever, not the wording.**
+
+And then the browser check at the end of the phase found the one thing none of the 299 unit tests or
+72 browser tests could: **the 60-second timeout was decided on absolute health**, between fighters who
+do not share a health pool. The brawler has 105 and the other two have 100, so two fighters who never
+touched each other — both bars visibly full — ended 2–0 to the brawler on time. Every test had always
+set both healths from the same implied pool, so the asymmetry that only exists *between different
+fighters* had never been exercised. The tiebreak is now the remaining share, which is what the HUD bar
+draws anyway. Fifth entry in the same column: look at it.
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git

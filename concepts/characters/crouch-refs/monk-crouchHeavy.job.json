@@ -1,0 +1,29 @@
+[
+  {
+    "created_at": "2026-07-27T14:50:38.096858Z",
+    "display_name": "Nano Banana Pro",
+    "id": "2aab5652-01d0-4c37-93d4-6e9c75bc3360",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260727_145038_2aab5652-01d0-4c37-93d4-6e9c75bc3360_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "3:4",
+      "batch_size": 1,
+      "height": 2400,
+      "input_image": null,
+      "input_images": [
+        {
+          "id": "dc1896da-691d-47f1-b24d-e47910053909",
+          "type": "media_input",
+          "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/dc1896da-691d-47f1-b24d-e47910053909_resize.jpg"
+        }
+      ],
+      "prompt": "The SAME single Shaolin monk fighter from the reference image, in the SAME deep fighting crouch, seen from the side facing RIGHT, full body, both legs fully visible.\n\nKeep the crouch EXACTLY as low as the reference: hips dropped near his heels, back straight, torso upright, the top of his bald head at the SAME height as in the reference image. He does not stand up, does not lean forward, does not kneel, and does not lie down.\n\nChange ONE thing only: his LEADING leg — the one on the RIGHT side of the frame, the side he faces — is stretched out straight ahead of him along the floor in a long low sweeping lunge, knee almost straight and the sole of that foot skimming the ground far out in front of his body. His trailing leg stays folded underneath him bearing his weight, exactly as in the reference. His leading foot ends up a long way forward — roughly a full leg's length ahead of his hips, much further forward than any part of his body. Both fists stay up in a guard near his chin.\n\nKeep his exact appearance: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head.\n\nFlat solid #FF00FF magenta background, completely uniform, nothing else in the frame. Locked static camera at his eye level. Exactly ONE character, no other people, no weapons, no props, no text, no logos. Full-bleed, no border, no vignette.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 1792
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260727_145038_2aab5652-01d0-4c37-93d4-6e9c75bc3360.png",
+    "status": "completed"
+  }
+]

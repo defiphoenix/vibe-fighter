@@ -98,19 +98,37 @@ test.describe("Phase 11 — menus, modes, versus flow", () => {
     expect(layerKeys.every((k: string) => k.startsWith("sunset-"))).toBe(true);
   });
 
-  test("moving the selection swaps the two players (no same-character pick)", async ({ page }) => {
+  test("moving onto an UNLOCKED opponent swaps the pair", async ({ page }) => {
     await ready(page);
     const before = await keys(page, ["enter", "enter", "enter"]);
     expect(before.cursors).toEqual([0, 1]);
     const after = await keys(page, ["d"]);
+    // P1 takes P2's card and P2 is pushed onto the one P1 vacated — they can never collide.
     expect(after.cursors).toEqual([1, 0]);
-    // P2 locks their card, then P1 has nowhere to move: the pair can never collide.
-    const locked = await keys(page, ["comma", "d", "a"]);
-    expect(locked.cursors).toEqual([1, 0]);
+  });
+
+  // Split out of the test above, which used to assert this case on the premise "P1 has nowhere to
+  // move". That premise held only while the roster was two cards; with Phase 16's three it is false,
+  // and the old assertion still passed by coincidence while testing the opposite of its name. The
+  // skip-over branch (flow-state.ts moveChar) is only REACHABLE at three cards, so this is the first
+  // browser proof that FlowScene really hands the real roster length down.
+  test("a LOCKED opponent is skipped OVER, which only the third card makes reachable", async ({ page }) => {
+    await ready(page);
+    await keys(page, ["enter", "enter", "enter"]);
+    // P2 locks card 1; P1 sits on card 0. `d` would land on the locked card, so it must skip to 2.
+    const skipped = await keys(page, ["comma", "d"]);
+    expect(skipped.cursors).toEqual([2, 1]);
+    expect(skipped.locked).toEqual([false, true]);
+    // ...and coming back the other way skips card 1 again, landing on 0 rather than refusing.
+    const wrapped = await keys(page, ["a"]);
+    expect(wrapped.cursors).toEqual([0, 1]);
   });
 
   test("1vCPU: the player picks, the CPU locks the other card, and then fights back", async ({ page }) => {
     await ready(page);
+    // The CPU's pick is a uniform draw over the untaken cards, so an unseeded run would be right
+    // about half the time — an intermittently-red suite, not a test. Seed 2 -> card 1 -> jiujitsu.
+    await page.evaluate(() => (window as any).__flow.seed(2));
     // ENTER title; RIGHT x2 -> "CPU · HARD"; ENTER; ENTER stage; ENTER locks P1 (CPU mode only).
     const state = await keys(page, ["enter", "right", "right", "right", "enter", "enter", "enter"]);
     expect(state.modeIndex).toBe(3);

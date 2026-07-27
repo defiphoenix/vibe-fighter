@@ -96,11 +96,20 @@ test.describe("CPU difficulty handicap", () => {
     // headroom the other specs need under parallel workers.
     test.slow();
     await ready(page);
+    // This spec compares two runs, so both must use the SAME PAIR — but only the hard run boots an
+    // explicit pair (restartAs). The easy run comes through the real select screen, where Phase 16's
+    // CPU now draws uniformly over the untaken cards, so unseeded it would sometimes field the monk
+    // against the hard run's jiujitsu and compare two different fighters' health. Seed 2 -> card 1.
+    await page.evaluate(() => (window as any).__flow.seed(2));
     // ENTER title; RIGHT picks the "CPU · EASY" card; ENTER mode; ENTER stage; ENTER locks P1 —
     // in CPU mode the opponent card locks itself.
     const state = await keys(page, ["enter", "right", "enter", "enter", "enter"]);
     expect(state.modeIndex).toBe(1);
     await waitForMatch(page);
+    // Assert the premise rather than trusting it: if the seed ever stops landing here, this fails
+    // loudly instead of quietly comparing a monk run against a jiujitsu one.
+    expect(await page.evaluate(() => (window as any).__world.fighters.map((f: any) => f.cfg.id)))
+      .toEqual(["brawler", "jiujitsu"]);
 
     const easy = await idle(page);
     await restartAs(page, "hard", 0.85);

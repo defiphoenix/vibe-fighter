@@ -3,15 +3,11 @@ import { VIEW_WIDTH, STAGE_HEIGHT } from "../sim/constants";
 import { loadRegistry } from "../render/characters";
 import type { StagesFile } from "../render/stage";
 import {
-  MODE_OPTIONS, advance, back, bothLocked, cpuPick, initialFlow, isCpu, lock, moveChar, moveMenu,
-  toMatchConfig,
+  MODE_OPTIONS, SELECTABLE_IDS, advance, back, bothLocked, characterCardWidth, cpuPick, initialFlow,
+  isCpu, lock, moveChar, moveMenu, toMatchConfig,
 } from "./flow-state";
 import type { FlowState, MatchConfig, Player } from "./flow-state";
-
-// The roster the select screen offers. The registry still carries the monk (Gym/Playground reach it)
-// and Phase 16 restores it here — this is the recipe's "restrict the selectable characters to the
-// brawler and the jiu-jitsu fighter for now", not a claim about what exists.
-const SELECTABLE = ["brawler", "jiujitsu"];
+import { makeRoll } from "./roll";
 
 // Rooftop-dusk palette, sampled from the locked Phase 03 mockup and baked into the Phase 06
 // portraits. The menus share it deliberately: a card screen in a different palette from the
@@ -61,6 +57,10 @@ export class FlowScene extends Phaser.Scene {
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private busy = false; // true only during the CPU's think-and-reveal beat: swallow input
   private starting = false; // guards the queued scene.start against a second caller
+  /** The CPU pick's randomness. Seeded from the wall clock in normal play — the render layer may read
+   *  a clock, `src/sim/` may not — and replaced wholesale by the DEV `__flow.seed` seam so an e2e can
+   *  assert an exact opponent instead of a coin flip. */
+  private roll: () => number = makeRoll(1);
 
   constructor() {
     super("Flow");
@@ -78,7 +78,7 @@ export class FlowScene extends Phaser.Scene {
     const stages = this.cache.json.get("stages") as StagesFile;
     this.stageIds = Object.keys(stages).filter((k) => !k.startsWith("_"));
     const reg = loadRegistry(this.cache.json);
-    this.roster = SELECTABLE.filter((id) => reg[id]);
+    this.roster = SELECTABLE_IDS.filter((id) => reg[id]);
     if (!this.roster.length) throw new Error("flow: none of the selectable fighters are in the registry");
     if (!this.stageIds.length) throw new Error("flow: stages.json has no stages");
 
@@ -90,6 +90,10 @@ export class FlowScene extends Phaser.Scene {
     this.bindKeys();
     this.build();
 
+    // A fresh stream per visit to the flow, so a rematch-then-menu-then-CPU-match does not replay the
+    // previous pick. Safe to read a clock here: this is the render layer, not the sim.
+    this.roll = makeRoll(Date.now() & 0x7fffffff);
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
 
     if (import.meta.env.DEV) {
@@ -98,6 +102,9 @@ export class FlowScene extends Phaser.Scene {
         press: (key: string) => this.press(key),
         roster: () => [...this.roster],
         stages: () => [...this.stageIds],
+        // Pin the CPU's pick. A spec that asserts an exact opponent MUST call this — otherwise it is
+        // right about half the time, which is an intermittently-red suite rather than a test.
+        seed: (n: number) => { this.roll = makeRoll(n); },
       };
     }
   }
@@ -203,7 +210,7 @@ export class FlowScene extends Phaser.Scene {
         if (!this.state.locked[0]) return; // they un-locked during the flash
         this.busy = true;
         this.time.delayedCall(CPU_THINK_MS, () => {
-          this.state = cpuPick(this.state, this.roster.length);
+          this.state = cpuPick(this.state, this.roster.length, this.roll());
           this.paint();
           this.flash(this.state.cursors[1], () => this.startMatch());
         });
@@ -321,8 +328,10 @@ export class FlowScene extends Phaser.Scene {
         18, CSS.dim,
       ),
     );
-    const cardW = 300;
-    const cardH = 420;
+    // Card size comes from the Phaser-free module so a test exercises the SAME arithmetic the scene
+    // draws with. At the shipped three cards this is 300x420, identical to the constants it replaces.
+    const cardW = characterCardWidth(this.roster.length);
+    const cardH = Math.round(cardW * 1.4);
     const gap = 60;
     const total = this.roster.length * cardW + (this.roster.length - 1) * gap;
     this.roster.forEach((id, i) => {

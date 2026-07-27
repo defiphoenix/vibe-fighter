@@ -167,6 +167,75 @@ describe("timeout resolution (R-3)", () => {
     expect(w.match.lastRoundWinner).toBe(null);
     expect(w.match.wins).toEqual([0, 0]); // proves the draw path, not the default
   });
+
+  // R-13 (Phase 16, found by PLAYING): the tiebreak is the health FRACTION, not raw health.
+  //
+  // Fighters do not share a health pool — the brawler carries 105 and the other two 100 — so a raw
+  // `a.health > b.health` handed the brawler every timeout in which both fighters had taken the same
+  // punishment, INCLUDING none at all. Watched live: monk vs brawler, neither ever hit, both bars
+  // full, and the match ended 2-0 to the brawler on time. Every unit and browser test passed, because
+  // every one of them set both healths from the same implied pool.
+  //
+  // The bars are what the player reads, and the bars are fractions.
+  /** The shipped roster's real asymmetry: the brawler's 105 against the other two fighters' 100. */
+  function unevenPools(): World {
+    const tanky = { ...FIGHTER_B, stats: { ...FIGHTER_B.stats, maxHealth: 105 } };
+    const w = new World(FIGHTER_A, tanky);
+    w.match.phase = "fight";
+    w.match.introTicks = 0;
+    w.fighters[0].reset(640 - 45, 1);
+    w.fighters[1].reset(640 + 45, -1);
+    return w;
+  }
+
+  it("two untouched fighters DRAW on timeout even with different maxHealth", () => {
+    const w = unevenPools();
+    w.match.timerTicks = 1;
+    // Deliberately NOT assigned: whatever each pool is, both fighters are on 100% of it.
+    expect(w.fighters[0].health).toBe(100);
+    expect(w.fighters[1].health).toBe(105); // the premise: the pools really do differ
+    w.tick(NONE);
+    expect(w.match.phase).toBe("roundEnd");
+    expect(w.match.lastRoundWinner).toBe(null);
+    expect(w.match.wins).toEqual([0, 0]);
+  });
+
+  it("a smaller absolute health still WINS when it is the larger share of its own pool", () => {
+    const w = unevenPools();
+    w.match.timerTicks = 1;
+    w.fighters[0].health = 60; // 60 of 100 = 60%
+    w.fighters[1].health = 63; // 63 of 105 = 60% ... so still a draw
+    w.tick(NONE);
+    expect(w.match.lastRoundWinner).toBe(null);
+
+    const w2 = unevenPools();
+    w2.match.timerTicks = 1;
+    w2.fighters[0].health = 90; // 90%
+    w2.fighters[1].health = 95; // 95 of 105 = 90.5%, MORE points and a bigger share
+    w2.tick(NONE);
+    expect(w2.match.lastRoundWinner).toBe(1);
+
+    const w3 = unevenPools();
+    w3.match.timerTicks = 1;
+    w3.fighters[0].health = 90; // 90% of 100
+    w3.fighters[1].health = 94; // 94 of 105 = 89.5% — more points, smaller share, so it LOSES
+    w3.tick(NONE);
+    expect(w3.match.lastRoundWinner).toBe(0);
+  });
+
+  // The comparison is cross-multiplied (integer) rather than divided, because a DRAW is exactly the
+  // outcome that a hair of float error would silently convert into a win. 7/100 vs 7.35/105 is the
+  // shape that matters; healths are integers, so this sweeps the equal-share pairs that exist.
+  it("calls equal SHARES a draw exactly, with no float slop", () => {
+    for (const [ha, hb] of [[20, 21], [40, 42], [60, 63], [80, 84], [100, 105], [0, 0]]) {
+      const w = unevenPools();
+      w.match.timerTicks = 1;
+      w.fighters[0].health = ha;
+      w.fighters[1].health = hb;
+      w.tick(NONE);
+      expect(w.match.lastRoundWinner, `${ha}/100 vs ${hb}/105 should be a draw`).toBe(null);
+    }
+  });
 });
 
 // R-4: double-KO on the same tick is a draw (checkRoundOver, winner=null)

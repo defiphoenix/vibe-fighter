@@ -32,22 +32,29 @@ Parity list from [GitHub README](https://github.com/chongdashu/vibe-fighter).
 
 | Parity item | Phase | Current state | Acceptance test |
 |-------------|-------|---------------|-----------------|
-| Menu → mode → stage → character select flow | 11 | Missing (boots straight to match) | Manual: navigate full flow to a match; no dead-ends |
-| 1v1 local (two players, one keyboard) | 11, 12 | Present (match only) | Two players control independently in a match |
-| 1vCPU mode + CPU picks a fighter | 11 | Missing | CPU selects; match starts vs CPU controller |
-| Per-frame hit/hurt/attack boxes, active windows | 09, 12 | Present in sim; boxes hardcoded not per-frame-authored | `combat.test.ts` green + Gym-authored JSON drives live combat |
-| Light + heavy attacks | 12 | Present (light jab, heavy sweep) | Both normals connect on their active frames |
-| Geometric guard-box blocking (high/low) | 13 | Decision rule present; boxes not per-frame | Unit: high light blocked standing, low heavy beats stand guard, crouch blocks low |
-| Best-of-3 rounds + 60s timer | 12 | Present | `combat.test.ts` KO→round→match flow; timer expiry decides round |
-| Group camera scrolls wide stage | 08, 12 | Missing (fixed single screen) | Camera holds until a fighter gives ground on a >viewport stage |
-| Z-order + facing flip on crossover | 12 | Present in sim (facing/depth) | Recent mover draws in front; boxes flip on side-swap |
-| Three fighters (brawler, boxer, jiu-jitsu) | 05, 09 | Missing (A/B duplicate) | Three distinct configs selectable |
+| Menu → mode → stage → character select flow | 11, 16 | **Present** (`FlowScene` over the Phaser-free `flow-state.ts`; every step has a back edge and re-entry clears both locks, so no dead-ends) | `flow-state.test.ts` + `e2e/phase11-flow.spec.ts` + `e2e/phase16-parity.spec.ts` |
+| 1v1 local (two players, one keyboard) | 11, 12 | **Present** (P1 WASD + F/G/Q/E, P2 arrows + `,`/`.`//`/M) | `e2e/phase11-flow.spec.ts` (1v1 pair boots) + `combat.test.ts` |
+| 1vCPU mode + CPU picks a fighter | 11, 16 | **Present** (four mode cards `1v1 / CPU easy·normal·hard`; the CPU's pick is a **seeded uniform draw** over the untaken cards, so it can field any fighter) | `flow-state.test.ts` cpuPick suite + `roll.test.ts` + `cpu.test.ts` + `e2e/cpu-difficulty.spec.ts` + `e2e/phase16-parity.spec.ts` (seeded monk pick) |
+| Per-frame hit/hurt/attack boxes, active windows | 09, 12, 13 | **Present** (per-frame `FrameBoxes`, guards included; Gym-authored JSON drives live combat) | `character-builder.test.ts` + `registry.test.ts` + `e2e/gym-guard.spec.ts` + `e2e/phase16-parity.spec.ts` (raw file edit changes live damage) |
+| Light + heavy attacks | 12 | **Present** (7 attack states: ground/air/crouch light+heavy, plus the meter special) | `combat.test.ts` + `e2e/phase09-characters.spec.ts` (strike lands on the active window) |
+| Geometric guard-box blocking (high/low) | 13, 13b | **Present** (per-frame `guardStand`/`guardCrouch`; `block`/`blockCrouch` are real states; high/low is decided by box overlap, never by a label) | `combat.test.ts` + `registry.test.ts` blocking & special sweeps + `e2e/crouch-block.spec.ts` + `e2e/phase13b-block.spec.ts` |
+| Best-of-3 rounds + 60s timer | 12, 16 | **Present** | `combat.test.ts` + `regression.test.ts` + `e2e/phase16-parity.spec.ts` — **two real KOs walk the observed phase sequence to `matchEnd`, and the full 3600-tick clock runs out and resolves on health** |
+| Group camera scrolls wide stage | 08, 12 | **Present** (midpoint follow over a 1696px world in a 1280px view, zoom-IN only 1.0–1.25, `MAX_SEPARATION` 1040 keeps both framed) | `camera-frame.test.ts` + `stage.test.ts` + `e2e/camera-group.spec.ts` |
+| Z-order + facing flip on crossover | 12 | **Present** (depth follows the most recent MOVER, not position) | `e2e/phase09-characters.spec.ts` (`flipX === facing<0`, depth 11/9) |
+| Three fighters (brawler, jiujitsu, **monk**) | 05, 09, 16 | **Present** — the recipe's "boxer" was never built in this repo; the **monk** is the shipped third and became selectable in Phase 16 | `registry.test.ts` + `reach-parity.test.ts` + `flow-state.test.ts` (roster ↔ registry cross-check) + `e2e/phase16-parity.spec.ts` (monk boots with his own art, HUD face and stats) |
 | UI-atlas HUD, dynamic fill, low-health blink, entrance | 07, 14 | **Present** (atlas plates + portraits + `introTicks`-derived entrance) | `e2e/phase14-hud.spec.ts` + `hud-entrance.test.ts` |
 | Meter specials, multi-hit combos, super cut-in | 15 | **Present** (per-window dedup, `METER_MAX` bar, `repeat` specials, freeze + portrait cut-in, real Seedance `special` sheets, `meter-bar` atlas plate) | `combat.test.ts` hit-count + `registry.test.ts` high/low sweep + `e2e/phase15-special.spec.ts` |
-| Parallax stage (twilight, sunset) | 04, 08 | **04 art done** (8 layers, 2 stages, `concepts/backgrounds/`); 08 runtime missing | Two stages render with independent layer scroll |
+| Parallax stage (twilight, sunset) | 04, 08, 16 | **Present** (2 stages × 3 runtime layers pre-baked to 1697×720; the front `near` occluder is deliberately dropped; the stage pick is honoured at `MatchScene.create`) | `stage.test.ts` + `e2e/stage.spec.ts` + `e2e/phase16-parity.spec.ts` (**both variants build a real match, with different layers**) |
 | Audio | — | **Non-goal** | n/a (out of scope) |
 
 ## Delta legend
 
 **Present** = works in `src/sim/` today · **Extend** = partial, needs additions ·
 **Missing** = not started. Each phase file restates its own delta in its "Current-state delta" section.
+
+**Phase 16 filled this table in.** Seven rows were stale — written before Phases 08/11/12/13 shipped
+and never revisited — so the matrix claimed "Missing (boots straight to match)" about a flow that had
+worked for five phases. That is the same failure the rest of this repo has a rule about: a document
+is a claim about the code, and nothing was measuring it. Every `Acceptance test` cell now names a file
+that exists; if one is deleted or renamed, this table is wrong again, so treat the paths as part of
+the gate rather than as prose.

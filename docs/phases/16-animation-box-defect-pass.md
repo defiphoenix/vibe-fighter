@@ -151,17 +151,20 @@ Three measurement gaps let all of the above ship green. All three closed:
 
 ### Open, deliberately
 
-> **`monk/crouchHeavy` is the next session's first job.** The `OPEN WORK` blockquote in CLAUDE.md
-> carries the full context; the short version and everything already tried is below, so no one
-> re-buys it.
+> **`monk/crouchHeavy` was closed in [Phase 16](16-integration-parity-qa.md)** — in one generation,
+> once the lever changed from the prompt to the reference. Limb reach 55 → 89px, visible air 87 → 53px,
+> and `audit:boxes` now reports *"every attack box agrees with its own sheet"*. The diagnosis below was
+> right that it needed art and that no further resampling would find it; what it did not spot is that
+> the prompt's own target — "past where his own toes are" — was parked **under his own body**, because
+> the shared crouch reference plants him tucked. See the Phase 16 log for the measurements.
 
-
-- **`monk/crouchHeavy`, ~87px of air** (was 92). Five generations measured limb reach 50/61/57/55/60 —
-  mean ~56, sd ~4.6, i.e. run-to-run variance swamped every prompt change. The sample kept is the one
-  with a MEASURABLE contact frame (spread 9px clears the 8px floor), because phase alignment is worth
-  more than 5px of reach; it is the first time this sheet has ever had one. Closing the last 27px by
-  trimming the box would drop the monk from 118 to 91 effective reach — worst on the move — and turn
-  the parity test red, so it needs art, not data.
+- ~~**`monk/crouchHeavy`, ~87px of air**~~ **(CLOSED, Phase 16.)** Five generations measured limb reach
+  50/61/57/55/60 — mean ~56, sd ~4.6, i.e. run-to-run variance swamped every prompt change. The sample
+  kept was the one with a MEASURABLE contact frame (spread 9px clears the 8px floor), because phase
+  alignment is worth more than 5px of reach. Closing the last 27px by trimming the box would have
+  dropped the monk from 118 to 91 effective reach — worst on the move — and turned the parity test red,
+  so it needed art, not data. **The lesson that generalises: when run-to-run variance is larger than
+  the effect you are chasing, the prompt is not the variable.**
 - **5 INDETERMINATE sheets** (`monk/airHeavy` spread 2px, `brawler/airLight` 3px, `jiujitsu/airLight`
   4px, `monk/attackLight` 6px, `jiujitsu/crouchHeavy` contact-on-final-frame). All within the 60px air
   tolerance, so they keep uniform timing rather than costing a regeneration.

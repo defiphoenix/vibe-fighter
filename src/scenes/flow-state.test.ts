@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import registry from "../../public/configs/character-gym.json";
+import { VIEW_WIDTH } from "../sim/constants";
 import {
-  MODE_OPTIONS, advance, back, bothLocked, cpuPick, initialFlow, isCpu, lock, modeOf, moveChar,
-  moveMenu, toMatchConfig,
+  MODE_OPTIONS, SELECTABLE_IDS, advance, back, bothLocked, characterCardWidth, cpuPick, initialFlow,
+  isCpu, lock, modeOf, moveChar, moveMenu, toMatchConfig,
 } from "./flow-state";
 import type { FlowState } from "./flow-state";
 
@@ -52,6 +54,29 @@ describe("flow steps", () => {
     lock(s, 0);
     advance(s);
     expect(JSON.stringify(s)).toBe(before);
+  });
+});
+
+describe("the selectable roster", () => {
+  // `_`-prefixed keys are metadata, dropped the same way render/characters.ts:loadRegistry drops
+  // them. Filtering differently here would invent a failure that the game never has.
+  const shipped = Object.keys(registry).filter((k) => !k.startsWith("_"));
+
+  it("offers every fighter the registry ships — a built fighter nobody can pick is the Phase 11 bug", () => {
+    expect([...SELECTABLE_IDS].sort()).toEqual([...shipped].sort());
+  });
+
+  it("fits the whole card row inside the viewport", () => {
+    const n = SELECTABLE_IDS.length;
+    const row = n * characterCardWidth(n) + (n - 1) * 60;
+    expect(row).toBeLessThanOrEqual(VIEW_WIDTH);
+  });
+
+  it("keeps the shipped three cards at the hand-authored 300px, and shrinks rather than overflow", () => {
+    expect(characterCardWidth(2)).toBe(300);
+    expect(characterCardWidth(3)).toBe(300); // 3*300 + 2*60 = 1020 <= 1280
+    expect(characterCardWidth(4)).toBeLessThan(300); // 4*300 + 3*60 = 1380 would hang off the canvas
+    expect(4 * characterCardWidth(4) + 3 * 60).toBeLessThanOrEqual(VIEW_WIDTH);
   });
 });
 
@@ -129,6 +154,55 @@ describe("cpu mode", () => {
     const s = back(cpuPick(lock(chars(1), 0), 2), 0);
     expect(s.locked).toEqual([false, false]);
     expect(s.step).toBe("chars");
+  });
+
+  // The old rule was `wrap(taken + 1, count)` — always the card immediately right of the player. On a
+  // two-card roster that is the only legal answer, so it looked correct for two phases; with three it
+  // means the CPU can NEVER pick the monk unless the player happens to sit on the jiujitsu. The pick
+  // is now a uniform draw over the untaken cards, sampled by the caller so this module stays pure.
+  it("can reach EVERY untaken card on a three-card roster, not just the next one", () => {
+    const s = lock(chars(1), 0); // player on card 0, so free = [1, 2]
+    expect(cpuPick(s, 3, 0).cursors[1]).toBe(1);
+    expect(cpuPick(s, 3, 0.99).cursors[1]).toBe(2);
+  });
+
+  it("splits the roll range evenly between the two free cards", () => {
+    const s = lock(chars(1), 0);
+    expect(cpuPick(s, 3, 0.49).cursors[1]).toBe(1);
+    expect(cpuPick(s, 3, 0.5).cursors[1]).toBe(2);
+  });
+
+  it("skips the player's own card wherever it sits, including the last one", () => {
+    const last = lock(chars(1, { cursors: [2, 0] }), 0);
+    expect(cpuPick(last, 3, 0).cursors[1]).toBe(0);
+    expect(cpuPick(last, 3, 0.99).cursors[1]).toBe(1);
+    const middle = lock(chars(1, { cursors: [1, 0] }), 0);
+    expect(cpuPick(middle, 3, 0).cursors[1]).toBe(2);
+    expect(cpuPick(middle, 3, 0.99).cursors[1]).toBe(0);
+  });
+
+  // roll is half-open [0, 1). An exact 1 would index one past the last free card, wrap back onto the
+  // player's own card and hand both players the same fighter — the one thing this function exists to
+  // prevent. Clamped rather than trusted, because the caller is a float generator.
+  it("never hands both players the same card, at either end of the roll range", () => {
+    for (const roll of [0, 0.5, 0.999999, 1, 1.5, -0.5, NaN]) {
+      for (const count of [2, 3, 4]) {
+        for (const at of [0, 1]) {
+          const s = lock(chars(1, { cursors: [at, 0] }), 0);
+          const picked = cpuPick(s, count, roll);
+          expect(picked.cursors[1], `roll ${roll} count ${count} player ${at}`).not.toBe(at);
+          expect(picked.cursors[1]).toBeGreaterThanOrEqual(0);
+          expect(picked.cursors[1]).toBeLessThan(count);
+        }
+      }
+    }
+  });
+
+  it("locks the CPU even on a one-card roster, rather than picking the player's own fighter", () => {
+    const s = lock(chars(1), 0);
+    const picked = cpuPick(s, 1, 0.9);
+    expect(bothLocked(picked)).toBe(true);
+    expect(picked.cursors[0]).toBe(0);
   });
 });
 

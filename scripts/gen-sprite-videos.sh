@@ -25,7 +25,19 @@ declare -A START_OVERRIDE=(
   # second head removed by keeping the largest connected component): aspect 0.78 vs 0.45 standing.
   [monk/crouch]="concepts/characters/crouch-refs/monk-crouch.png"
   [monk/crouchLight]="concepts/characters/crouch-refs/monk-crouch.png"
-  [monk/crouchHeavy]="concepts/characters/crouch-refs/monk-crouch.png"
+  # crouchHeavy gets its OWN reference, not the shared monk-crouch.png. Phase 16: five generations
+  # from the shared crouch measured limb reach 50/61/57/55/60px (sd ~4.6) against a box far edge of
+  # 156 — run-to-run variance swamped every prompt change, so no amount of resampling or rewording was
+  # going to find the +27px needed. CLAUDE.md already named the remaining lever and it was right: the
+  # shared reference plants him low AND TUCKED, with his toes under his hips, so a sweep measured
+  # "past where his own toes are" barely leaves his body. This reference is that same pose with ONE
+  # thing changed — the lead leg stretched out along the floor — built with nano_banana_pro from
+  # monk-crouch.png and measured against it: height IDENTICAL (1558px), rear extent identical (700 ->
+  # 701), forward extent from the head centre 512 -> 820px. Then shifted 260px left on the canvas
+  # (area preserved to the pixel) because the generated foot landed 4px from the right edge, leaving
+  # the sweep nowhere to travel; scale must NOT change, since build-sprites applies one idle-derived
+  # scale to every sheet and a smaller figure here would ship a smaller monk on this state alone.
+  [monk/crouchHeavy]="concepts/characters/crouch-refs/monk-crouchHeavy.png"
   # jiujitsu needed no generated still: his own `crouch` clip already reaches a real crouch, and its
   # last frame is both the deepest (aspect 0.85 vs 0.69 at the start) and already on the magenta void
   # at the right scale. Starting a crouch ATTACK from the crouch state's own final frame also means
