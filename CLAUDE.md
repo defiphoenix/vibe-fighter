@@ -379,6 +379,24 @@ because the tests only ever compared code to other code.
   `guardStand`'s 70 floor), so the ART had to come down. All four regenerated; the audit now reports
   "every attack box agrees with its own sheet". Hard enforcement stays in `registry.test.ts`; this
   stays advisory so a regression reads as a report rather than a bypassed red gate.
+
+> ### OPEN WORK — `monk/crouchHeavy` (next session)
+>
+> The single remaining `REACH-GAP` in `npm run audit:boxes`: the box far edge is 156px, the drawn leg
+> reaches 55px, so it **connects with ~87px of visible air** at max range (tolerance is 60; it was 92
+> before this pass). It is the ONLY sheet a box trim cannot fix — closing the last 27px means
+> `hit.w` 108→81, which drops the monk from 118 to 91 effective reach, makes him worst on the move and
+> turns `reach-parity.test.ts` red. **It needs ART.**
+>
+> What is already known, so the next attempt does not re-buy it: five generations measured limb reach
+> **50 / 61 / 57 / 55 / 60px** (mean ≈ 56, sd ≈ 4.6) — run-to-run variance swamped every prompt change,
+> so a single good sample is not a better prompt. The sample kept is the 55px one because it is the
+> only one with a MEASURABLE contact frame (spread 9px clears the 8px floor), which bought phase
+> alignment for the first time; do not trade that away for a few px of reach. The prompt currently in
+> `gen-sprite-videos.sh` is the best-measuring one and deliberately self-contradicts (`SPAN_CLIP`'s
+> "never hold still" plus "HOLDS at full extension") — a tidy explicit timeline measured strictly
+> worse. The lever most likely left is the **START IMAGE**, as it was for `monk/blockCrouch`: his
+> `crouch-refs/monk-crouch.png` plants him low and wide, and his sweep never travels far from it.
 - **The model lands a strike HIGHER than you ask — aim a joint lower.** The vertical form of Phase 04's
   "inflates any requested band". `monk/crouchLight` asked for KNEE height and measured 61–127px against
   an 18–58 box; asking for the SHIN got the knee (55–126, in the box). Naming the *move* never does it

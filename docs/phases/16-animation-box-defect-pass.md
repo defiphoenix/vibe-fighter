@@ -151,6 +151,11 @@ Three measurement gaps let all of the above ship green. All three closed:
 
 ### Open, deliberately
 
+> **`monk/crouchHeavy` is the next session's first job.** The `OPEN WORK` blockquote in CLAUDE.md
+> carries the full context; the short version and everything already tried is below, so no one
+> re-buys it.
+
+
 - **`monk/crouchHeavy`, ~87px of air** (was 92). Five generations measured limb reach 50/61/57/55/60 —
   mean ~56, sd ~4.6, i.e. run-to-run variance swamped every prompt change. The sample kept is the one
   with a MEASURABLE contact frame (spread 9px clears the 8px floor), because phase alignment is worth
