@@ -1,0 +1,9 @@
+The SAME single Shaolin monk fighter from the reference image, in the SAME deep low crouch, seen from the side facing RIGHT, full body with both feet flat on the ground and visible.
+
+Keep the reference image's legs, hips and height EXACTLY as they are: knees bent past ninety degrees, thighs folded down toward his calves, hips dropped low near his heels, back straight, torso upright, compressed to roughly two thirds of his standing height. The top of his bald head is at the same height as in the reference image.
+
+Discard the reference image's ARM position entirely. He is now BLOCKING, not fighting: both forearms are raised together in front of his face and chest, held vertically and parallel like a boxer covering up, one stacked above the other, both elbows pulled in tight against his ribs, both fists closed near his temple and cheek, shoulders hunched up toward his ears. His arms form a solid shield across his head and body. This is a defensive turtle, clearly different from a fighting stance with one lead fist out.
+
+Keep his exact appearance: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head.
+
+Flat solid #FF00FF magenta background, completely uniform, nothing else in the frame. Locked static camera at his eye level. Exactly ONE character, no other people, no weapons, no props, no text, no logos. Full-bleed, no border, no vignette.

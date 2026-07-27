@@ -204,6 +204,34 @@ looping never pops up), with monk's real cyclic bob, a synthetic breathing bob f
 generator would not give a contained crouch bounce), and brawler's subtle motion. The block-art work
 cost ~168 credits across the initial gen and the polish regens.
 
+### Animation / box defect pass (2026-07-26)
+
+Four more defects found by PLAYING with 276 unit + 65 e2e tests green. Full write-up in
+[`docs/phases/16-animation-box-defect-pass.md`](phases/16-animation-box-defect-pass.md).
+
+The crouch-block fix above **overshot**: removing the bob to stop it reading as "jumping on the spot"
+left monk at amp 0.05 and jiujitsu at 0.06 — frozen stills. Worse, the monk had no low guard at all
+(IoU 0.95 against his own `crouch`), because the reference chosen to fix his height *was* the crouch
+reference. A prompt rewrite naming the arm change changed literally nothing (0.95 → 0.95); building a
+purpose-made low-guard reference fixed it in one gen. Then copying the jiujitsu motion sentence
+verbatim took the monk from 0.029 to 0.150 — while every rewrite invented for his deep squat measured
+worse. Five samples of `monk/crouchHeavy` measured 50/61/57/55/60px reach (sd ≈ 4.6), so run-to-run
+variance was swamping the prompt changes; that sheet stays open at ~87px of air, but gained a
+measurable contact frame for the first time. ~11 generations.
+
+"All animations play too fast" turned out to be neither arithmetic nor the override — both traced
+correct in the browser — but the frame BUDGET: three wind-up poses sharing three ticks, one refresh
+each. Fixed by drawing fewer poses rather than flashing them all. Two genuine bugs surfaced alongside:
+a combo's 2nd+ hit never restarted the hurt animation (the state name doesn't change, so `play()` was
+never called), and a review's claim that `knockdown` loses a tick was re-derived and found **correct
+but harmless** — the state also lasts exactly that long.
+
+Every attack box was measured against its own art horizontally for the first time and **all 21
+overshot**, by 28–106px. Five of the six over-tolerance sheets closed with `hit.w` trims that keep the
+parity rule passing unchanged; the parity test itself was extended to the air normals, where the monk
+had been quietly out-ranged (80 vs 82) for its whole life. Three gaps in the audit tooling were closed
+too — including an `art/sim` ratio that was 1.00 **by construction** and could never fail.
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git

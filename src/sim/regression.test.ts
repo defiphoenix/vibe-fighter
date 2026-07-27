@@ -375,3 +375,94 @@ describe("a refused special edge is always consumed (R-10)", () => {
   });
 
 });
+
+// R-11: every stun ENTRY is identifiable, including one that re-enters the state it is already in.
+// A combo's 2nd+ hit lands while the defender is already in `hitstun`: applyHit resets stateFrame and
+// stunTimer, but the STATE NAME does not change — so `FighterSprite.update`, which re-plays only on a
+// state change, never restarted the hurt animation. The defender froze on the last hurt frame for the
+// rest of the combo. Measured before the fix: before=hitstun/timer12/frame0, after=hitstun/timer12/
+// frame0, stateChanged=false.
+//
+// `stunTimer` rising is NOT a usable substitute: a multi-tick advance batch that takes the timer down
+// and a re-hit that restores it to exactly the previously observed value cancel out, and the render
+// pass sees no change. Same lesson as the combo counter — identity needs its own counter, never an
+// inferred one.
+describe("a stun re-entry is identifiable (R-11)", () => {
+  it("bumps stunEpoch even when the state name does not change", () => {
+    const w = fightWorld();
+    const b = w.fighters[1];
+    const atk = w.fighters[0].cfg.attacks.light;
+
+    b.applyHit(atk.damage, atk.hitstun, 0, 0, false);
+    const first = b.stunEpoch;
+    expect(b.state).toBe("hitstun");
+
+    w.tick(NONE);
+    w.tick(NONE);
+    expect(b.state).toBe("hitstun"); // still stunned: the re-hit lands in the SAME state
+
+    b.applyHit(atk.damage, atk.hitstun, 0, 0, false);
+    expect(b.state).toBe("hitstun");
+    expect(b.stunEpoch, "a re-hit in the same state must still be a new stun episode").toBeGreaterThan(first);
+  });
+
+  it("counts blockstun and a KO as episodes too, and survives a round reset", () => {
+    const w = fightWorld();
+    const b = w.fighters[1];
+    const atk = w.fighters[0].cfg.attacks.light;
+    const start = b.stunEpoch;
+
+    b.applyHit(0, atk.blockstun, 0, 0, true);
+    expect(b.stunEpoch).toBe(start + 1);
+    b.applyHit(b.health, atk.hitstun, 0, 0, false); // fatal — takes the `ko` branch
+    expect(b.state).toBe("ko");
+    expect(b.stunEpoch, "the KO branch returns early but is still a new episode").toBe(start + 2);
+
+    // Monotonic across a reset: the renderer compares against whatever it last saw, and a counter that
+    // restarted at 0 could collide with the value already on screen and skip the re-play.
+    const before = b.stunEpoch;
+    b.reset(400, -1);
+    expect(b.stunEpoch).toBeGreaterThanOrEqual(before);
+  });
+});
+
+// R-12: the stun window the RENDER pass observes is the window the state actually still lasts.
+// `stunFrameRate` spans the animation over `Fighter.stunTimer` as read on the frame the state was
+// entered, so if that number ever stopped matching the remaining state length the art would be cut
+// off or freeze — the exact defect that class of bug keeps producing. A review flagged the landing
+// `knockdown` as reading 17 where the attack assigned 18 and proposed restoring the 18; it is 17
+// because `onLand` runs inside `integrate`, which precedes `advanceTimers` in the same tick with no
+// hitstop to bail on — and the state also lasts exactly 17 more ticks, so 17 is correct and a +1
+// would overrun. hitstun/blockstun are entered from combat, which sets hitstop, and tick() returns
+// before advanceTimers — so those see their full window. This pins all three.
+describe("the observed stun window equals the remaining state length (R-12)", () => {
+  const runOut = (w: World, f: Fighter, state: string) => {
+    let ticks = 0;
+    while (f.state === state && ticks < 300) { w.tick(NONE); ticks++; }
+    return ticks;
+  };
+
+  it("hitstun and blockstun are observed at full length", () => {
+    for (const [blocked, stun] of [[false, 12], [true, 9]] as const) {
+      const w = fightWorld();
+      const b = w.fighters[1];
+      b.applyHit(blocked ? 0 : 5, stun, 0, 0, blocked);
+      const observed = b.stunTimer; // what FighterSprite reads on the entry frame
+      expect(observed, `${blocked ? "blockstun" : "hitstun"} observed`).toBe(stun);
+      expect(runOut(w, b, b.state), `${blocked ? "blockstun" : "hitstun"} length`).toBe(observed);
+    }
+  });
+
+  it("a landing knockdown is observed one tick short — and lasts exactly that", () => {
+    const w = fightWorld();
+    const b = w.fighters[1];
+    b.applyHit(10, 18, 200, -260, false); // knocked airborne; onLand converts to knockdown
+    let observed = -1;
+    for (let i = 0; i < 200 && observed < 0; i++) {
+      w.tick(NONE);
+      if (b.state === "knockdown") observed = b.stunTimer;
+    }
+    expect(observed, "onLand assigns 18; advanceTimers runs later in the SAME tick").toBe(17);
+    expect(runOut(w, b, "knockdown"), "the animation window must match what is left").toBe(observed);
+  });
+});

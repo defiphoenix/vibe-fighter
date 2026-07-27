@@ -1,7 +1,9 @@
 import * as Phaser from "phaser";
 import type { Fighter } from "../sim/fighter";
 import type { CharacterData, StateName } from "../sim/types";
-import { stateFrameRate, stunFrameRate, attackFrameDurations, PLAY_LAG_TICKS } from "./anim-timing";
+import {
+  stateFrameRate, stunFrameRate, attackFrameDurations, attackStartFrame, stunStartFrame, PLAY_LAG_TICKS,
+} from "./anim-timing";
 import { TICK_HZ } from "../sim/constants";
 import { textureKey, type RenderMeta } from "./characters";
 import { STATE_NAMES } from "../sim/validate-character";
@@ -11,6 +13,10 @@ import { STATE_NAMES } from "../sim/validate-character";
 export class FighterSprite {
   readonly sprite: Phaser.GameObjects.Sprite;
   private lastState: StateName | null = null;
+  /** The stun episode the current animation belongs to. A combo's 2nd+ hit re-enters `hitstun` from
+   *  `hitstun`, so the state NAME is unchanged and the check below would not re-play — the defender
+   *  froze on the last hurt frame for the rest of the combo. See Fighter.stunEpoch. */
+  private lastStunEpoch = -1;
   private paused = false;
   /** Render frames left on the block flash. Counted down in update() rather than held on a timer
    *  because update() is the ONLY writer of the tint — anything tinting from outside is overwritten
@@ -26,7 +32,7 @@ export class FighterSprite {
      *  rather than a silent art/box desync. */
     scale: number,
     /** The sim-side character data, used ONLY to time the attack animations (see below). */
-    data: CharacterData,
+    private data: CharacterData,
   ) {
     // Register one animation per state, idempotently — keys are global, so a mirror matchup
     // (same id on both sides) must not recreate them.
@@ -75,17 +81,31 @@ export class FighterSprite {
       this.sprite.setTintMode(Phaser.TintModes.MULTIPLY);
     }
 
-    if (f.state !== this.lastState) {
+    // ...or the sim restarted the stun WITHOUT changing the state name — a combo's 2nd+ hit re-enters
+    // `hitstun` from `hitstun`, and keying off the state alone left the defender parked on the last
+    // frame of the one-shot hurt sheet for the rest of the combo. See Fighter.stunEpoch.
+    if (f.state !== this.lastState || f.stunEpoch !== this.lastStunEpoch) {
       const key = textureKey(this.id, f.state);
       // A stun's length is decided by the attack that caused it, so it isn't known until the state is
       // entered and can't be baked into the registered animation (see stunFrameRate). Overriding the
       // rate here DISABLES the per-frame durations — Animation.getNextTick only honours them while
       // `state.frameRate === currentAnim.frameRate` — which is safe because only ATTACK sheets carry
       // durations and stunFrameRate returns null for every attack state.
-      const rate = stunFrameRate(f.state, this.render.sheets[f.state], f.stunTimer);
-      if (rate === null) this.sprite.play(key);
-      else this.sprite.play({ key, frameRate: rate });
+      const meta = this.render.sheets[f.state];
+      const rate = stunFrameRate(f.state, meta, f.stunTimer);
+      // A state whose window cannot afford every drawn pose starts partway in, so the poses it DOES
+      // draw last long enough to read (see attackStartFrame / stunStartFrame). Passing startFrame
+      // through the config object keeps `state.frameRate === anim.frameRate`, so the per-frame
+      // durations still apply — only a `frameRate` override disables those, and only stuns pass one.
+      if (rate !== null) {
+        this.sprite.play({ key, frameRate: rate, startFrame: stunStartFrame(f.state, meta, f.stunTimer) });
+      } else {
+        const startFrame = attackStartFrame(f.state, meta, this.data);
+        if (startFrame > 0) this.sprite.play({ key, startFrame });
+        else this.sprite.play(key);
+      }
       this.lastState = f.state;
+      this.lastStunEpoch = f.stunEpoch;
       this.paused = false;
       // Catch the animation up to where the SIM already is. `World.advance` runs a whole batch of
       // fixed ticks before the scene renders — up to 15 on a stalled frame (MAX_FRAME) — so on a

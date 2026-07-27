@@ -64,6 +64,21 @@ BODY_TO_HURT = {"stand": "hurtStand", "crouch": "hurtCrouch", "air": "hurtAir"}
 HURT_SHORT_FRAC = 0.45   # box shorter than 55% of the figure: a large chunk is invulnerable
 HURT_TALL_FRAC = 0.20    # box more than 20% TALLER than the art: hit by things that miss
 
+# Metric C tolerance. Metrics A and B are both VERTICAL; nothing here or anywhere else in scripts/
+# ever measured whether the box reaches forward as far as the fist does. It does not: measured across
+# all 21 shipped attack sheets, every single box far edge overshoots its own drawn limb, and at the
+# furthest separation each attack still connects the fist sits 14-92px short of the defender's body.
+#
+# The number that matters to a player is that VISIBLE gap, not the raw overshoot, because a hit box
+# legitimately has to reach the defender's HURT box rather than his skin. So:
+#     visible air = (hit.x + hit.w + defender hurt half) - defender silhouette half - own limb reach
+# Both defender terms are properties of whoever is being hit, so a roster-wide audit uses the
+# narrowest standing hurt box (30px half) and a representative silhouette half (44px) — the report is
+# a ranking, and `src/sim/reach-parity.test.ts` owns the real per-matchup enforcement.
+DEF_HURT_HALF = 30       # narrowest hurtStand half-width across the roster
+DEF_SILHOUETTE_HALF = 44 # median drawn half-width of a standing fighter, measured from the idle sheets
+AIR_GAP_MAX = 60         # px of empty space at max connect range before a box reads as disconnected
+
 
 def cells(sheet: np.ndarray, n: int) -> list[np.ndarray]:
     return [sheet[:, i * CELL_W:(i + 1) * CELL_W, 3] > ALPHA for i in range(n)]
@@ -74,6 +89,25 @@ def figure_height(masks: list[np.ndarray]) -> tuple[int, int]:
     feet = max(int(np.where(m.any(axis=1))[0].max()) for m in masks if m.any())
     top = min(int(np.where(m.any(axis=1))[0].min()) for m in masks if m.any())
     return feet - top, feet
+
+
+def strike_reach(masks: list[np.ndarray]) -> int | None:
+    """How far forward, in px past the cell's centre line, the striking limb ever gets.
+
+    Metric C's input, and the same differenced-against-frame-0 trick as `strike_band`: the furthest
+    opaque column full stop measures a planted leg, not the fist. Mirrors `forward_reach` in
+    check-attack-sync.py, which uses it to pick the contact frame.
+    """
+    base = masks[0]
+    mid = CELL_W // 2
+    best = None
+    for m in masks[1:]:
+        moved = m & ~base
+        if not moved.any():
+            continue
+        far = int(np.where(moved.any(axis=0))[0].max()) - mid
+        best = far if best is None else max(best, far)
+    return best
 
 
 def strike_band(masks: list[np.ndarray], feet: int) -> tuple[int, int] | None:
@@ -104,7 +138,11 @@ def audit_state(fid: str, state: str, data: dict, sheet_path: Path, frames: int)
     masks = cells(np.array(Image.open(sheet_path).convert("RGBA")), frames)
     fig, feet = figure_height(masks)
     band = strike_band(masks, feet)
+    reach = strike_reach(masks)
     hit_lo, hit_hi = atk["hit"]["y"], atk["hit"]["y"] + atk["hit"]["h"]
+    hit_far = atk["hit"]["x"] + atk["hit"]["w"]
+    # Furthest separation this attack still connects at, minus where the defender is actually DRAWN.
+    air = None if reach is None else (hit_far + DEF_HURT_HALF) - DEF_SILHOUETTE_HALF - reach
 
     notes = []
     if hurt["h"] < fig * HURT_SHORT_FRAC:
@@ -120,10 +158,17 @@ def audit_state(fid: str, state: str, data: dict, sheet_path: Path, frames: int)
         notes.append(f"HIT-MISS box {hit_lo}..{hit_hi} is entirely {where} the strike at "
                      f"{band[0]}..{band[1]}px -- the box describes a blow the art does not throw")
 
+    if air is not None and air > AIR_GAP_MAX:
+        notes.append(f"REACH-GAP box far edge {hit_far}px vs limb {reach}px -- connects with ~{air}px "
+                     f"of empty air at max range (over {AIR_GAP_MAX})")
+
     band_s = f"{band[0]:3d}..{band[1]:3d}" if band else "    ?    "
+    reach_s = f"{reach:3d}" if reach is not None else "  ?"
+    air_s = f"{air:4d}" if air is not None else "   ?"
     status = "OK" if not notes else "FLAG"
     print(f"  {fid + '/' + state:24} {atk['body']:6} hurt {hurt['h']:3d}/{fig:3d}  "
-          f"hit {hit_lo:3d}..{hit_hi:3d}  strike {band_s}  {status}")
+          f"hit {hit_lo:3d}..{hit_hi:3d}  strike {band_s}  "
+          f"far {hit_far:3d}/limb {reach_s}  air {air_s}  {status}")
     return [f"{fid}/{state}: {n}" for n in notes]
 
 
@@ -174,15 +219,28 @@ def selftest() -> None:
     # ...and the defect this whole script exists for: the jiujitsu's shipped sweep box (6..48) sits
     # entirely below a strike thrown at chest height, which is what HIT-MISS has to catch.
     assert 48 < band[0], f"fixture drift: a low box must sit under this strike band {band}"
-    print("audit-boxes selftest: 4 fixtures OK "
-          "(jab band, planted-leg trap, frozen sheet, low-box-vs-high-strike)")
+
+    # Metric C. `_sheet` draws the arm across columns 170..170+reach, so a 60px arm ends at column
+    # 229 — that is 69px past the cell's centre line (CELL_W//2 == 160).
+    ARM_TIP = 170 + 60 - 1 - CELL_W // 2
+    assert strike_reach(masks) == ARM_TIP, strike_reach(masks)
+    # The same planted-leg trap as the band metric, and the one that matters most here: in `wide` the
+    # static leg reaches column 289 — 60px FURTHER forward than the arm — on every frame including
+    # frame 0. A "furthest opaque column" reach would report 129 and call the box honest when it is
+    # not. Differencing must give the arm.
+    assert strike_reach(wm) == ARM_TIP, \
+        f"the static planted leg was measured as the reach: {strike_reach(wm)} (arm tip is {ARM_TIP})"
+    assert strike_reach(frozen) is None, "an unmoving sheet has no measurable reach"
+    print("audit-boxes selftest: 6 fixtures OK (jab band, planted-leg trap, frozen sheet, "
+          "low-box-vs-high-strike, forward reach, reach planted-leg trap)")
 
 
 def main() -> int:
     selftest()
     reg = json.loads((ROOT / "public/configs/character-gym.json").read_text(encoding="utf-8"))
     flags: list[str] = []
-    print("\n  sheet                    body   hurt h/fig   hit band    strike band")
+    print("\n  sheet                    body   hurt h/fig   hit band    strike band  "
+          "far/limb      air")
     for fid, entry in reg.items():
         if not isinstance(entry, dict) or "data" not in entry:
             continue  # "_doc"

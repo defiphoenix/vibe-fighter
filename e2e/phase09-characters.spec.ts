@@ -1,4 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
+// anim-timing is deliberately Phaser-free, so the spec can import the real rule instead of
+// re-deriving it by hand — a hand-copied formula in a test only ever pins the copy.
+import { attackStartFrame, stunStartFrame } from "../src/render/anim-timing";
 
 // Phase 09 acceptance: BOTH fighters render as per-state sprites driven by sim state (idle → walk →
 // attack), stay feet-anchored/mirrored/depth-ordered, an attack switches the opponent to hitstun,
@@ -146,7 +149,10 @@ test("attack animations carry per-frame durations that put the strike on the act
     /* eslint-disable @typescript-eslint/no-explicit-any */
     const w = window as any;
     const reg = w.__game.cache.json.get("characters");
-    const out: { key: string; windUpMs: number; startupMs: number; totalMs: number; moveMs: number }[] = [];
+    const out: {
+      key: string; id: string; state: string; durations: number[]; hit: number;
+      startupMs: number; moveMs: number;
+    }[] = [];
     const STATE_TO_KEY: Record<string, string> = {
       attackLight: "light", attackHeavy: "heavy", airLight: "airLight",
       airHeavy: "airHeavy", crouchLight: "crouchLight", crouchHeavy: "crouchHeavy",
@@ -160,9 +166,10 @@ test("attack animations carry per-frame durations that put the strike on the act
         const a = reg[id].data.attacks[key];
         out.push({
           key: `${id}.${state}`,
-          windUpMs: d.slice(0, sheet.hit).reduce((t: number, x: number) => t + x, 0),
+          id, state,
+          durations: d as number[],
+          hit: sheet.hit as number,
           startupMs: ((a.startup - 1) * 1000) / 60 - 1, // -1 tick = play() lag, -1ms = boundary bias
-          totalMs: d.reduce((t: number, x: number) => t + x, 0),
           moveMs: ((a.startup + a.active + a.recovery) * 1000) / 60,
         });
       }
@@ -172,11 +179,17 @@ test("attack animations carry per-frame durations that put the strike on the act
   });
 
   expect(checked.length, "expected measured contact frames in the shipped registry").toBeGreaterThan(0);
+  const registry = await page.evaluate(() => (window as any).__game.cache.json.get("characters"));
+  const sum = (xs: number[]) => xs.reduce((t, x) => t + x, 0);
   for (const c of checked) {
+    // Playback starts at `attackStartFrame` when the wind-up budget cannot afford every drawn pose,
+    // so the frames before it are inert padding — measure the DRAWN span, which is what is on screen.
+    const meta = registry[c.id].render.sheets[c.state];
+    const s = attackStartFrame(c.state as never, meta, registry[c.id].data);
     // the frame the sprite strikes on begins exactly when the hit box does...
-    expect(c.windUpMs, `${c.key} wind-up`).toBeCloseTo(c.startupMs, 6);
+    expect(sum(c.durations.slice(s, c.hit)), `${c.key} wind-up`).toBeCloseTo(c.startupMs, 6);
     // ...and re-timing did not change how long the move takes
-    expect(c.totalMs, `${c.key} total`).toBeCloseTo(c.moveMs, 6);
+    expect(sum(c.durations.slice(s)), `${c.key} total`).toBeCloseTo(c.moveMs, 6);
   }
 });
 
@@ -319,10 +332,74 @@ test("a stun animation is retimed to the stun the sim actually gave it", async (
   expect(r.state).toBe("hitstun");
   expect(r.givenTicks, "the sim must have set a real stun window").toBe(14);
   expect(r.remainingTicks, "one tick of the injected stun is spent by the pumped step").toBe(13);
-  // The animation spans exactly the stun the sprite can still display, to within float noise.
-  expect(r.frames / r.playRate).toBeCloseTo(r.remainingTicks / 60, 4);
+  // The animation spans exactly the stun the sprite can still display, to within float noise —
+  // measured over the DRAWN frames, since a window too short to show every pose at a readable rate
+  // starts partway in (stunStartFrame). hitstun at 13 ticks affords all 4, so nothing is dropped here.
+  const drawn = r.frames - stunStartFrame("hitstun", { frames: r.frames, fps: 8 }, r.remainingTicks);
+  expect(drawn / r.playRate).toBeCloseTo(r.remainingTicks / 60, 4);
   // And it is NOT the authored rate — that is the defect this pins. 4 frames over 13 ticks is
   // ~18.5fps against the 8fps every non-attack sheet ships with.
   expect(r.registered).toBe(8);
   expect(r.playRate).toBeGreaterThan(r.registered * 2);
+});
+
+// ...and the same override must be re-applied when a COMBO re-hits a fighter who is already stunned.
+// `applyHit` resets stateFrame and stunTimer, but the STATE NAME stays `hitstun`, so a render layer
+// keying off the state alone never calls play() again: the hurt animation keeps the first hit's rate,
+// keeps counting from wherever it had reached, and — since the sheet is a 4-frame one-shot — simply
+// sits on its last frame for the rest of the combo. The sim was already correct; only the screen was
+// wrong, which is why no sim test could see it. Fighter.stunEpoch is what makes the re-entry visible.
+test("a combo's second hit restarts the hurt animation", async ({ page }) => {
+  await ready(page);
+  const r = await page.evaluate(() => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const w = window as any;
+    const g = w.__game;
+    let t = g.loop?.now ?? performance.now();
+    const step = () => { t += 1000 / 60; g.step(t, 1000 / 60); };
+
+    w.__world.match.phase = "fight";
+    w.__world.match.introTicks = 0;
+    const victim = w.__world.fighters[1];
+    const anims = () => w.__sprites[1].anims;
+
+    // First hit: a long window so the 4-frame sheet has time to run to its end before the re-hit.
+    victim.applyHit(1, 24, 0, 0, false);
+    step();
+    const firstRate = anims().frameRate as number;
+    for (let i = 0; i < 22; i++) step(); // let it play out to the last frame
+    const beforeIndex = anims().currentFrame?.index as number;
+    const beforeEpoch = victim.stunEpoch as number;
+
+    // Second hit of the combo — same state, shorter window.
+    victim.applyHit(1, 10, 0, 0, false);
+    step();
+    return {
+      state: victim.state as string,
+      stateUnchanged: victim.state === "hitstun",
+      beforeIndex,
+      afterIndex: anims().currentFrame?.index as number,
+      beforeEpoch,
+      afterEpoch: victim.stunEpoch as number,
+      remainingTicks: victim.stunTimer as number,
+      frames: anims().currentAnim?.frames.length as number,
+      firstRate,
+      afterRate: anims().frameRate as number,
+    };
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
+  // The premise: the sim really does re-enter WITHOUT a state change, so nothing else could catch it.
+  expect(r.state).toBe("hitstun");
+  expect(r.stateUnchanged).toBe(true);
+  expect(r.afterEpoch, "the sim must mark the re-hit as a new episode").toBeGreaterThan(r.beforeEpoch);
+
+  // The defect: the first hit had run the one-shot sheet to its final frame.
+  expect(r.beforeIndex, "the sheet should have played out before the re-hit").toBe(r.frames);
+  // The fix: the animation restarted from the top rather than staying parked on the last frame.
+  expect(r.afterIndex, "the hurt animation did not restart on the second hit").toBeLessThan(r.beforeIndex);
+  // ...and was re-timed to the NEW, shorter window — not left on the first hit's rate.
+  const drawn2 = r.frames - stunStartFrame("hitstun", { frames: r.frames, fps: 8 }, r.remainingTicks);
+  expect(drawn2 / r.afterRate).toBeCloseTo(r.remainingTicks / 60, 4);
+  expect(r.afterRate).toBeGreaterThan(r.firstRate);
 });

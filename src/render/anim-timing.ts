@@ -62,13 +62,23 @@ const STUN_TIMED: ReadonlySet<StateName> = new Set(["hitstun", "blockstun", "kno
  * frames 3-5. The fighter stood upright through his whole knockdown and popped back to idle. Same
  * class as the `attackLight` defect above, in the states that pass never re-checked.
  *
- * `stunTicks` is `Fighter.stunTimer` read on the frame the state changed. It can be one tick short of
- * what the sim set (`advanceTimers` may already have run), which is under a fifth of a frame here.
+ * `stunTicks` is `Fighter.stunTimer` read on the frame the state changed, and the RENDERABLE window is
+ * exactly the right thing to span — not the value the attack nominally assigned. Measured against the
+ * live sim: hitstun and blockstun are entered from `resolveCombat`, which sets hitstop, and `tick()`
+ * returns at the hitstop check BEFORE `advanceTimers`, so the render pass sees the full window (12
+ * assigned → 12 seen → 12 ticks in state; blockstun 9/9/9). A landing `knockdown` is the exception:
+ * `onLand` fires inside `integrate`, which runs BEFORE `advanceTimers` in the same tick and has no
+ * hitstop to bail on, so the render pass sees 17 of the assigned 18 — and the state also lasts exactly
+ * 17 more ticks. Spanning 17 is therefore correct, and "restoring" the assigned 18 would overrun the
+ * state and be cut at its exit. Do not add a +1 here.
  */
 export function stunFrameRate(state: StateName, meta: SheetTiming, stunTicks: number): number | null {
   if (!STUN_TIMED.has(state)) return null;
   if (!Number.isFinite(stunTicks) || stunTicks <= 0) return null;
-  return (meta.frames * TICK_HZ) / stunTicks;
+  // Only the frames from `stunStartFrame` onward are ever played, so the rate must span THOSE across
+  // the window — dividing the whole frame count would run the drawn tail short.
+  const drawn = meta.frames - stunStartFrame(state, meta, stunTicks);
+  return (drawn * TICK_HZ) / stunTicks;
 }
 
 /**
@@ -87,6 +97,71 @@ export const PLAY_LAG_TICKS = 1;
 
 /** Nudge (ms) that keeps a segment boundary off an exact tick. See the use site. */
 const BOUNDARY_BIAS_MS = 1;
+
+/**
+ * Fewest sim ticks a drawn pose may occupy before it stops being a pose and becomes a flicker.
+ *
+ * One tick is 16.7ms — a single refresh at 60Hz. Traced live, `brawler/attackLight` spent its three
+ * wind-up frames on exactly one tick each: the schedule was correct (durations 16.33ms, observed dwell
+ * one render frame apiece) and the contact frame still landed on the first active tick, so nothing was
+ * arithmetically wrong — the budget simply cannot buy three readable poses. Phase alignment fixes the
+ * wind-up segment at `startup - 1` ticks, so the only honest lever is to draw FEWER wind-up poses and
+ * give each the time to register.
+ */
+const MIN_POSE_TICKS_ATTACK = 2;
+
+/**
+ * Stuns get a higher floor than attack wind-ups, decided by looking at both.
+ *
+ * A stun is a pose you are PUT INTO, so the frames that read are the braced/landed ones and the
+ * lead-in is dead weight: at 3 ticks `blockstun` snaps straight to the crossed-arm brace instead of
+ * spending its first ticks raising the guard, and `knockdown` reaches its fall (frames 3-5) sooner.
+ * An attack wind-up is the opposite — it is anticipation the player reads to know what is coming —
+ * so it only gets trimmed where it was genuinely sub-perceptual. At 3, `jiujitsu/attackLight` (2
+ * poses at 2.0 ticks) and `monk/airLight` (2 at 2.5) collapsed to a single held pose despite being
+ * perfectly readable; at 2 they are left alone and only `brawler/attackLight` (3 poses at 1.0 tick)
+ * and `brawler/crouchLight` (2 at 1.5) are rescued.
+ */
+const MIN_POSE_TICKS_STUN = 3;
+
+/** Frames of `n` that a `ticks`-long window can afford at `min` ticks each, at least one. */
+const affordablePoses = (ticks: number, n: number, min: number): number =>
+  Math.min(n, Math.max(1, Math.floor(ticks / min)));
+
+/**
+ * The frame an attack's animation should START on, so no wind-up pose is drawn for less than
+ * `MIN_POSE_TICKS`. Returns 0 whenever the whole wind-up already fits, which is the common case.
+ *
+ * Skipping leading frames — rather than slowing them down — is what keeps the contact frame on the
+ * sim's first active tick: the wind-up budget is fixed by `startup`, so buying time for a pose can
+ * only come out of another pose, never out of the strike. The frame immediately before contact is
+ * always the one kept, because that is the pose the strike reads as departing from.
+ */
+export function attackStartFrame(state: StateName, meta: SheetTiming, data: CharacterData): number {
+  if (!isAttackState(state) || meta.hit === undefined) return 0;
+  const hit = meta.hit;
+  if (!Number.isInteger(hit) || hit <= 0 || hit >= meta.frames) return 0;
+  const a = data.attacks[ATTACK_STATE_TO_KEY[state]];
+  if ((a.repeat?.count ?? 1) > 1) return 0; // multi-hit keeps uniform timing; no wind-up segment to trim
+  const windUpTicks = a.startup - PLAY_LAG_TICKS;
+  if (windUpTicks <= 0) return 0;
+  return Math.max(0, hit - affordablePoses(windUpTicks, hit, MIN_POSE_TICKS_ATTACK));
+}
+
+/**
+ * The frame a STUN's animation should start on, for the same reason as `attackStartFrame`: a window
+ * too short to draw every pose should draw fewer, not flash them all.
+ *
+ * A stun has no contact frame to align to, so the whole sheet is one segment — but the frames that
+ * matter are still the LAST ones. `knockdown`'s fall is frames 3-5 (heights 100/98/100/96/60/29), so
+ * trimming from the front reaches the ground sooner, which is the same failure the derived rate was
+ * introduced to fix. Trimming from the back would cut the fall off again.
+ */
+export function stunStartFrame(state: StateName, meta: SheetTiming, stunTicks: number): number {
+  if (!STUN_TIMED.has(state)) return 0;
+  if (!Number.isFinite(stunTicks) || stunTicks <= 0) return 0;
+  return Math.max(0, meta.frames - affordablePoses(stunTicks, meta.frames, MIN_POSE_TICKS_STUN));
+}
 
 /**
  * Per-frame playback durations (ms) for one attack, or `null` to keep the uniform `attackFrameRate`.
@@ -123,13 +198,17 @@ export function attackFrameDurations(state: StateName, meta: SheetTiming, data: 
   const strikeTicks = a.active + a.recovery + PLAY_LAG_TICKS;
   if (windUpTicks <= 0 || strikeTicks <= 0) return null;
 
+  // Playback starts at `attackStartFrame`, so the wind-up budget is shared by only the frames that
+  // will actually be drawn. Frames before it keep a duration (they are simply never reached) — the
+  // count below is what matters.
+  const drawnWindUp = hit - attackStartFrame(state, meta, data);
   const msPerTick = 1000 / TICK_HZ;
   // Bias the segment boundary a hair early. Phaser advances a frame when its accumulator reaches
   // the frame's duration, so a boundary landing EXACTLY on a tick resolves on the following update
   // and the contact frame appears one tick late (measured: monk/airLight sat at accumulator ==
   // nextTick on its first active tick). Being a millisecond early is invisible — the sprite is
   // simply extended a hair before the hit box — while being a tick late is the whole defect.
-  const windUp = (windUpTicks * msPerTick - BOUNDARY_BIAS_MS) / hit;
+  const windUp = (windUpTicks * msPerTick - BOUNDARY_BIAS_MS) / drawnWindUp;
   const strike = (strikeTicks * msPerTick + BOUNDARY_BIAS_MS) / (n - hit);
   return Array.from({ length: n }, (_, i) => (i < hit ? windUp : strike));
 }

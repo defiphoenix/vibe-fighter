@@ -1,0 +1,29 @@
+[
+  {
+    "created_at": "2026-07-26T16:05:43.960191Z",
+    "display_name": "Nano Banana Pro",
+    "id": "982d15fc-fef0-4610-aa40-648071119af6",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260726_160543_982d15fc-fef0-4610-aa40-648071119af6_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "3:4",
+      "batch_size": 1,
+      "height": 2400,
+      "input_image": null,
+      "input_images": [
+        {
+          "id": "504c8cdb-9f56-46a1-8729-3f4f83f2ba99",
+          "type": "media_input",
+          "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/504c8cdb-9f56-46a1-8729-3f4f83f2ba99_resize.jpg"
+        }
+      ],
+      "prompt": "The SAME single Shaolin monk fighter from the reference image, in the SAME deep low crouch, seen from the side facing RIGHT, full body with both feet flat on the ground and visible.\n\nKeep the reference image's legs, hips and height EXACTLY as they are: knees bent past ninety degrees, thighs folded down toward his calves, hips dropped low near his heels, back straight, torso upright, compressed to roughly two thirds of his standing height. The top of his bald head is at the same height as in the reference image.\n\nDiscard the reference image's ARM position entirely. He is now BLOCKING, not fighting: both forearms are raised together in front of his face and chest, held vertically and parallel like a boxer covering up, one stacked above the other, both elbows pulled in tight against his ribs, both fists closed near his temple and cheek, shoulders hunched up toward his ears. His arms form a solid shield across his head and body. This is a defensive turtle, clearly different from a fighting stance with one lead fist out.\n\nKeep his exact appearance: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head.\n\nFlat solid #FF00FF magenta background, completely uniform, nothing else in the frame. Locked static camera at his eye level. Exactly ONE character, no other people, no weapons, no props, no text, no logos. Full-bleed, no border, no vignette.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 1792
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260726_160543_982d15fc-fef0-4610-aa40-648071119af6.png",
+    "status": "completed"
+  }
+]

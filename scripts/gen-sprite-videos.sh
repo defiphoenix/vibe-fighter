@@ -42,11 +42,20 @@ declare -A START_OVERRIDE=(
   [jiujitsu/blockCrouch]="concepts/characters/guard-refs/jiujitsu-blockCrouch.png"
   # NOT guard-refs/monk-blockCrouch.png: that "crouched guard" reference is a fighter STANDING in a
   # wide horse stance, which is why his low block measured 158-175px against a 183px stand — 86-96%
-  # of his standing height, i.e. not a crouch at all. `--start-image` DOMINATES the prompt, so no
-  # wording could have fixed it. crouch-refs/monk-crouch.png is the purpose-generated deep squat used
-  # by his other crouch states and already holds a guard at the chin, so his crouch and crouch-block
-  # now also agree pixel-for-pixel — the same argument as jiujitsu/crouchLight below.
-  [monk/blockCrouch]="concepts/characters/crouch-refs/monk-crouch.png"
+  # of his standing height, i.e. not a crouch at all.
+  #
+  # ...and NOT crouch-refs/monk-crouch.png either, which replaced it. That fixed the height and broke
+  # the POSE: it is the very reference his `crouch` sheet is generated from, so his crouch-block came
+  # out 95% identical to his crouch (measured IoU 0.95) and he had no readable low guard at all. A
+  # prompt cannot argue its way out of that — `--start-image` DOMINATES, and a rewrite naming the arm
+  # change explicitly was generated and measured: IoU stayed at 0.95, amp at 0.05, completely
+  # unchanged. The reference is the lever, not the wording.
+  #
+  # So: a PURPOSE-BUILT low-guard reference, made by nano_banana_pro FROM monk-crouch.png with the
+  # legs/hips/height held and only the arms replaced (both forearms up, elbows tucked, a boxer's
+  # cover). Measured 1558px against the crouch reference's 1557px on the same canvas — the same deep
+  # squat, a different upper body, which is exactly the pair of properties this state needs.
+  [monk/blockCrouch]="concepts/characters/guard-refs/monk-blockCrouch-v2.png"
 )
 
 # per-fighter outfit clause so every state keeps the exact same look
@@ -137,7 +146,23 @@ declare -A MOTION_FROM_START=(
   # 100-123 it measured before, still 3px short. The model lands consistently HIGHER than asked (the
   # Phase 04 "inflates any requested band" lesson, in the vertical), so aim at the SHIN to get a knee.
   [monk/crouchLight]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and punches LOW along the floor: his lead arm shoots straight forward at SHIN HEIGHT, the fist skimming forward just above the ground level with his own ankles and NEVER rising as high as his own knees, until the elbow is completely straight and the fist is far out in front of him, then pulls back. ONLY the arm moves -- his head, shoulders and hips do not rise at all"
-  [monk/crouchHeavy]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and sweeps one heavy low attack forward ALONG THE GROUND at ankle height: the striking arm or leg skims just above the floor, reaching far out in front of him and never rising as high as his own knees, then returns. His hips stay down the whole time. ${SPAN_CLIP}"
+  # The roster's worst box-vs-art disagreement, and the one sheet in the pass that a box trim could
+  # not fix: measured limb reach 50px against a box far edge of 156px, so it connected with ~92px of
+  # empty air; trimming the box to the art instead would drop the monk from 118 to 86 effective reach,
+  # worst on the move, and turn reach-parity.test.ts red. Its forward spread was also only 6px, which
+  # is why check:sync calls it INDETERMINATE and it never got a phase-aligned contact frame either.
+  # Two lessons applied: every motion metric is DIRECTION-BLIND (a big vertical swing scores exactly as
+  # well as a forward one, and the vertical one is the one that misses), so name the TARGET and the
+  # distance rather than the move; and the model lands a strike HIGHER than asked, so name the joint
+  # one lower than wanted — this prompt already said "ankle height" and measured a 0..129px band.
+  # Keeps ${SPAN_CLIP} and the "HOLDS at full extension" clause TOGETHER, even though they contradict
+  # each other on paper ("never hold still" vs "holds"). That combination is the one that measured
+  # BEST: limb reach 61px, forward spread 15px, against 50/6 for the shipped version. Replacing it
+  # with a clean, non-contradictory explicit timeline ("reach the furthest point by the MIDDLE, hold
+  # there, draw the leg back over the final third") sounded strictly better and measured strictly
+  # worse — 57px reach, 7px spread, back under the 8px spread floor. Reasoning about these prompts
+  # loses to measuring them; do not "fix" this back into something tidier.
+  [monk/crouchHeavy]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and sweeps one heavy low attack forward ALONG THE GROUND at an opponent standing just in front of him to the RIGHT: his striking leg skims the floor and extends fully sideways until it reaches well past where his own toes are, far enough to sweep that opponent's ankles, and HOLDS at that full extension before pulling back. The leg never rises as high as his own knees and his hips stay down the whole time. The single biggest movement in the clip is the leg travelling FORWARD, not up. ${SPAN_CLIP}"
   [jiujitsu/crouchLight]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and punches: his lead arm shoots straight forward until the elbow is completely straight and the fist is far out in front of him, then pulls back to his chest. ONLY the arm moves. ${SPAN_CLIP}"
   # block / blockCrouch start FROM the guard pose, so the prompt just holds it — no wind-up, the guard
   # is up from frame 0. Only a slight, steady weight shift; the pose itself never changes.
@@ -152,10 +177,54 @@ declare -A MOTION_FROM_START=(
   # the bob is what reads wrong: jiujitsu measured 9px of vertical spread and monk 17px (9% of his
   # standing height) and both look like a fighter jumping on the spot rather than braced. The bob was
   # never load-bearing — `blockCrouch` loops (loop:true), and a loop of near-identical held frames is
-  # simply a steady guard, which is the intent. So these now HOLD, exactly like the high `block`
-  # prompts above: a breath, not a bounce. Do not reintroduce a bob count here.
-  [jiujitsu/blockCrouch]="holds exactly the deep low crouching guard pose of the start image for the whole clip — hips down near his heels, knees bent, forearms up in front of his face and chest — and simply breathes there, his shoulders rising and settling very slightly and his weight easing a little from one foot to the other. He does NOT bob, does NOT bounce, and does NOT dip up and down: the top of his head stays at very nearly the same height in every single frame. He NEVER stands up, NEVER straightens his legs, and NEVER lowers the guard. Perfectly flat uniform magenta background, no texture or speckle"
-  [monk/blockCrouch]="holds exactly the deep crouching pose of the start image for the whole clip — hips dropped low near his heels, knees bent well past ninety degrees, torso upright — with both forearms raised in a tight guard covering his face and chest, and simply breathes there, his shoulders rising and settling very slightly. He does NOT bob, does NOT bounce, and does NOT dip up and down: the top of his bald head stays at very nearly the same height in every single frame, no higher than it is in the start image. He NEVER stands up, NEVER straightens his legs, NEVER rises out of the squat, and NEVER lowers the guard. Perfectly flat uniform magenta background, no texture or speckle"
+  # simply a steady guard, which is the intent. So these HOLD: a breath, not a bounce. Do not
+  # reintroduce a bob count here.
+  #
+  # ...but the no-bounce rewrite then overshot into a FROZEN still, which is the other failure and the
+  # one a player actually complained about: jiujitsu measured amp 0.06 and monk 0.05, the two lowest
+  # numbers on the roster (brawler, untouched, sits at 0.12 and reads fine). Both prompts caused it,
+  # in different ways, and both are fixed below:
+  #
+  #   jiujitsu — asked for breathing and then negated motion FOUR times in one sentence ("does NOT
+  #   bob, does NOT bounce, does NOT dip up and down, head at very nearly the same height"). The model
+  #   maximises, and what it maximised was the stillness. The height constraint is the one that
+  #   killed the bob, so it stays; the three redundant negations go, and the requested motion moves to
+  #   where the height clause cannot forbid it — hands and shoulders only.
+  #
+  #   monk — worse: his START IMAGE is `crouch-refs/monk-crouch.png`, the very reference his `crouch`
+  #   sheet is generated from, and the prompt said "holds EXACTLY the pose of the start image".
+  #   `--start-image` dominates, so a 95%-identical result is precisely what was ordered — measured
+  #   IoU 0.95 against his own `crouch`, i.e. he has no distinguishable low guard at all. The start
+  #   image stays (it is what fixed his 86-96%-of-standing-height regression; the older
+  #   `guard-refs/monk-blockCrouch.png` is a STANDING pose and must not come back), so the prompt now
+  #   names the DIFFERENCE from it — the arms — instead of asking for a copy.
+  #
+  # Both also name a CYCLE COUNT: ffmpeg samples N frames evenly across the whole 4s clip, so motion
+  # without a stated count lands several samples on the same instant and reads as a still.
+  # jiujitsu: the head-height clause was DROPPED here after measuring. It is what killed the Phase 13b
+  # bob, but it also suppressed everything else with it — the "breathe, do not bob" wording measured
+  # amp 0.065, and a rewrite that kept the clause and added a named cycle count measured 0.032, i.e.
+  # further toward frozen. So he is now asked for a small, explicit, VISIBLE weight shift instead,
+  # accepting a little vertical movement. If the bob returns (measure the head-row spread across the
+  # sheet, not the amplitude), the answer is a smaller named shift, not the blanket height clause.
+  [jiujitsu/blockCrouch]="holds the deep low crouching guard of the start image for the whole clip — hips down near his heels, knees bent, both forearms up in front of his face and chest — and stays visibly alive in it: he shifts his weight from his back foot to his front foot and back again TWICE, slowly and evenly across the clip, his shoulders and guard hands moving with it. He never stands up, never straightens his legs, and never lowers the guard. Perfectly flat uniform magenta background, no texture or speckle"
+  # monk: the start image IS his two-armed low guard now, so this no longer has to argue the pose into
+  # existence — which is the whole point of building the reference first.
+  #
+  # The word "EXACTLY" is deliberately absent. This prompt and the jiujitsu one above were otherwise
+  # the same sentence, and the monk's measured amp 0.05 against the jiujitsu's 0.23 — the single
+  # difference was "holds exactly the ... guard of the start image" versus "holds the ... guard".
+  # "Exactly" reads as an instruction not to change anything, and it wins over every later request for
+  # movement. Same family as the four negations that froze the jiujitsu: do not reintroduce it.
+  #
+  # The motion sentence is the jiujitsu one VERBATIM, and deliberately so. Four attempts on this sheet
+  # measured 0.049 / 0.049 / 0.055 / 0.029 while the identically-structured jiujitsu prompt measured
+  # 0.225, so the wording that is known to work is worth more than any reasoning about what ought to
+  # work: an attempt that swapped the weight shift for hip-rocking — which seemed better suited to a
+  # deep squat, since both heels are planted — measured 0.029, the worst of the four. Changing two
+  # things at once (that swap AND dropping "exactly") is what made that result uninterpretable.
+  # If this needs another pass, change ONE clause and measure.
+  [monk/blockCrouch]="holds the deep crouching two-armed guard of the start image for the whole clip — hips dropped low near his heels, knees bent well past ninety degrees, torso upright, both forearms up together in front of his face and chest with the elbows tucked in — and stays visibly alive in it: he shifts his weight from his back foot to his front foot and back again TWICE, slowly and evenly across the clip, his shoulders and guard hands moving with it. He never stands up, never straightens his legs, and never lowers the guard. Perfectly flat uniform magenta background, no texture or speckle"
 )
 STATES=("$@"); [ ${#STATES[@]} -eq 0 ] && STATES=(walkF walkB crouch block blockCrouch jumpRise jumpFall attackLight attackHeavy airLight airHeavy crouchLight crouchHeavy special hitstun blockstun knockdown ko)
 

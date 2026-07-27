@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stateFrameRate, stunFrameRate, attackFrameDurations } from "./anim-timing";
+import { stateFrameRate, stunFrameRate, attackFrameDurations, attackStartFrame, stunStartFrame } from "./anim-timing";
 import { ATTACK_STATE_TO_KEY, attackSimTicks, isAttackState } from "../sim/types";
 import type { CharacterData, StateName } from "../sim/types";
 import { TICK_HZ } from "../sim/constants";
@@ -88,7 +88,12 @@ describe("stun and jump animations span their state", () => {
         const meta = render.sheets[state];
         const rate = stunFrameRate(state, meta, ticks);
         expect(rate, `${id}.${state}`).not.toBeNull();
-        expect(meta.frames / rate!, `${id}.${state}`).toBeCloseTo(ticks / TICK_HZ, 6);
+        // Measured over the DRAWN frames: a window too short to show every pose at a readable rate
+        // starts partway in (see stunStartFrame), and the rate spans what is actually played.
+        const drawn = meta.frames - stunStartFrame(state, meta, ticks);
+        expect(drawn / rate!, `${id}.${state}`).toBeCloseTo(ticks / TICK_HZ, 6);
+        // ...and no drawn pose is under one refresh at 60Hz.
+        expect(ticks / drawn, `${id}.${state} ticks per pose`).toBeGreaterThan(1);
       }
     }
   });
@@ -133,16 +138,67 @@ describe("attackFrameDurations places the contact frame on the first active tick
     const a = data.attacks[ATTACK_STATE_TO_KEY.attackLight];
     const meta = { frames: 6, fps: 14, hit: 3 };
     const d = attackFrameDurations("attackLight", meta, data)!;
+    const s = attackStartFrame("attackLight", meta, data);
     expect(d).toHaveLength(6);
     // The load-bearing assertion: the wind-up segment is `startup - 1` ticks, so frame `hit` is on
     // screen exactly when the hit box goes live. The -1 is the play() lag, measured live — see
     // PLAY_LAG_TICKS. Without it the contact frame lands on the LAST active tick, not the first.
-    expect(sum(d.slice(0, 3))).toBeCloseTo((a.startup - 1) * MS - 1, 9); // -1ms boundary bias
+    // Measured on the DRAWN frames: playback begins at `attackStartFrame`, and the frames before it
+    // are never reached, so their duration is inert padding and would only inflate the sum.
+    expect(sum(d.slice(s, 3))).toBeCloseTo((a.startup - 1) * MS - 1, 9); // -1ms boundary bias
     expect(sum(d.slice(3))).toBeCloseTo((a.active + a.recovery + 1) * MS + 1, 9);
-    expect(sum(d)).toBeCloseTo((a.startup + a.active + a.recovery) * MS, 9);
+    expect(sum(d.slice(s))).toBeCloseTo((a.startup + a.active + a.recovery) * MS, 9);
     // uniform within each segment, and the strike half is faster than the wind-up here
-    expect(new Set(d.slice(0, 3)).size).toBe(1);
+    expect(new Set(d.slice(s, 3)).size).toBe(1);
     expect(new Set(d.slice(3)).size).toBe(1);
+  });
+
+  // The wind-up budget is fixed at `startup - 1` ticks by phase alignment, so a sheet with more
+  // wind-up poses than ticks to spend cannot slow them down — it can only draw fewer. Traced live:
+  // brawler/attackLight spent three wind-up frames on ONE tick each (16.7ms, a single refresh).
+  it("starts an attack partway in when the wind-up cannot afford every pose", () => {
+    const meta = { frames: 6, fps: 14, hit: 3 };
+    const a = data.attacks[ATTACK_STATE_TO_KEY.attackLight];
+    const windUp = a.startup - 1;
+    const s = attackStartFrame("attackLight", meta, data);
+    const d = attackFrameDurations("attackLight", meta, data)!;
+
+    expect(windUp / meta.hit, "this fixture must be a sheet that cannot afford its wind-up").toBeLessThan(2);
+    expect(s, "playback must skip the poses there is no time for").toBeGreaterThan(0);
+    expect(s, "...but never the pose the strike departs from").toBeLessThan(meta.hit);
+    // Every DRAWN wind-up pose now clears the one-refresh floor.
+    for (let i = s; i < meta.hit; i++) expect(d[i], `frame ${i}`).toBeGreaterThanOrEqual(2 * MS - 1);
+    // ...and the strike is untouched: same start tick, same total.
+    expect(sum(d.slice(s))).toBeCloseTo((a.startup + a.active + a.recovery) * MS, 9);
+  });
+
+  // The two floors are deliberately different, chosen by looking at the result rather than by taste.
+  // A stun is a pose you are PUT INTO, so its lead-in frames are dead weight and 3 ticks is right; an
+  // attack wind-up is anticipation the player reads, so it only gets trimmed where it was genuinely
+  // sub-perceptual. Pinning both so a future "simplify to one constant" has to argue with the case.
+  it("uses a higher floor for stuns than for attack wind-ups", () => {
+    // jiujitsu's light already showed 2 wind-up poses at 2.0 ticks each — readable, so left alone.
+    const jj = reg.jiujitsu;
+    expect(attackStartFrame("attackLight", jj.render.sheets.attackLight, jj.data)).toBe(0);
+    // ...while blockstun's 4 poses over a 9-tick window are trimmed to 3 so each clears 3 ticks.
+    const bs = reg[FIGHTERS[0]].render.sheets.blockstun;
+    expect(stunStartFrame("blockstun", bs, 9)).toBe(1);
+    expect(9 / (bs.frames - stunStartFrame("blockstun", bs, 9))).toBeGreaterThanOrEqual(3);
+    // hitstun at 12 ticks already affords all 4 poses, so nothing is dropped.
+    expect(stunStartFrame("hitstun", reg[FIGHTERS[0]].render.sheets.hitstun, 12)).toBe(0);
+  });
+
+  it("leaves an attack alone when its wind-up already fits, and never trims a multi-hit", () => {
+    // A generous startup: 9 ticks over 2 wind-up poses is 4 ticks each, well clear of the floor.
+    const roomy: CharacterData = {
+      ...data,
+      attacks: { ...data.attacks, light: { ...data.attacks.light, startup: 9 } },
+    };
+    expect(attackStartFrame("attackLight", { frames: 6, fps: 14, hit: 2 }, roomy)).toBe(0);
+    // A repeat special keeps uniform timing, so it has no wind-up segment to trim.
+    expect(attackStartFrame("special", { ...reg[FIGHTERS[0]].render.sheets.special, hit: 3 }, data)).toBe(0);
+    // ...and a sheet with no measured contact frame is never second-guessed.
+    expect(attackStartFrame("attackLight", { frames: 6, fps: 14 }, data)).toBe(0);
   });
 
   it("returns null (keep uniform timing) for anything it cannot place", () => {
@@ -173,10 +229,16 @@ describe("attackFrameDurations places the contact frame on the first active tick
         if (!durs) continue; // sheet with no measured contact frame — uniform timing, covered above
         checked++;
         const a = d.attacks[ATTACK_STATE_TO_KEY[state]];
+        const s = attackStartFrame(state, meta, d);
         expect(durs, `${id}.${state}`).toHaveLength(meta.frames);
         expect(durs.every((x: number) => x > 0), `${id}.${state}: no zero-length frame`).toBe(true);
-        expect(sum(durs), `${id}.${state} total`).toBeCloseTo((a.startup + a.active + a.recovery) * MS, 6);
-        expect(sum(durs.slice(0, meta.hit)), `${id}.${state} wind-up`).toBeCloseTo((a.startup - 1) * MS - 1, 6);
+        // Measured over the DRAWN frames — playback starts at `s`, and anything before it is padding.
+        expect(sum(durs.slice(s)), `${id}.${state} total`).toBeCloseTo((a.startup + a.active + a.recovery) * MS, 6);
+        expect(sum(durs.slice(s, meta.hit)), `${id}.${state} wind-up`).toBeCloseTo((a.startup - 1) * MS - 1, 6);
+        // No drawn pose may sit under one refresh at 60Hz — the defect this trimming exists to remove.
+        for (let i = s; i < meta.frames; i++) {
+          expect(durs[i], `${id}.${state} frame ${i} is sub-perceptual`).toBeGreaterThan(MS);
+        }
       }
     }
     expect(checked, "expected the registry to carry measured contact frames").toBeGreaterThan(0);

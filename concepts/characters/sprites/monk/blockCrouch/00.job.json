@@ -1,8 +1,8 @@
 [
   {
-    "created_at": "2026-07-25T17:24:37.8572Z",
+    "created_at": "2026-07-26T16:31:31.723021Z",
     "display_name": "Seedance 2.0",
-    "id": "8e4ecffc-c6be-4949-892f-c23b699fbd70",
+    "id": "c321b85e-3e9a-494d-a3c0-eaf8c01d974d",
     "job_type": "seedance_2_0",
     "min_result_url": null,
     "params": {
@@ -15,9 +15,9 @@
       "medias": [
         {
           "data": {
-            "id": "596d75cf-0b55-4736-8d59-91c71711542c",
+            "id": "688813ea-a343-42de-a6e4-c709923a32e9",
             "type": "media_input",
-            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/596d75cf-0b55-4736-8d59-91c71711542c_resize.jpg"
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/688813ea-a343-42de-a6e4-c709923a32e9_resize.jpg"
           },
           "role": "start_image"
         }
@@ -27,15 +27,15 @@
       "multi_prompt": [],
       "multi_shot_mode": "custom",
       "multi_shots": false,
-      "prompt": "The SAME single monk fighter from the start image holds exactly the deep crouching pose of the start image for the whole clip — hips dropped low near his heels, knees bent well past ninety degrees, torso upright — with both forearms raised in a tight guard covering his face and chest, and simply breathes there, his shoulders rising and settling very slightly. He does NOT bob, does NOT bounce, and does NOT dip up and down: the top of his bald head stays at very nearly the same height in every single frame, no higher than it is in the start image. He NEVER stands up, NEVER straightens his legs, NEVER rises out of the squat, and NEVER lowers the guard. Perfectly flat uniform magenta background, no texture or speckle, side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt": "The SAME single monk fighter from the start image holds the deep crouching two-armed guard of the start image for the whole clip — hips dropped low near his heels, knees bent well past ninety degrees, torso upright, both forearms up together in front of his face and chest with the elbows tucked in — and stays visibly alive in it: he shifts his weight from his back foot to his front foot and back again TWICE, slowly and evenly across the clip, his shoulders and guard hands moving with it. He never stands up, never straightens his legs, and never lowers the guard. Perfectly flat uniform magenta background, no texture or speckle, side view facing RIGHT, centered in place. Keep his exact appearance every frame: orange Shaolin monk robe with wrapped forearms and shins, wooden prayer-bead necklace, bald head. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
       "prompt_language": "en",
       "reference_elements": [],
       "resolution": "720p",
       "speedramp": "auto",
       "width": 720
     },
-    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_172437_8e4ecffc-c6be-4949-892f-c23b699fbd70.mp4",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260726_163131_c321b85e-3e9a-494d-a3c0-eaf8c01d974d.mp4",
     "status": "completed",
-    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260725_172437_8e4ecffc-c6be-4949-892f-c23b699fbd70_thumbnail.webp"
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260726_163131_c321b85e-3e9a-494d-a3c0-eaf8c01d974d_thumbnail.webp"
   }
 ]

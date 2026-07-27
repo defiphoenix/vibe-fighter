@@ -42,6 +42,16 @@ export class Fighter {
   stateFrame = 0;
   stunTimer = 0; // remaining ticks of a stun/attack lock counted separately where needed
 
+  /** Monotonic id of the current stun EPISODE, bumped by every applyHit. Exists because a combo's
+   *  2nd+ hit lands while the defender is already in `hitstun`: the state NAME does not change, so a
+   *  render layer keying off the state alone never restarts the hurt animation and the defender
+   *  freezes on its last frame for the rest of the combo. `stunTimer` rising is not a usable
+   *  substitute — a multi-tick advance batch can decrement it and a re-hit restore it to exactly the
+   *  previously observed value, showing no change at all. Never reset (not even by `reset()`): the
+   *  renderer compares it against the last value it saw, and restarting at 0 could collide with what
+   *  is already on screen and skip the re-play. */
+  stunEpoch = 0;
+
   health: number;
   guardIntent = false; // dedicated block key held this tick, grounded (NOT hold-away; separate from FSM)
   crouchIntent = false;
@@ -302,6 +312,8 @@ export class Fighter {
 
   /** Apply an incoming hit or block result (called by combat, step 9). */
   applyHit(damage: number, stun: number, kbx: number, kby: number, blocked: boolean): void {
+    // Bumped FIRST so the KO branch below, which returns early, still counts as an episode.
+    this.stunEpoch++;
     this.health = Math.max(0, this.health - damage);
     this.vx = kbx; // world-space knockback (already signed by combat)
     if (!blocked && kby !== 0) {

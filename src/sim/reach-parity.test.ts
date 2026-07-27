@@ -17,14 +17,23 @@ const reg = registry as unknown as Record<string, { data: CharacterData }>;
 const FIGHTERS = Object.keys(reg).filter((k) => (reg[k] as any)?.data); // skip the `_doc` metadata key
 
 const GROUND_ATTACKS = ["light", "heavy", "crouchLight", "crouchHeavy"] as const;
+// The AIR normals were never covered, and the gap was real: measured on the shipped registry the monk
+// struck 80 vs 82 on airLight and 105 vs 107 on airHeavy — out-ranged on both, which is the exact
+// thing this file exists to prevent. Small, but the test not looking is why it survived.
+const AIR_ATTACKS = ["airLight", "airHeavy"] as const;
+type AttackName = (typeof GROUND_ATTACKS)[number] | (typeof AIR_ATTACKS)[number];
 
-/** How far past his own body the fighter strikes. */
-function effectiveReach(id: string, attack: (typeof GROUND_ATTACKS)[number]): number {
+/** How far past his own body the fighter strikes.
+ *
+ *  The pushbox is picked by the attack's own `body`, not by its name: an AIR normal has
+ *  `body: "air"` and is measured against `pushStand`, because that is the profile
+ *  `character-builder.ts` gives it. Assuming crouch-vs-stand from the name would silently measure the
+ *  air normals against the wrong body. */
+function effectiveReach(id: string, attack: AttackName): number {
   const d = reg[id].data;
-  const hit = (d.attacks as any)[attack].hit;
-  const crouching = attack.startsWith("crouch");
-  const pushHalf = (crouching ? d.boxes.pushCrouch.w : d.boxes.pushStand.w) / 2;
-  return hit.x + hit.w - pushHalf;
+  const atk = (d.attacks as any)[attack];
+  const pushHalf = (atk.body === "crouch" ? d.boxes.pushCrouch.w : d.boxes.pushStand.w) / 2;
+  return atk.hit.x + atk.hit.w - pushHalf;
 }
 
 describe("reach parity across the roster", () => {
@@ -32,7 +41,7 @@ describe("reach parity across the roster", () => {
     expect(FIGHTERS).toEqual(expect.arrayContaining(["brawler", "jiujitsu", "monk"]));
   });
 
-  for (const attack of GROUND_ATTACKS) {
+  for (const attack of [...GROUND_ATTACKS, ...AIR_ATTACKS]) {
     it(`no fighter is out-ranged on ${attack} by being wide-bodied`, () => {
       const reaches = FIGHTERS.map((id) => ({ id, r: effectiveReach(id, attack) }));
       const best = Math.max(...reaches.map((x) => x.r));

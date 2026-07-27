@@ -9,7 +9,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 on top of it. Rendering uses **default LINEAR antialiasing — no `pixelArt`** — because the art is
 photographic (video-derived sprites + painted backgrounds).
 
-Built in phases. **Phases 00–15 are shipped; Phase 16 is next.** Specs and gate
+Built in phases. **Phases 00–15 are shipped, plus a post-15 animation/box defect pass
+([`docs/phases/16-animation-box-defect-pass.md`](docs/phases/16-animation-box-defect-pass.md)).**
+Specs and gate
 results in [`docs/phases/`](docs/phases/); the narrative of what shipped when, including the fix passes
 between phases, is in [`docs/history.md`](docs/history.md). `prompts.pdf` holds the original spec.
 
@@ -42,7 +44,8 @@ npm run check:sprites    # gate: cell size, frame count == JSON, feet-anchored, 
 npm run check:sync       # gate: measure each attack sheet's CONTACT frame, check against render.sheets.<state>.hit; --write records it
 npm run audit:anim       # roster-wide animation REPORT (advisory, always exit 0)
 npm run audit:boxes      # roster-wide BOX-vs-ART report: hurt height vs the figure, hit band vs the
-                         # measured strike (advisory, always exit 0 — 4 shipped sheets flag today)
+                         # measured strike, and the HORIZONTAL reach gap — limb tip vs box far edge
+                         # and the visible air at max connect range (advisory, exit 0; 1 sheet flags)
 npm run gen:placeholder  # regenerate 19 states x 3 fighters of placeholder sheets
                          # (`-- --state <name>` limits it — without it this OVERWRITES the real art)
 npm run key:layers       # re-key + validate the Phase 04 parallax layers
@@ -423,6 +426,24 @@ because the tests only ever compared code to other code.
   change, which is what the metric rewards. Fix in the prompt by naming the TARGET ("at an opponent
   standing just in front of him to the RIGHT … reaching well past where his own toes are"); the tell
   that it worked is the minimum adjacent change (0.01 → 0.36) and heights going FLAT, not taller.
+- **…and an animation that spans its state exactly can still be too fast to SEE.** Deriving the rate
+  from the sim fixed length and phase and left a third defect untouched: `brawler/attackLight` spent
+  its three wind-up frames on ONE tick each — 16.7ms, a single refresh at 60Hz — while measuring a
+  perfect 1.00 art/sim ratio. Phase alignment fixes the wind-up budget at `startup - 1` ticks, so a
+  pose cannot be given more time without delaying the contact frame; the only honest lever is to draw
+  FEWER poses. `attackStartFrame`/`stunStartFrame` skip what the window cannot afford, at **two**
+  floors: 2 ticks for attack wind-ups (anticipation the player reads — only rescue the sub-perceptual)
+  and 3 for stuns (a pose you are PUT INTO — the lead-in is dead weight, so `blockstun` snaps to the
+  brace and `knockdown` reaches its fall sooner). One floor of 3 everywhere collapsed two perfectly
+  readable 2-pose wind-ups to a single held pose.
+- **The audit's own length column was 1.00 BY CONSTRUCTION.** `audit-animations.py` set
+  `art = sim` for every derived state, so the ratio compared the formula with itself — code checked
+  against code, inside the tool built to stop exactly that. It now reports the poses actually DRAWN
+  and the ticks each gets. Whenever a metric cannot fail, it is decoration: check what would make it
+  go red before trusting it.
+- **A held LOOPING state needs its own motion floor.** `MOTION_MIN` is applied only to ATTACK states,
+  so `blockCrouch` was never measured at all — which is why two sheets shipped at amp 0.05/0.06
+  reading as frozen stills with every gate green. `HELD-FROZEN` (floor 0.10) closes it.
 - **The forgotten prompt variable is the SAMPLING RATE, and it is not the same problem as amplitude.**
   ffmpeg takes N frames evenly across the 4s clip, so a correct motion occupying a sliver of each swing
   lands 6 of 8 samples mid-return and reads as *standing still*. Ask the model to **HOLD** at full
@@ -447,6 +468,34 @@ low block measured 86–96% of his standing height. `--start-image` dominates th
 reference cannot be argued out of the model; `monk/blockCrouch` starts from `crouch-refs/monk-crouch.png`
 (his other crouch states' deep squat, which already holds a guard) and now measures 85% against his own
 `crouch` at 84%.
+
+- **…and every one of those metrics was VERTICAL. Nothing measured whether the box reaches as far
+  FORWARD as the fist does.** Measured across all 21 attack sheets, every box far edge overshot its own
+  drawn limb by 28–106px, and at the furthest range each attack still connected the fist sat 14–92px
+  short of the defender's drawn body — a whole unmeasured defect class, sitting next to two gates that
+  both passed. `audit:boxes` now carries metric C (limb reach, box far edge, and the visible air at
+  max connect range against a 60px tolerance). Note the number that matters is the VISIBLE gap, not
+  the raw overshoot: a hit box legitimately has to reach the defender's hurt box, not his skin.
+- **Closing that gap is a BALANCE decision, not a repair.** Setting every `hit.w` to match its art
+  gives the monk the worst effective reach on every attack — his art reaches least far forward — so
+  `reach-parity.test.ts` goes red and "the monk's moves don't reach" comes straight back. Trim only as
+  far as the existing parity rule still passes UNCHANGED, and let art close the rest. And measure
+  effective reach with the pushbox the attack's own `body` selects: an AIR normal is `body:"air"` and
+  uses `pushStand`, and guessing crouch-vs-stand from the attack's NAME is what hid the monk being
+  out-ranged on both air normals (80 vs 82, 105 vs 107) for the whole life of that test.
+
+**Art generation: the REFERENCE is the lever, not the wording — and prefer the prompt that measured
+best over the one that reads best.** Both re-learned at credit cost. `monk/blockCrouch` was 95%
+identical to his own `crouch` because its start image *was* the crouch reference; a prompt rewrite
+naming the arm change explicitly moved IoU 0.95 → 0.95 and amp 0.049 → 0.049, changing nothing at all.
+Building a purpose-made low-guard reference first fixed it in one generation. Then, on motion: four
+attempts measured 0.049/0.049/0.055/0.029, and copying the *jiujitsu sheet's motion sentence verbatim*
+gave 0.150 — while the rewrite invented for the monk's deep squat (hip-rocking instead of a weight
+shift, which seemed better suited to a pose with both heels planted) was the worst of the four. Same
+for `monk/crouchHeavy`: a prompt that self-contradicts (`SPAN_CLIP`'s "never hold still" plus "HOLDS at
+full extension") measured 61px reach / 15px spread, and replacing it with a clean explicit timeline
+measured 57/7. **Change ONE clause at a time and measure; run-to-run variance is real** (five samples
+of the same sheet: 50/61/57/55/60px, sd ≈ 4.6), so a single better sample is not a better prompt.
 
 Same rule for art: prefer a measurement to an opinion, and a wrong metric is more dangerous than no
 metric. Detail in [`docs/art-pipeline.md`](docs/art-pipeline.md).
