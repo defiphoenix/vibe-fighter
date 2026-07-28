@@ -1,8 +1,8 @@
 import * as Phaser from "phaser";
 import { World } from "../sim/world";
 import { VIEW_WIDTH } from "../sim/constants";
-import { METER_MAX } from "../sim/fighter";
 import { hudEntrance } from "./hud-entrance";
+import { meterView, type MeterView } from "./meter-view";
 
 /** Phase 07's UI atlas. Loaded by BootScene; every frame below is validated before anything is drawn. */
 const ATLAS = "hud-atlas";
@@ -67,6 +67,8 @@ const METER_FILL: [number, number] = [0x6fd8ff, 0x2a6ea8];
 const METER_FULL: [number, number] = [0xffe27a, 0xf07830];
 const METER_PULSE_MS = 380;
 const METER_PULSE_DIM = 0.6;
+/** Shown only while the sim would actually let the super out — see meter-view.ts. */
+const READY_LABEL = "MAX";
 /** The low-health blink was `BLINK_MS = 120` and a full on/off cut, carried over from the vector HUD.
  *  On a 24 px rectangle that was a subtle blink; on the art's 62 px painted slot the QA pass measured
  *  it at ~4.3 Hz of full-bar disappearance and called it a strobe, which is both unpleasant and past
@@ -122,6 +124,7 @@ export class Hud {
   private meterH = 0;
   private meterSlot!: Slot;
   private meterPlates!: [Phaser.GameObjects.Image, Phaser.GameObjects.Image];
+  private readyText!: [Phaser.GameObjects.Text, Phaser.GameObjects.Text];
   private window: Slot;
   private shownIds: [string, string] = ["", ""];
   private lastFill: [number, number] = [0, 0];
@@ -208,6 +211,14 @@ export class Hud {
     // sitting in the gap between them read as a third HUD element rather than the round clock.
     this.timerText = scene.add.text(VIEW_WIDTH / 2, this.barTop + this.barH + 6, "", { ...font, fontSize: "44px" }).setOrigin(0.5, 0).setDepth(101).setScrollFactor(0);
     this.centerText = scene.add.text(VIEW_WIDTH / 2, 300, "", { ...font, fontSize: "60px", color: "#ffdd44" }).setOrigin(0.5).setDepth(101).setScrollFactor(0);
+    // Sits ON the meter plate, centred, and is created AFTER the plates so the stable depth sort in
+    // band 101 puts it above them. Dark on the gold READY fill; it is only ever visible over that.
+    const ready = (i: 0 | 1): Phaser.GameObjects.Text =>
+      scene.add.text(this.barX[i] + this.meterW / 2, this.meterY + this.meterH / 2, READY_LABEL, {
+        ...font, fontSize: "20px", color: "#3a1e00", fontStyle: "bold",
+      }).setOrigin(0.5).setDepth(101).setScrollFactor(0).setVisible(false);
+    this.readyText = [ready(0), ready(1)];
+
     this.p1Pips = scene.add.text(this.barX[0], pipY, "", { ...font, fontSize: "18px", color: "#66ccff" }).setDepth(101).setScrollFactor(0);
     this.p2Pips = scene.add.text(this.barX[1] + this.barW, pipY, "", { ...font, fontSize: "18px", color: "#ff8866" }).setOrigin(1, 0).setDepth(101).setScrollFactor(0);
 
@@ -217,13 +228,14 @@ export class Hud {
       ...this.facePlates,
       ...this.barPlates,
       ...this.meterPlates,
+      ...this.readyText,
       this.timerText,
       this.centerText,
       this.p1Pips,
       this.p2Pips,
     ];
     // The announce text is centre-screen and belongs to the round, not to the band — it stays put.
-    for (const o of [...this.faces, ...this.facePlates, ...this.barPlates, ...this.meterPlates, this.timerText, this.p1Pips, this.p2Pips]) {
+    for (const o of [...this.faces, ...this.facePlates, ...this.barPlates, ...this.meterPlates, ...this.readyText, this.timerText, this.p1Pips, this.p2Pips]) {
       this.slides.push({ obj: o, baseY: o.y });
     }
 
@@ -286,7 +298,7 @@ export class Hud {
   /** The super meter strip, drawn into its own plate's channel. Slot frames are packed in ATLAS
    *  space, so a flipped (P2) plate needs the mirrored slot `meterW - dx - w` — the same arithmetic
    *  `bar()` does, off the meter's own frame rather than the health bar's. */
-  private meter(i: 0 | 1, frac: number, pulse: boolean, dy: number): void {
+  private meter(i: 0 | 1, view: MeterView, pulse: boolean, dy: number): void {
     const x = this.barX[i];
     const s = this.meterSlot;
     const dx = i === 0 ? s.dx : this.meterW - s.dx - s.w;
@@ -296,8 +308,12 @@ export class Hud {
     this.fillG.fillStyle(METER_EMPTY, 0.85);
     this.fillG.fillRect(x + dx, y, w, s.h);
 
-    const full = frac >= 1;
-    const fw = w * Phaser.Math.Clamp(frac, 0, 1);
+    // `showMax`, not `ready`: the cue must agree with the BAR, and during the round entrance a
+    // carried-over full meter is ready while the drawn fill is still zero (see meter-view.ts). The
+    // label says it in words, because a gold fill on its own never told the player anything.
+    const full = view.showMax;
+    this.readyText[i].setVisible(full).setAlpha(full && pulse ? METER_PULSE_DIM : 1);
+    const fw = w * Phaser.Math.Clamp(view.fillFrac, 0, 1);
     // Recorded AFTER the fill is actually drawn (below), never here: assigning it up front makes the
     // e2e's width assertions survive the `fillRect` being deleted, which is a snapshot that reports
     // bookkeeping rather than rendering — the exact thing `snapshot()` exists to avoid.
@@ -335,8 +351,8 @@ export class Hud {
     this.bar(1, bFrac, bFrac * entrance.fillFrac, blink, entrance.slideY);
     // The meter rides the entrance's fill fraction too, so the whole band charges as one.
     const pulse = Math.floor(timeMs / METER_PULSE_MS) % 2 === 0;
-    this.meter(0, (a.meter / METER_MAX) * entrance.fillFrac, pulse, entrance.slideY);
-    this.meter(1, (b.meter / METER_MAX) * entrance.fillFrac, pulse, entrance.slideY);
+    this.meter(0, meterView(a.meter, entrance.fillFrac), pulse, entrance.slideY);
+    this.meter(1, meterView(b.meter, entrance.fillFrac), pulse, entrance.slideY);
 
     this.timerText.setText(String(m.secondsLeft));
     this.p1Pips.setText("P1 " + "●".repeat(m.wins[0]));
@@ -366,6 +382,8 @@ export class Hud {
     drawCommands: number;
     fill: { w: number; color: number; alpha: number }[];
     meter: { w: number; max: number }[];
+    meterReady: boolean[];
+    meterLabel: string[];
     blinkOff: boolean;
     portraitKeys: string[];
   } {
@@ -390,6 +408,12 @@ export class Hud {
         { w: this.lastMeter[0], max: this.meterSlot.w },
         { w: this.lastMeter[1], max: this.meterSlot.w },
       ],
+      // Read off the real Text objects, not a cached flag: the point of the label is that it is ON
+      // SCREEN when the super will come out, so a snapshot of bookkeeping would report a cue that had
+      // been deleted from the display list. The STRING comes too — visibility alone is satisfied by an
+      // invisible empty label, which is a cue the player cannot read.
+      meterReady: this.readyText.map((t) => t.visible),
+      meterLabel: this.readyText.map((t) => (t.visible ? t.text : "")),
       blinkOff: this.lastBlinkOff,
       portraitKeys: this.faces.map((f) => f.texture.key),
     };

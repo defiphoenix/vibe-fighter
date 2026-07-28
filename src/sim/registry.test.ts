@@ -119,6 +119,60 @@ describe("shipped specials land every authored window", () => {
   }
 });
 
+// The defect behind the "jiujitsu and monk have no special" report. Meter is paid as `+damage`, so a
+// fighter's meter lands on multiples of its OWN numbers: the brawler's heavy pays 15 and hits 100
+// exactly on the 7th, while jiujitsu and monk pay 14 and rest on 98 — two points short, with a bar that drew
+// 98% of its slot and read as full. The sim was right and the HUD was lying; `meter-view.ts` fixes the
+// drawing and this pins the arithmetic that made 98 a place a player actually stops.
+//
+// This is a CROSS-FIGHTER comparison of an absolute stat, which is exactly the shape of R-13 — the
+// numbers differ per fighter, so a test written from one fighter's damage cannot see it.
+describe("meter fills to a fighter's own numbers, not a shared 100", () => {
+  /** Meter after `reps` clean heavies, re-planting both fighters so knockback can't walk the defender
+   *  out of range. Drives the real World with the shipped registry. */
+  function meterAfterHeavies(id: string, reps: number): number {
+    const data = RAW[id].data;
+    const w = new World(assembleCharacter(id, data), assembleCharacter(id, data));
+    w.match.phase = "fight";
+    w.match.introTicks = 0;
+    const press = mk({ heavy: true, heavyPressed: true });
+    for (let rep = 0; rep < reps; rep++) {
+      w.fighters[0].reset(640 - 45, 1);
+      w.fighters[1].reset(640 + 45, -1);
+      for (let i = 0; i < 60; i++) w.tick([i === 0 ? press : mk(), mk()]);
+    }
+    return w.fighters[0].meter;
+  }
+
+  it("seven clean heavies leave the 14-damage fighters ONE short of the super", () => {
+    expect(meterAfterHeavies("brawler", 7)).toBe(METER_MAX); // 15 x 7 = 105, clamped
+    expect(meterAfterHeavies("jiujitsu", 7)).toBe(98);
+    expect(meterAfterHeavies("monk", 7)).toBe(98);
+  });
+
+  it("and an eighth gets them there", () => {
+    for (const id of IDS) expect(meterAfterHeavies(id, 8), id).toBe(METER_MAX);
+  });
+
+  it("every fighter refuses the special one point short and fires at exactly METER_MAX", () => {
+    for (const id of IDS) {
+      const run = (meter: number): string => {
+        const data = RAW[id].data;
+        const w = new World(assembleCharacter(id, data), assembleCharacter(id, data));
+        w.match.phase = "fight";
+        w.match.introTicks = 0;
+        w.fighters[0].reset(640 - 45, 1);
+        w.fighters[1].reset(640 + 45, -1);
+        w.fighters[0].meter = meter;
+        w.tick([mk({ special: true, specialPressed: true }), mk()]);
+        return w.fighters[0].state;
+      };
+      expect(run(METER_MAX - 1), `${id} fired the special on a short bar`).not.toBe("special");
+      expect(run(METER_MAX), `${id} refused the special on a full bar`).toBe("special");
+    }
+  });
+});
+
 describe("shipped registry blocking matrix", () => {
   // Which stance is SUPPOSED to stop each normal. High/low is encoded by the guard boxes' y bands:
   // both ground normals land high (the art is a standing jab and a standing straight — the heavy's

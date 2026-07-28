@@ -13,7 +13,8 @@ const ready = (page: Page): Promise<void> =>
 // cut-in is on screen while the world is frozen.
 //
 // Same Phaser gotchas as every other spec: stop the RAF loop and pump `game.step` as the sole clock,
-// drive input through the DEV seam (trusted keys don't reach Phaser headless), and feed a 1-frame
+// drive input through the DEV seam (see the note on the key test below — the seam is a convenience
+// here, not a necessity; real keys DO work), and feed a 1-frame
 // edge per press because `__holdP1` FORCES the pressed flag true every frame while the real reader
 // emits a rising edge. The scripted sequences run inside ONE page.evaluate — a spec that alternates
 // hold/pump/read dozens of times grazes the timeout and goes flaky.
@@ -64,9 +65,13 @@ test.describe("Phase 15 — meter, multi-hit special, cut-in", () => {
   });
 
   // NOTE: this drives the DEV seam, which injects `specialPressed` AFTER InputReader — so it proves the
-  // latch -> sim plumbing and the meter gate, NOT that P1's key is physically `E`. Trusted keyboard
-  // events do not reach Phaser headless, which is why every spec in this repo works this way; the
-  // binding table itself is only guarded by review.
+  // latch -> sim plumbing and the meter gate, NOT that P1's key is physically `E`.
+  //
+  // This comment used to add "trusted keyboard events do not reach Phaser headless, which is why every
+  // spec in this repo works this way". MEASURED, that is false for the match scene: `page.keyboard`
+  // fires the super end to end. The seam is still right HERE (it is what makes the empty-bar latch case
+  // above expressible in one frame), but the binding table is no longer guarded only by review —
+  // `special-per-fighter.spec.ts` presses the physical `E` for all three fighters.
   test("the special edge fires only on a full bar, and spends it", async ({ page }) => {
     await ready(page);
     const r = await page.evaluate(() => {

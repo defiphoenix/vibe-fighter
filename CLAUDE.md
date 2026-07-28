@@ -10,7 +10,10 @@ on top of it. Rendering uses **default LINEAR antialiasing — no `pixelArt`** �
 photographic (video-derived sprites + painted backgrounds).
 
 Built in phases. **Phases 00–15 are shipped, plus a post-15 animation/box defect pass
-([`docs/phases/16-animation-box-defect-pass.md`](docs/phases/16-animation-box-defect-pass.md)).**
+([`docs/phases/16-animation-box-defect-pass.md`](docs/phases/16-animation-box-defect-pass.md)), the
+Phase 16 integration/parity gate
+([`docs/phases/16-integration-parity-qa.md`](docs/phases/16-integration-parity-qa.md)), and a post-16
+defect pass ([`docs/phases/17-meter-lie-and-cpu-pick.md`](docs/phases/17-meter-lie-and-cpu-pick.md)).**
 Specs and gate
 results in [`docs/phases/`](docs/phases/); the narrative of what shipped when, including the fix passes
 between phases, is in [`docs/history.md`](docs/history.md). `prompts.pdf` holds the original spec.
@@ -194,6 +197,16 @@ bridge. What follows is only what you cannot learn by opening the file.
   edge is **consumed even when refused** or a press on an empty bar stays latched and fires itself the
   instant the bar fills. `reset()` deliberately keeps the meter (it carries between rounds, like
   `damageScale`); `World.restart()` zeroes it.
+  **A fighter's meter therefore lands on multiples of its OWN damage, never on a shared grid** — pinned
+  as R-14. The ground heavy pays the brawler 15 but jiujitsu and monk 14, so seven clean heavies put the
+  brawler on exactly 100 and the other two on **98** — two points short, i.e. one more landed hit — and
+  the HUD drew that as 98% of the
+  slot (measured live: 315 px of a 318 px bar) while the super refused in total silence. Same shape as
+  R-13 — an absolute constant compared against numbers that differ per fighter — and invisible to 299
+  unit + 72 browser tests because every one of them assigned `METER_MAX` directly and never asked what
+  value a *player* arrives at. **`render/meter-view.ts` now owns the ready decision** so the HUD and the
+  sim cannot disagree about it; do not "fix" this class by rounding the meter up or re-balancing damage
+  onto a round number, which changes the economy to hide a drawing bug.
 - **The super freeze rides the existing hitstop channel**, folded in at step 3b **after**
   `checkRoundOver` — a fighter KO'd on the tick they started a special gets neither the freeze nor the
   cut-in. `Fighter.pendingFreeze` is consumed on read (left set, it re-freezes every tick).
@@ -340,6 +353,20 @@ bridge. What follows is only what you cannot learn by opening the file.
   panel lines it exists to reject; and the HUD's vertical budget had to start measuring the **drawn**
   height (`BAR_SCALE_Y`), because on packed heights alone two plates read as 246 px of HUD and failed
   an assertion that in truth clears a jumping head by 90 px.
+  **The meter's READY state is `render/meter-view.ts`, not a `frac >= 1` test in the draw call.** It is
+  Phaser-free so the boundary is unit-testable, and it exists because the HUD and the sim disagreed
+  about the same number (R-14 above). Two rules it encodes: an UNREADY fill is compressed into the
+  first 92% of the slot — a straight fraction drew 98/100 as 315 px of a 318 px bar, i.e. full — and
+  the **`MAX`** label is the cue, because the gold fill on its own is a colour with no legend. The
+  label's visibility AND its string are read straight off the Text object in `snapshot()`, never from a
+  cached flag — an empty label is visible and unreadable.
+  **`ready` and `showMax` are deliberately different, and conflating them re-created the bug.** `ready`
+  is the sim's number (it defers to `meterFull()` in `sim/fighter.ts`, so there is ONE spelling of the
+  comparison); `showMax = ready && fillFrac >= 1` is the drawing instruction. They diverge because
+  `Fighter.meter` survives `reset()` while the entrance scales the drawn bar from zero, so a fighter
+  carrying a full bar into round 2 is ready with `fillFrac` at exactly 0 for 18 ticks — keying the cue
+  off `ready` put **`MAX` over a visibly empty meter** for ~300 ms at the top of every later round.
+  Any HUD cue for a sim value has this shape: gate it on what is DRAWN, not only on what is true.
 - **Phaser only builds mipmaps for POWER-OF-TWO textures**, so a heavy downscale of an NPOT texture is
   a raw bilinear squeeze and reads as low-res. That is why the HUD faces are their own bake
   (`copy-portraits.py --hud` → `ui/portraits/hud/<id>.png`, loaded as `hud-portrait-<id>`) rather than
@@ -559,6 +586,13 @@ changed — **`y`/`h` decide high/low, so never touch them for a reach tweak**.
   goes red, restore. Phase 10 shipped two fakes before a real one: the first never triggered the code
   path it was named after, the second could pass vacuously on `undefined === undefined` (assert
   `typeof x === "number"` when reading a value through a DEV hook).
+  **The same rule applies to a test you wrote five minutes ago, in good faith, that is not a
+  regression test at all.** A unit test tallying `makeRoll` over wall-clock-spaced seeds looked like
+  real coverage of the CPU pick; removing the Knuth mix, removing the 4-draw warm-up, and swapping in a
+  deliberately striping LCG all left it green, because large seeds decorrelate on their own. It was
+  deleted, and the measurement it was standing in for was written into the phase log instead. Before
+  keeping a test, mutate the thing it claims to guard and watch it go red — if nothing you can plausibly
+  break turns it red, it is decoration no matter how good the assertion reads.
 - **A screenshot catches what no test can.** Phase 11's two worst defects (invisible cards, everything
   dim) both passed the full unit + e2e suite. Look at it.
 - **A reviewer's finding can be real while its diagnosis is wrong — re-derive, don't apply the patch.**
@@ -579,10 +613,19 @@ tween, and have a fade force-settle its end value on `onStop` as well as `onComp
 ## Playwright E2E (`e2e/`)
 
 The sim/animations only advance inside Phaser's game step, which **headless Chromium throttles/pauses**
-(reports the page hidden → `HIDDEN` → `loop.pause()`). Trusted **keyboard events also don't reach Phaser
-headless**. So a spec: (1) `window.__game.loop.stop()` then pumps `window.__game.step(t, 1000/60)` as the
-sole clock; (2) drives P1 input via the DEV `window.__holdP1(Partial<InputSnapshot>)` seam, not synthetic
-keys; (3) pumps past the intro phase (`INTRO_TICKS=90`), which gates input, before expecting movement.
+(reports the page hidden → `HIDDEN` → `loop.pause()`). So a spec: (1) `window.__game.loop.stop()` then
+pumps `window.__game.step(t, 1000/60)` as the sole clock; (2) drives P1 input via the DEV
+`window.__holdP1(Partial<InputSnapshot>)` seam; (3) pumps past the intro phase (`INTRO_TICKS=90`), which
+gates input, before expecting movement.
+
+**Correction (2026-07-28): "trusted keyboard events don't reach Phaser headless" is FALSE for the match
+scene**, and this file and a spec header both asserted it for several phases. `page.keyboard.down("e")`
+fires the super end to end — measured. The `__holdP1` seam is still the right default (it expresses a
+one-frame edge in one frame, and reaches states a key cannot), but it injects *after* `InputReader`, so
+a spec using it proves the latch→sim plumbing and **not** the binding table. `special-per-fighter.spec.ts`
+presses the physical `E` for exactly that reason. Two rules survive unchanged: the seam FORCES the
+pressed flag true every frame, so holding it two pumped frames double-fires; and a key press still needs
+pumped frames around it to be seen.
 
 **All of that lives in `e2e/harness.ts` now** (Phase 16) — `ready` / `pump` / `keys` / `press` /
 `pumpUntil` / `waitForMatch` / `toFlow` / `driveTo1v1`, imported by every driving spec. It used to be

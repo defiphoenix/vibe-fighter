@@ -304,6 +304,55 @@ write, because a torn read by one worker is a bad day and a permanently mutated 
 repo. The two heavy cases are still ~1.8m; almost none of it is the work, and it is not reducible from
 inside a spec file, so they carry an explicit boot budget rather than a claim of being faster.
 
+## The meter lie, and a bug report that was not a bug (2026-07-28)
+
+Three player reports after Phase 16, and the value was in how differently they ended.
+[`docs/phases/17-meter-lie-and-cpu-pick.md`](phases/17-meter-lie-and-cpu-pick.md).
+
+**"The special of the jiujitsu and the monk is not working."** Reading every layer of the special path
+proved it has no per-fighter branch anywhere — one binding table, one latch, one gate, three
+near-identical data blocks, and a `METER_MAX` that is a module constant — and driving the real `World`
+for all three fighters fired all three supers. So the sim could not produce the symptom, and the
+temptation at that point is to decide the player is wrong. The player was not wrong. **Meter is paid as
+`+damage`, and the ground heavy pays the brawler 15 but jiujitsu and monk 14**, so seven clean heavies
+put the brawler on exactly 100 and the other two on 98 — two points short, i.e. one more landed hit.
+The HUD drew that as 98% of the
+slot: measured off the live game, **315 px of a 318 px bar**. Full to the eye, with the fill colour as
+the only tell and nothing on screen to explain it, and a super that refuses in total silence. R-13's
+shape exactly — an absolute constant compared against numbers that differ per fighter — and invisible
+to 299 unit and 72 browser tests because every one of them assigned `METER_MAX` directly and never
+asked what value a *player* actually arrives at. The fix is a Phaser-free `meter-view.ts` that owns the
+ready decision so the HUD and the sim cannot disagree, compresses an unready fill into 92% of the slot,
+and puts a **`MAX`** label on the bar. Not fixed by rounding 98 up or by re-balancing damage: both would
+have changed the economy to hide a drawing bug.
+
+**"The default opponent is jiujitsu and not actually random."** Tallied instead of argued: the
+production seeding expression is even to within 3% at 1ms, 3s, 30s and 2min spacings, for every P1
+card. Two outcomes at 50/50 makes three jiujitsus in a row a 12.5% event. No behaviour changed — but
+every spec had pinned the seed through a DEV seam, so the production seeding line had never run in a
+test, and now does. A unit test written for the same purpose was **deleted** after removing the RNG's
+mix, removing its warm-up, and swapping in a deliberately striping LCG all left it green: a metric that
+cannot fail is decoration, and that rule applies to tests written in good faith five minutes ago. A
+second one slipped through anyway and was caught in review: an "unseeded" browser case asserting the
+opponent was a *legal* card passes with the seeding deleted, because `cpuPick` sanitises any roll into a
+legal different card. It now stubs the clock to two values two milliseconds apart that field different
+fighters. **Both toothless tests were found by mutating the thing they claimed to guard, not by reading
+them** — reading a test tells you what it says, not what it would notice.
+
+**And the review found the same bug class again, one round later.** The `MAX` cue keyed off the sim's
+readiness, which ignores the HUD entrance — but meter survives `reset()`, so a fighter carrying a full
+bar into round 2 got the label over a *visibly empty* meter for the first ~300 ms while the bar charged.
+The cue disagreeing with the drawing is precisely what this pass set out to fix; it had simply been
+moved to the round transition. The ready cue now waits for the bar it labels to finish charging.
+
+**The stale items.** The Phase 15 log had been claiming for two phases that the meter plate was still
+vector-drawn, pointing at a `Carry-over` section that does not exist; the asset manifest still described
+the HUD atlas as 4 frames when the shipped JSON has 6. Both corrected from the artifacts. The 5
+INDETERMINATE `check:sync` sheets turned out to be a **measurement** limit, not art: the metric
+differences each frame against frame 0, which assumes a planted body, and three of the five are air
+normals where the whole figure translates — so what it measures is the fighter's own silhouette. The
+8px threshold was left alone, because lowering it to admit one sheet is fitting the metric to the data.
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git

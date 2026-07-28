@@ -1,9 +1,14 @@
 # Phase 15 log — Specials, Meter & Multi-Hit Combos
 
-**Status: shipped, with one carry-over.** The mechanic, the meter, the super freeze, the cut-in, the
-HUD meter, the training dummy and all three fighters' real `special.png` sheets are in and green. The
-only thing outstanding is the meter's own atlas plate — it is vector-drawn until that art exists (see
-*Carry-over*).
+**Status: shipped, complete.** The mechanic, the meter, the super freeze, the cut-in, the HUD meter,
+the training dummy and all three fighters' real `special.png` sheets are in and green.
+
+> **Header corrected 2026-07-28.** It used to end "the only thing outstanding is the meter's own atlas
+> plate — it is vector-drawn until that art exists (see *Carry-over*)", and pointed at a `Carry-over`
+> section that does not exist in this file. Both halves were false: the plate shipped in `4d4ea86`,
+> this file's own *"The meter plate, and the box-vs-art gate"* below opens "Both closed after the first
+> deploy", and `hud.ts` reads `meter-bar` / `meter-bar-slot` off the atlas that `build-atlases.py`
+> packs. The claim had outlived the code by two phases.
 
 ## What shipped
 

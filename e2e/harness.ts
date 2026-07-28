@@ -13,7 +13,11 @@ import { expect, type Page } from "@playwright/test";
 //    pumps `game.step` itself as the sole clock;
 //  - `game.loop.now` FREEZES after `loop.stop()`, so anything timing-sensitive must keep its own
 //    accumulating `t` inside ONE page.evaluate rather than re-reading it per call;
-//  - trusted key events never reach Phaser headless, so input goes through the DEV seams;
+//  - input goes through the DEV seams by default — they express a one-frame edge in one frame and can
+//    reach states a key cannot. NOT because trusted keys are impossible: this line used to say they
+//    "never reach Phaser headless", and measured, that is false for the match scene (`page.keyboard`
+//    fires the super end to end). The cost of the seam is that it injects AFTER `InputReader`, so a
+//    spec using it cannot see a wrong binding — `special-per-fighter.spec.ts` presses the real key;
 //  - `scene.start` is QUEUED, so "wait for the scene" is a bounded pump loop, never one more frame.
 //    Note what does NOT happen: the lock-in flash is a TWEEN, and tweens run on the wall clock
 //    (`TweenManager.getDelta()` reads `Date.now()`), so it does not advance under the pump at all.

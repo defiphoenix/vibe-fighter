@@ -182,7 +182,11 @@ more than a few px of reach, and it is the one thing the four earlier attempts n
   crouch box drops instantly.
 ### Follow-up: the harness retrofit, and one idea that did not survive contact
 
-Both items left open above were then taken.
+Two items raised in the diff review were then taken — the harness duplication and the boot cost. (This
+line used to read "Both items left open above were then taken", which pointed at the *Left open,
+deliberately* list directly above; neither of those two was touched. The 5 INDETERMINATE sheets are
+still open — see the 2026-07-28 pass, which established they are a MEASUREMENT limit rather than an art
+defect — and `jiujitsu/crouch` is still open.)
 
 **`e2e/harness.ts` now backs every driving spec** — 12 retrofitted plus the parity spec itself, 13 of
 the 15 files (`atlas` and `gym-guard` inspect a loader and a file and never drive the sim). Each had

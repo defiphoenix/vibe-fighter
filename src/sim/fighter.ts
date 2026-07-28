@@ -9,6 +9,12 @@ const STUN: ReadonlySet<StateName> = new Set(["hitstun", "blockstun", "knockdown
 /** A full meter. Earned in combat, spent whole on one special — there are no partial stocks. */
 export const METER_MAX = 100;
 
+/** THE test for "the super will come out", used by `think` below AND by the HUD through
+ *  `render/meter-view.ts`. One function rather than two spellings of `>= METER_MAX`, because the HUD
+ *  and the sim disagreeing about this exact number is R-14: a fighter whose heavy pays 14 rests on 98,
+ *  the bar drew 98% of its slot and read as full, and the super refused in silence. */
+export const meterFull = (meter: number): boolean => meter >= METER_MAX;
+
 /** Pick a normal's variant from stance: crouch (grounded+down) > air (!grounded) > ground.
  *  `down` is the press-time stance (see think), NOT necessarily this tick's crouchIntent. */
 function variantFor(strength: "light" | "heavy", grounded: boolean, down: boolean): AttackStateName {
@@ -167,7 +173,7 @@ export class Fighter {
     // and comes out on landing — exactly how `upPressed` behaves behind the same gate below.
     if (input.specialPressed && this.grounded) {
       this.consumed.special = true;
-      if (this.meter >= METER_MAX) {
+      if (meterFull(this.meter)) {
         this.meter = 0;
         return this.startAttack("special");
       }

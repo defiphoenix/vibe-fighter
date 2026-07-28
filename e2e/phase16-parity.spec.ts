@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { withRegistryLock } from "./registry-lock";
 import {
-  MATCH, driveTo1v1, keys, ready, seedFlow, toFlow, waitForMatch,
+  MATCH, driveTo1v1, keys, pumpUntil, ready, seedFlow, toFlow, waitForMatch,
 } from "./harness";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -248,6 +248,27 @@ test.describe("Phase 16 — integration parity", () => {
     await waitForMatch(page);
     expect(await page.evaluate(() => (window as any).__world.fighters.map((f: any) => f.cfg.id)))
       .toEqual(["brawler", "jiujitsu"]);
+
+    // ...and twice more WITHOUT `__flow.seed`, which is the only way to run the PRODUCTION seeding
+    // line (`makeRoll(Date.now() & 0x7fffffff)` in create()). Every case above replaces it, so a throw,
+    // a NaN seed, or a generator swapped for a constant would all go unseen.
+    //
+    // The clock is stubbed rather than left alone, because "the opponent is a legal card" is NOT a
+    // test: `cpuPick` sanitises any roll — NaN, constant, out of range — into a legal DIFFERENT card,
+    // so that assertion passes even with the seeding deleted. (It was written that way first, and this
+    // is the second toothless test this pass produced; both were caught by mutating the thing they
+    // claimed to guard.) Two clocks two milliseconds apart field different fighters, which can only be
+    // true if Date.now() actually reaches the draw.
+    for (const [now, expected] of [[1785000000000, "jiujitsu"], [1785000000002, "monk"]] as const) {
+      await toFlow(page);
+      await page.evaluate((t) => { (window as any).Date.now = () => t; }, now);
+      await page.evaluate(() => (window as any).__game.scene.start("Flow"));
+      await pumpUntil(page, "__flow");
+      await keys(page, ["enter", "right", "enter", "enter", "enter"]);
+      await waitForMatch(page);
+      expect(await page.evaluate(() => (window as any).__world.fighters.map((f: any) => f.cfg.id)))
+        .toEqual(["brawler", expected]);
+    }
   });
 
   test("editing character-gym.json on disk and reloading changes live combat", async ({ page }) => {
