@@ -284,6 +284,26 @@ set both healths from the same implied pool, so the asymmetry that only exists *
 fighters* had never been exercised. The tiebreak is now the remaining share, which is what the HUD bar
 draws anyway. Fifth entry in the same column: look at it.
 
+A follow-up pass then took the two things the gate had deliberately left open. **`e2e/harness.ts` now
+backs every driving spec** — 349 lines deleted for 277 added — and merging twelve hand-copied
+copies of the same helpers immediately exposed two bugs the duplication had been hiding: the
+wait-for-scene loop advanced in 20-frame chunks and so routinely overshot by ~20 ticks (which is what
+made a test counting `INTRO_TICKS` read 70), and one spec's header had spent four phases describing the
+lock-in flash as a tween that "advances on pumped time" when tweens do not advance under the pump at
+all. A comment can document a mechanism that does not exist and nothing ever goes red.
+
+The other item, boot cost, **was not fixed, and the failure taught more than a fix would have.** A
+worker-scoped shared page removes nearly every page load on paper. In practice giving up per-test
+isolation produced three separate injuries: an atomic restore that threw on Windows and left the real
+`character-gym.json` carrying a 21-damage monk — failing four later cases for reasons that had nothing
+to do with them, recoverable only because the work had been committed first — an assertion that
+silently began measuring the harness instead of the sim, and a case that went from 4s to a 180s
+timeout. Reverted. What survives is the cheap half (a second scene entry inside one case restarts the
+scene instead of reloading the page) and a hardened restore that retries and falls back to an in-place
+write, because a torn read by one worker is a bad day and a permanently mutated registry is a corrupted
+repo. The two heavy cases are still ~1.8m; almost none of it is the work, and it is not reducible from
+inside a spec file, so they carry an explicit boot budget rather than a claim of being faster.
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git

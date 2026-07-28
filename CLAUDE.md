@@ -370,6 +370,17 @@ bridge. What follows is only what you cannot learn by opening the file.
 Four bugs, one shape. Each shipped for one or more phases and was invisible to the whole test suite,
 because the tests only ever compared code to other code.
 
+**The shape is not confined to art.** Phase 16's R-13 is the same bug in the sim: the 60s timeout
+compared ABSOLUTE health between fighters who do not share a pool, so two fighters who never touched
+each other ended 2-0 to the brawler with both bars visibly full. 299 unit and 72 browser tests passed,
+because every one of them set both healths from the same implied pool — the asymmetry only exists
+BETWEEN different fighters and nothing had ever timed out a mismatched pair. **The HUD had been right
+the whole time** (it always drew fractions); the sim disagreed with the thing on screen. Only playing
+it found that. Generalises: **any cross-fighter comparison of an ABSOLUTE stat is suspect** while
+`maxHealth`, `scale` and the pushboxes all differ per fighter — it is the same error as comparing raw
+hit-box reach instead of effective reach (see Balance), and a test written from one fighter's numbers
+cannot see it.
+
 - **A box is a claim about a sprite.** The ground heavy had a crouching hurt box and a shin-height hit box
   on top of a standing punch. One-liner that catches the class: read the sheet's alpha, take the topmost
   opaque row per frame, compare to `hurt.h`. `scripts/` still has no gate for box-vs-art agreement.
@@ -573,6 +584,14 @@ headless**. So a spec: (1) `window.__game.loop.stop()` then pumps `window.__game
 sole clock; (2) drives P1 input via the DEV `window.__holdP1(Partial<InputSnapshot>)` seam, not synthetic
 keys; (3) pumps past the intro phase (`INTRO_TICKS=90`), which gates input, before expecting movement.
 
+**All of that lives in `e2e/harness.ts` now** (Phase 16) — `ready` / `pump` / `keys` / `press` /
+`pumpUntil` / `waitForMatch` / `toFlow` / `driveTo1v1`, imported by every driving spec. It used to be
+twelve hand-copied sets, i.e. twelve places for the rules above to drift. Two live bugs were found
+purely by merging them, both below. **`ready(page, {route, needs})` is parameterised by the DEV globals
+the spec actually drives** — each scene publishes a different set at a different point in `create()`,
+so waiting on the wrong one means driving a half-built scene; each spec keeps a one-line wrapper under
+its old name so call sites are untouched.
+
 - **`/` boots the MENU, not a match** — any spec that wants a match must navigate to **`?scene=match`**
   (DEV-only route). Boot pulls the whole sprite/stage/portrait set through the dev server, so the per-test
   timeout is **60 s** and the older specs' internal boot waits are 30 s. If a spec fails inside `ready()`'s
@@ -597,7 +616,34 @@ keys; (3) pumps past the intro phase (`INTRO_TICKS=90`), which gates input, befo
   HUD's low-health blink) looks frozen. Drive such a sequence from ONE `page.evaluate` that keeps its
   own accumulating `t`. This cost a QA pass a false "the HUD is frozen" finding.
 - **Tween callbacks never fire under the pump**, so a spec can only wait on `Time.Clock`-driven progress —
-  pump in a bounded loop until the expected global appears, never "one more frame".
+  pump in a bounded loop until the expected global appears, never "one more frame". Corollary worth
+  saying out loud, because a spec header got it backwards for four phases: the lock-in flash is a
+  TWEEN and does **not** advance under the pump at all. What carries FlowScene to the match is
+  `time.delayedCall`. A comment can describe a mechanism that does not exist and nothing goes red.
+- **A "wait until X appears" loop must check BEFORE it steps, and must not step in chunks.** The
+  original waited in 20-frame blocks, so it routinely overshot by ~20 ticks. Invisible until a spec
+  measures something the overshoot already consumed — it made a test counting `INTRO_TICKS` read 70.
+  `pumpUntil` now checks first and runs the whole loop inside ONE `page.evaluate`: minimum frames,
+  one round trip. **An assertion on an absolute tick count is measuring the harness as much as the
+  sim** — prefer checking the count against what the sim says is left (`match.introTicks`).
+- **A spec that writes `public/configs/character-gym.json` is using live ammunition.** `withRegistryLock`
+  serialises WRITERS only; the readers booting matches on the other three workers are unsynchronised,
+  so the write must be atomic (temp + rename) or a concurrent boot can read a truncated file. But
+  `renameSync` throws EPERM on Windows when another process holds the file open — and when that
+  happened inside a `finally`, the restore never ran and the REAL registry shipped a 21-damage monk
+  into every later spec. Four unrelated cases failed; only `git checkout` recovered it. So the restore
+  retries and falls back to an in-place write: **a torn read by one worker is a bad day, a permanently
+  mutated registry is a corrupted repo.** Mutate the MONK only (no other spec asserts his numbers), and
+  prefer a change whose direction cannot break a reader — raising `walkSpeed` can only help a
+  "moved at least N" assertion.
+- **A worker-scoped shared page was tried for boot cost and REVERTED — don't re-buy it.** On paper it
+  removes nearly every `page.goto`, which is the dominant cost (a case measured 4s alone against 114s
+  in the full suite; that 28x is contention, not work). In practice giving up per-test isolation
+  produced the corrupted registry above, an intro assertion that silently began measuring the harness,
+  and a case that went from 4s to a 180s timeout. What survives is the cheap half: a SECOND scene entry
+  inside one case uses `toFlow`/`scene.start` rather than a reload (`cpu-difficulty.spec.ts` has done
+  this since Phase 11). Boot cost is not reducible from inside a spec file; budget for it instead —
+  `test.setTimeout` is a BOOT allowance, the same kind as the 30s inside `ready`.
 
 ## Tooling gotchas
 

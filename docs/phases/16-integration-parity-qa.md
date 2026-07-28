@@ -184,9 +184,10 @@ more than a few px of reach, and it is the one thing the four earlier attempts n
 
 Both items left open above were then taken.
 
-**`e2e/harness.ts` now backs all 12 driving specs.** Every one of them had its own copy of
-`ready`/`pump`/`keys`/`press`/`waitForMatch` — the same four Phaser constraints written out twelve
-times, and twelve places to get them wrong. `ready` is parameterised by route and by the DEV globals
+**`e2e/harness.ts` now backs every driving spec** — 12 retrofitted plus the parity spec itself, 13 of
+the 15 files (`atlas` and `gym-guard` inspect a loader and a file and never drive the sim). Each had
+its own copy of `ready`/`pump`/`keys`/`press`/`waitForMatch` — the same four Phaser constraints written
+out twelve times, and twelve places to get them wrong. `ready` is parameterised by route and by the DEV globals
 the spec actually drives (each scene publishes a different set at a different point in `create()`, and
 waiting on the wrong one is how a spec ends up poking a half-built scene); each spec keeps a one-line
 wrapper under its old name, so no call site changed. Two real bugs fell out of doing it:

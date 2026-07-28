@@ -4,9 +4,10 @@ import { expect, type Page } from "@playwright/test";
 
 // Shared driving helpers for the browser specs.
 //
-// Every spec used to re-declare its own `ready`/`pump`/`keys`, which is 14 copies of the same four
-// constraints — and 14 places to get them wrong. The constraints (all from CLAUDE.md, all learned
-// expensively):
+// Every driving spec used to re-declare its own `ready`/`pump`/`keys` — twelve copies of the same
+// four constraints, and twelve places to get them wrong. Twelve were retrofitted onto this module;
+// `atlas` and `gym-guard` are the two that never needed it (they inspect a loader and a file, and
+// never drive the sim). The constraints (all from CLAUDE.md, all learned expensively):
 //
 //  - headless Chromium throttles RAF and reports the page hidden, so a spec stops Phaser's loop and
 //    pumps `game.step` itself as the sole clock;
