@@ -170,7 +170,12 @@ gate and the HUD, so the comparison has one owner instead of two identical spell
 label's STRING, since an empty label is visible and unreadable; and two more copies of the "trusted keys
 never reach Phaser headless" claim were corrected in `harness.ts` and the Phase 15 spec header.
 
-## Still open
+## The art queue — measured, shown to the user, and ACCEPTED AS-IS
+
+**Closed 2026-07-28 by the user, who played it and said the art looks good.** Nothing below is a bug
+report any more; it is the record of what was measured, so a later session does not "discover" it and
+spend Higgsfield credits re-fixing something already signed off. **Do not regenerate these without
+asking.**
 
 - `jiujitsu/crouch` — frames 0–1 are standing (heights 100/100/79/68) while the sim's crouch box drops
   on tick 1.
@@ -178,7 +183,11 @@ never reach Phaser headless" claim were corrected in `harness.ts` and the Phase 
   lowest attack sheet in the roster; `audit:anim` flags it `1/7 DEAD-PAIR`. The move fires and lands all
   five windows; nothing on screen travels toward the opponent.
 - `jiujitsu/special` — the striking leg is drawn extending in −x while the hit box sits at +38..+138.
-- All three are art regenerations and cost Higgsfield credits.
+
+Worth keeping in mind next time the metrics disagree with the screen: **these three are exactly the
+sheets `audit:anim` and `audit:boxes` flag hardest, and playing the game they read fine.** The gates
+measure a silhouette, not whether a move reads as a move. They earn their keep by catching the cases
+nobody has looked at yet — they do not overrule someone who has looked.
 
 ## Verification
 

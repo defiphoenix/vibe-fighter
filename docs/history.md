@@ -345,6 +345,14 @@ bar into round 2 got the label over a *visibly empty* meter for the first ~300 m
 The cue disagreeing with the drawing is precisely what this pass set out to fix; it had simply been
 moved to the round transition. The ready cue now waits for the bar it labels to finish charging.
 
+**The art queue that came out of this pass was closed by looking at it.** Three sheets measured badly —
+`monk/special` with no forward limb travel at all across its 8 frames, `jiujitsu/special` sweeping its
+leg away from the hit box, `jiujitsu/crouch` standing through its first 167 ms — and the user played the
+game and accepted all three as-is. Recorded rather than fixed, so nobody spends credits rediscovering
+it. The useful residue: these are among the worst sheets `audit:anim` and `audit:boxes` flag, and they
+read fine in motion. The gates measure a silhouette, not whether a move reads as a move; they are for
+the sheets nobody has looked at yet, and they do not overrule someone who has.
+
 **The stale items.** The Phase 15 log had been claiming for two phases that the meter plate was still
 vector-drawn, pointing at a `Carry-over` section that does not exist; the asset manifest still described
 the HUD atlas as 4 frames when the shipped JSON has 6. Both corrected from the artifacts. The 5
