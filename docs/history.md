@@ -361,6 +361,41 @@ differences each frame against frame 0, which assumes a planted body, and three 
 normals where the whole figure translates — so what it measures is the fighter's own silhouette. The
 8px threshold was left alone, because lowering it to admit one sheet is fitting the metric to the data.
 
+## Phase 18 — the game learns to be held
+
+The deployed URL had always been a desktop game. On a phone it booted, letterboxed correctly, and then
+did nothing: every binding was a physical key, the mode screen offered a local two-player match that
+cannot be played on one handset, and portrait squeezed a 1280×720 canvas into a tall window.
+
+Phase 18 added a touch classification, a rotate gate, an on-screen pad, tappable menus and a CPU-only
+mode screen — **without touching `src/sim/`, the world geometry, or the desktop experience**. The pad
+enters through the same `InputSnapshot` the keyboard uses, as one optional argument to
+`InputReader.read`, so there is still exactly one implementation of a rising edge.
+
+**Three things were less obvious than they looked.** "Is this a touch device" is not
+`game.device.input.touch` — that reports capability, and a touchscreen laptop answers yes, which would
+have taken local two-player away from the one machine that is good at it; the question is touch AND no
+fine pointer. A tap is not "a finger is on the button": Phaser dispatches touch synchronously from the
+DOM listener, so a quick tap's down and up both land between two frames and a naive read never sees it —
+and a sticky bit that survives one frame still swallows the second of two fast taps, because the edge
+detector compares against the previous frame. And the rotate overlay does not block the game: Phaser
+listens on `window` and deliberately forwards any touch whose target is not the canvas, so a `<div>` on
+top stops nothing without `game.input.enabled = false`.
+
+**The pass's own lesson is about tests, again.** Two of the new browser specs were written in good
+faith, passed convincingly, and proved nothing. The rotate-overlay case passed with the input gate
+deleted — first because the gate also sleeps the loop so nothing ran either way, then, after that was
+fixed, because it tapped the centre of the *viewport* while the ScaleManager's 500 ms poll still held
+stale bounds, so the tap transformed to a point off the canvas and hit nothing at all. The off-canvas
+case dragged the thumb clear of the button before releasing, so the release path it was named after was
+never exercised. Both were only exposed by deliberately breaking the thing they claimed to guard —
+which is the rule this repo already had, applied to specs written five minutes earlier.
+
+**And the screenshot found what the suite could not.** The `⎋ MENU` button had been placed in the
+top-right corner by arithmetic that never asked what was already there: it landed on top of the P2
+portrait plate. Moved to the bottom-centre strip the keyboard legend vacates on touch. Every gate was
+green in both positions.
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git

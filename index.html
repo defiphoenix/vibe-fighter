@@ -2,16 +2,57 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- maximum-scale/user-scalable: double-tap zoom and pinch fight an on-screen control pad. iOS
+         Safari ignores both by design; `touch-action: none` below is what actually protects gestures
+         that start on the canvas. Deliberately NO `viewport-fit=cover`: it lays content into the
+         notch / rounded corners / home-indicator strip, and the outermost pad buttons sit 16px from
+         the edge — exactly where an iPhone would eat them. Without it the page stays inside the safe
+         area for free. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Vibe Fighter</title>
     <style>
-      html, body { margin: 0; height: 100%; background: #10131a; }
+      html, body { margin: 0; height: 100%; background: #10131a; overscroll-behavior: none; }
+      body { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
       #game { display: grid; place-items: center; height: 100%; }
-      canvas { image-rendering: pixelated; }
+      /* Without this a drag across the pad scrolls or pans the page instead of holding a button. */
+      canvas { image-rendering: pixelated; touch-action: none; }
+
+      /* The rotate gate. Shown only when src/main.ts puts `.rotate` on <html> — one tested decision
+         (`shouldBlockForOrientation`) drives the overlay AND the loop pause, so the two cannot
+         disagree about whether the game is playable right now. */
+      #rotate {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: #10131a;
+        color: #fff;
+        font-family: monospace;
+        text-align: center;
+        padding: 24px;
+      }
+      html.rotate #rotate { display: flex; }
+      #rotate .glyph { font-size: 64px; color: #fd9146; }
+      #rotate .title { font-size: 22px; letter-spacing: 2px; }
+      #rotate .sub { font-size: 14px; color: #c9b8d4; }
     </style>
   </head>
   <body>
-    <div id="game"></div>
+    <!-- #rotate lives INSIDE #game, and #game is the game's `fullscreenTarget`. Without a target
+         Phaser creates its own <div>, moves ONLY the canvas into it and sends that fullscreen — which
+         would leave this overlay outside the fullscreen subtree, i.e. a rotated phone in fullscreen
+         would show a frozen canvas and no explanation of why. -->
+    <div id="game">
+      <div id="rotate" aria-live="polite">
+        <div class="glyph">⟳</div>
+        <div class="title">ROTATE YOUR DEVICE</div>
+        <div class="sub">Vibe Fighter is played in landscape</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -25,6 +25,8 @@ No parity item should be orphaned.
 | 14 HUD | Step 10: UI & Health Bars (15:23) | [14](phases/14-hud-skin.md) | atlas HUD, dynamic colour, low-health blink, slide-in |
 | 15 Meter specials & combos | Step 11: Special Moves & Polish (16:53) | [15](phases/15-specials-meter-combos.md) | meter, multi-hit, super cut-in |
 | — | Wrap Up (18:09) | [16](phases/16-integration-parity-qa.md) | **Added.** Full-flow parity + QA |
+| — | — | [17](phases/17-meter-lie-and-cpu-pick.md) | **Added.** Post-16 defect pass: the meter lie (R-14), the CPU pick measured, three stale items |
+| — | — | [18](phases/18-mobile-touch.md) | **Added.** Mobile + tablet: touch controls, rotate gate, CPU-only mode screen on touch. Not in the source recipe at all |
 
 ## README parity item → phase → current state → acceptance test
 
@@ -46,6 +48,7 @@ Parity list from [GitHub README](https://github.com/chongdashu/vibe-fighter).
 | Meter specials, multi-hit combos, super cut-in | 15 | **Present** (per-window dedup, `METER_MAX` bar, `repeat` specials, freeze + portrait cut-in, real Seedance `special` sheets, `meter-bar` atlas plate) | `combat.test.ts` hit-count + `registry.test.ts` high/low sweep + `e2e/phase15-special.spec.ts` |
 | Parallax stage (twilight, sunset) | 04, 08, 16 | **Present** (2 stages × 3 runtime layers pre-baked to 1697×720; the front `near` occluder is deliberately dropped; the stage pick is honoured at `MatchScene.create`) | `stage.test.ts` + `e2e/stage.spec.ts` + `e2e/phase16-parity.spec.ts` (**both variants build a real match, with different layers**) |
 | Audio | — | **Non-goal** | n/a (out of scope) |
+| Mobile + tablet play, on-screen touch controls | 18 | **Present** — touch-primary classification (touch AND no fine pointer), 8-button vector pad feeding the same `InputSnapshot`, CPU-only mode screen on touch, tappable menus, rotate gate that also disables Phaser input | `touch.test.ts` (24) + `flow-state.test.ts` (touch mode + `setChar`) + `e2e/mobile-touch.spec.ts` (**11 cases on a real `devices["Pixel 5 landscape"]` profile, including a whole-journey run from the title screen to damage in a live match using only touch events**) |
 
 ## Delta legend
 

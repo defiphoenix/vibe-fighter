@@ -1,0 +1,251 @@
+// Phaser-free touch decisions: who counts as a touch device, when the rotate gate closes, where the
+// on-screen buttons sit, and how a contact becomes a held flag. Lives outside the scene for the same
+// reason edge-latch.ts / flow-state.ts / meter-view.ts do — vitest runs in the node env, so anything
+// worth testing has to sit outside the Phaser import. `touch-view.ts` is the Phaser adapter over this.
+
+import { VIEW_WIDTH, STAGE_HEIGHT } from "../sim/constants";
+
+export type TouchButton = "left" | "right" | "up" | "down" | "light" | "heavy" | "block" | "special";
+
+/** The held flags a pad hands to InputReader. Exactly the InputSnapshot held fields, no edges — the
+ *  edges are still computed in the ONE place that computes them (`InputReader.readOne`). */
+export type TouchHeld = Record<TouchButton, boolean>;
+
+export const TOUCH_BUTTONS: TouchButton[] = ["left", "right", "up", "down", "light", "heavy", "block", "special"];
+
+export interface TouchEnv {
+  /** navigator.maxTouchPoints */
+  maxTouchPoints: number;
+  /** matchMedia("(any-pointer: fine)").matches — a mouse/trackpad is present */
+  anyPointerFine: boolean;
+}
+
+/**
+ * Touch-PRIMARY device: it can be touched and there is no fine pointer anywhere on it.
+ *
+ * Capability alone (what `game.device.input.touch` reports) is not the question being asked. A
+ * touchscreen Windows laptop answers yes to capability and would lose local two-player — which is the
+ * one mode a laptop is genuinely good at — and gain an on-screen pad nobody needs. `any-pointer: fine`
+ * is the signal that separates the two: a phone has none, a laptop with a trackpad has one.
+ */
+export function isTouchDevice(env: TouchEnv): boolean {
+  return env.maxTouchPoints > 0 && !env.anyPointerFine;
+}
+
+let cachedTouch: boolean | undefined;
+
+/**
+ * The ONE answer the whole app uses, evaluated once.
+ *
+ * FlowScene (hide PvP), MatchScene (build the pad), and main.ts (the `html.touch` class + the rotate
+ * gate) all need it, and they are constructed at different times. Re-deriving it per caller would be
+ * three chances for them to disagree — the exact shape of the Phase 17 meter bug, where the HUD and
+ * the sim answered the same question differently. Memoised, so they cannot.
+ *
+ * DEV only: `?touch=1` / `?touch=0` forces the answer, so both modes are reachable from one dev
+ * server. Gated like `?scene=gym` — a production build has no override.
+ */
+export function touchMode(): boolean {
+  if (cachedTouch !== undefined) return cachedTouch;
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  if (import.meta.env.DEV) {
+    const forced = new URLSearchParams(window.location.search).get("touch");
+    if (forced === "1" || forced === "0") {
+      cachedTouch = forced === "1";
+      return cachedTouch;
+    }
+  }
+  cachedTouch = isTouchDevice({
+    maxTouchPoints: navigator.maxTouchPoints ?? 0,
+    anyPointerFine: window.matchMedia?.("(any-pointer: fine)").matches ?? false,
+  });
+  return cachedTouch;
+}
+
+/**
+ * The rotate gate: a touch device held taller than it is wide.
+ *
+ * Deliberately NOT `screen.orientation.type` and NOT Phaser's `scale.isPortrait`. This is a plain
+ * comparison of the numbers the layout actually gets, which is the thing that makes the game
+ * unplayable — and it is a pure function, so the overlay and the loop pause are driven by one tested
+ * decision rather than two readings of the platform that can drift apart.
+ *
+ * Square counts as landscape: there is nothing to fix by rotating.
+ */
+export function shouldBlockForOrientation(env: { touch: boolean; width: number; height: number }): boolean {
+  return env.touch && env.height > env.width;
+}
+
+export interface TouchButtonSpec {
+  id: TouchButton;
+  x: number;
+  y: number;
+  r: number;
+  label: string;
+}
+
+/** Button radius in GAME space. At 1280x720 letterboxed into a 844x390 phone (FIT scale 0.542) this
+ *  draws ~56 CSS px across, about 9 mm — the floor for a reliable thumb target. */
+const BUTTON_R = 52;
+
+/**
+ * Where the buttons sit, in GAME space (1280x720), so they ride `Scale.FIT` with everything else and
+ * need no resize handling of their own.
+ *
+ * Two symmetric crosses, both bottom-aligned so the thumbs rest naturally and the middle of the screen
+ * — where the fight is — stays clear. Labels are WORDS, not invented glyphs: `LIGHT`/`HEAVY` are the
+ * same names the keyboard legend and the docs use, so a first-time player reads what the button does
+ * instead of decoding an icon.
+ */
+export function touchLayout(width = VIEW_WIDTH, height = STAGE_HEIGHT): TouchButtonSpec[] {
+  const r = BUTTON_R;
+  const bottom = height - 60; // centre of the lowest row
+  const mid = bottom - 90;
+  const top = mid - 90;
+  const lx = 160;
+  const rx = width - 160;
+  return [
+    { id: "up", x: lx, y: top, r, label: "JUMP" },
+    { id: "left", x: lx - 92, y: mid, r, label: "◀" },
+    { id: "right", x: lx + 92, y: mid, r, label: "▶" },
+    { id: "down", x: lx, y: bottom, r, label: "CROUCH" },
+    { id: "block", x: rx, y: top, r, label: "BLOCK" },
+    { id: "light", x: rx - 92, y: mid, r, label: "LIGHT" },
+    { id: "heavy", x: rx + 92, y: mid, r, label: "HEAVY" },
+    { id: "special", x: rx, y: bottom, r, label: "SUPER" },
+  ];
+}
+
+/** Which button contains this point, or null. Exported for the tests; the state class uses it too. */
+export function hitButton(layout: TouchButtonSpec[], x: number, y: number): TouchButton | null {
+  for (const b of layout) {
+    const dx = x - b.x;
+    const dy = y - b.y;
+    if (dx * dx + dy * dy <= b.r * b.r) return b.id;
+  }
+  return null;
+}
+
+function emptyHeld(): TouchHeld {
+  return { left: false, right: false, up: false, down: false, light: false, heavy: false, block: false, special: false };
+}
+
+/** A mash cannot bank more than this many presses; beyond it the queue is the player's problem. */
+const MAX_QUEUED = 2;
+
+/**
+ * Contacts in, held flags out.
+ *
+ * `consume()` is a queued press counter with a forced release gap, NOT a plain "is a finger on it"
+ * read, because two separate things break the naive version:
+ *
+ *  1. A tap whose touchstart and touchend both land between two `game.step`s is never seen as held.
+ *     Phaser dispatches touch synchronously from the DOM listener rather than queuing it for the next
+ *     step, so this is not a rare interleaving — it is what a quick tap does, and under the e2e's
+ *     pumped clock it is what EVERY `touchscreen.tap` does. The attack would silently not come out.
+ *  2. Sticky-until-read still drops the SECOND of two fast taps: if the previous frame already
+ *     reported `true`, `InputReader.prev` is `true`, so reporting `true` again produces no rising
+ *     edge. Mashing LIGHT is the most common thing a phone player does.
+ *
+ * So a press is QUEUED on touchdown and released one frame at a time, and a queued press waiting
+ * behind a frame that already read `true` first forces one `false` frame — the gap the edge detector
+ * needs. Cost: one frame (16 ms) of latency on the second of two very fast taps, which is invisible;
+ * benefit: every tap produces exactly one edge.
+ */
+export class TouchPadState {
+  private layout: TouchButtonSpec[];
+  /** live contacts per button — a Set because two thumbs can share a button and lifting one of them
+   *  must not release it */
+  private pointers = new Map<TouchButton, Set<number>>();
+  /** which button each live pointer is currently on (for move/up without a hit test). A pointer that
+   *  has slid into the gap is absent here but still in `padPointers`. */
+  private assigned = new Map<number, TouchButton>();
+  /** pointers whose touchdown landed ON a button. Tracked separately from `assigned` so a thumb can
+   *  slide off a button and back on — it is the same finger, still down — while a pointer that began
+   *  somewhere else (the MENU button, a stray palm) can never grab one mid-drag. */
+  private padPointers = new Set<number>();
+  private queued: Record<TouchButton, number>;
+  private lastOut: TouchHeld = emptyHeld();
+  /** while false, down/move are ignored — a hidden pad must not collect contacts */
+  private active = true;
+
+  constructor(layout: TouchButtonSpec[] = touchLayout()) {
+    this.layout = layout;
+    this.queued = { left: 0, right: 0, up: 0, down: 0, light: 0, heavy: 0, block: 0, special: 0 };
+    for (const b of TOUCH_BUTTONS) this.pointers.set(b, new Set());
+  }
+
+  setActive(on: boolean): void {
+    this.active = on;
+    if (!on) this.cancel();
+  }
+
+  down(pointerId: number, x: number, y: number): void {
+    if (!this.active) return;
+    const b = hitButton(this.layout, x, y);
+    if (!b) return;
+    this.padPointers.add(pointerId);
+    this.assigned.set(pointerId, b);
+    this.pointers.get(b)!.add(pointerId);
+    this.queued[b] = Math.min(this.queued[b] + 1, MAX_QUEUED);
+  }
+
+  /** A thumb that slides off a button releases it; sliding ONTO another button takes that one. */
+  move(pointerId: number, x: number, y: number): void {
+    if (!this.active || !this.padPointers.has(pointerId)) return;
+    const was = this.assigned.get(pointerId);
+    const now = hitButton(this.layout, x, y);
+    if (now === was) return;
+    if (was !== undefined) this.pointers.get(was)!.delete(pointerId);
+    if (now) {
+      this.assigned.set(pointerId, now);
+      this.pointers.get(now)!.add(pointerId);
+      // deliberately NO queued++ here: a slide is not a press, and queueing it would fire an attack
+      // the player never tapped.
+    } else {
+      this.assigned.delete(pointerId);
+    }
+  }
+
+  up(pointerId: number): void {
+    this.padPointers.delete(pointerId);
+    const b = this.assigned.get(pointerId);
+    if (b === undefined) return;
+    this.pointers.get(b)!.delete(pointerId);
+    this.assigned.delete(pointerId);
+  }
+
+  /** Pointer ids Phaser still considers live. Anything we track that is not here gets released — a
+   *  self-healing net under whichever terminal event (pointercancel, a shutdown mid-gesture) we did
+   *  not subscribe to. */
+  reconcile(liveIds: Iterable<number>): void {
+    const live = new Set(liveIds);
+    // padPointers, not assigned: a thumb that slid into the gap is still ours to clean up.
+    for (const id of [...this.padPointers]) if (!live.has(id)) this.up(id);
+  }
+
+  cancel(): void {
+    for (const set of this.pointers.values()) set.clear();
+    this.assigned.clear();
+    this.padPointers.clear();
+    for (const b of TOUCH_BUTTONS) this.queued[b] = 0;
+    this.lastOut = emptyHeld();
+  }
+
+  consume(): TouchHeld {
+    const out = emptyHeld();
+    for (const b of TOUCH_BUTTONS) {
+      const held = this.pointers.get(b)!.size > 0;
+      if (this.queued[b] > 0 && !this.lastOut[b]) {
+        out[b] = true;
+        this.queued[b] -= 1;
+      } else if (this.queued[b] > 0) {
+        out[b] = false; // the forced gap, so the next queued press reads as a rising edge
+      } else {
+        out[b] = held;
+      }
+    }
+    this.lastOut = out;
+    return { ...out };
+  }
+}

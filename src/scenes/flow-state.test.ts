@@ -3,7 +3,7 @@ import registry from "../../public/configs/character-gym.json";
 import { VIEW_WIDTH } from "../sim/constants";
 import {
   MODE_OPTIONS, SELECTABLE_IDS, advance, back, bothLocked, characterCardWidth, cpuPick, initialFlow,
-  isCpu, lock, modeOf, moveChar, moveMenu, toMatchConfig,
+  isCpu, lock, modeOf, modeOptions, moveChar, moveMenu, setChar, toMatchConfig,
 } from "./flow-state";
 import type { FlowState } from "./flow-state";
 
@@ -220,5 +220,82 @@ describe("toMatchConfig", () => {
 
   it("throws rather than booting a match with an empty roster", () => {
     expect(() => toMatchConfig(chars(), [], STAGES)).toThrow(/incomplete/);
+  });
+});
+
+describe("touch mode (Phase 18)", () => {
+  /** Two people cannot share one handset. Offering local PvP on a phone offers a mode that cannot
+   *  be played — and the CPU cards are the only ones that can. */
+  it("drops local 1v1 from the mode screen on a touch device, and only there", () => {
+    expect(modeOptions(true).map((o) => o.mode)).toEqual(["cpu", "cpu", "cpu"]);
+    expect(modeOptions(true).some((o) => o.label === "1 vs 1")).toBe(false);
+    expect(modeOptions(false)).toEqual(MODE_OPTIONS);
+  });
+
+  /** `modeIndex` is a RAW index. If the drawing, the wrap and `modeOf` do not all read the same
+   *  array, index 1 means "CPU easy" to one of them and "1 vs 1" to another. */
+  it("wraps the cursor over three cards on touch and four on desktop", () => {
+    let t: FlowState = { ...initialFlow(true), step: "mode" };
+    expect(modeOf(t).mode).toBe("cpu");
+    t = moveMenu(moveMenu(moveMenu(t, 1, 0), 1, 0), 1, 0);
+    expect(t.modeIndex).toBe(0); // three steps is a full lap
+    expect(modeOf(moveMenu({ ...initialFlow(true), step: "mode" }, -1, 0)).difficulty).toBe("hard");
+
+    let d: FlowState = { ...initialFlow(), step: "mode" };
+    d = moveMenu(moveMenu(moveMenu(d, 1, 0), 1, 0), 1, 0);
+    expect(d.modeIndex).toBe(3);
+    expect(modeOf(d).difficulty).toBe("hard");
+  });
+
+  it("a touch flow is always a CPU match, whichever card is picked", () => {
+    for (let i = 0; i < 3; i++) expect(isCpu({ ...initialFlow(true), step: "mode", modeIndex: i })).toBe(true);
+  });
+
+  /** `back()` rebuilds the state object; losing `touch` there would silently restore PvP one Esc
+   *  into the flow. */
+  it("carries the touch flag through advance and back", () => {
+    const s = advance(advance(initialFlow(true)));
+    expect(s.touch).toBe(true);
+    expect(back(s).touch).toBe(true);
+    expect(back(back(s)).touch).toBe(true);
+  });
+
+  it("still boots a real match config from a touch flow", () => {
+    const s = cpuPick(lock({ ...chars(2, { touch: true }), stageIndex: 1 }, 0), 2);
+    expect(toMatchConfig(s, ROSTER, STAGES)).toEqual({
+      mode: "cpu",
+      difficulty: "hard", // index 2 of the FILTERED list
+      stageId: "sunset",
+      fighters: ["brawler", "jiujitsu"],
+    });
+  });
+});
+
+describe("setChar — a tap is positional where a key is directional", () => {
+  it("puts the cursor straight on a free card", () => {
+    expect(setChar(chars(), 0, 2, 3).cursors).toEqual([2, 1]);
+  });
+
+  it("swaps with an unlocked opponent, exactly as moving onto them does", () => {
+    expect(setChar(chars(), 0, 1, 3).cursors).toEqual([1, 0]);
+  });
+
+  it("refuses a locked opponent's card rather than doubling up", () => {
+    const s = chars(0, { locked: [false, true] });
+    expect(setChar(s, 0, 1, 3)).toBe(s);
+  });
+
+  it("freezes a locked player, and does nothing outside the chars step", () => {
+    const locked = chars(0, { locked: [true, false] });
+    expect(setChar(locked, 0, 2, 3)).toBe(locked);
+    const mode = { ...initialFlow(), step: "mode" as const };
+    expect(setChar(mode, 0, 2, 3)).toBe(mode);
+  });
+
+  it("does not mutate the state it is given", () => {
+    const s = chars();
+    const before = JSON.stringify(s);
+    setChar(s, 0, 2, 3);
+    expect(JSON.stringify(s)).toBe(before);
   });
 });

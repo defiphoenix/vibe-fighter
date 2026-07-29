@@ -3,11 +3,12 @@ import { VIEW_WIDTH, STAGE_HEIGHT } from "../sim/constants";
 import { loadRegistry } from "../render/characters";
 import type { StagesFile } from "../render/stage";
 import {
-  MODE_OPTIONS, SELECTABLE_IDS, advance, back, bothLocked, characterCardWidth, cpuPick, initialFlow,
-  isCpu, lock, moveChar, moveMenu, toMatchConfig,
+  SELECTABLE_IDS, advance, back, bothLocked, characterCardWidth, cpuPick, initialFlow,
+  isCpu, lock, modeOptions, moveChar, moveMenu, setChar, toMatchConfig,
 } from "./flow-state";
 import type { FlowState, MatchConfig, Player } from "./flow-state";
 import { makeRoll } from "./roll";
+import { touchMode } from "../render/touch";
 
 // Rooftop-dusk palette, sampled from the locked Phase 03 mockup and baked into the Phase 06
 // portraits. The menus share it deliberately: a card screen in a different palette from the
@@ -68,7 +69,7 @@ export class FlowScene extends Phaser.Scene {
 
   /** State lives here, not in the constructor: the scene is re-entered from a finished match. */
   init(): void {
-    this.state = initialFlow();
+    this.state = initialFlow(touchMode());
     this.cards = [];
     this.busy = false;
     this.starting = false;
@@ -102,6 +103,12 @@ export class FlowScene extends Phaser.Scene {
         press: (key: string) => this.press(key),
         roster: () => [...this.roster],
         stages: () => [...this.stageIds],
+        // What the mode screen ACTUALLY offers. A spec asserting "no local PvP on a phone" has to
+        // read the offered list, not hope that a constant it imports is the one being drawn.
+        modes: () => modeOptions(this.state.touch).map((m) => m.label),
+        // Card geometry in GAME space, so a spec can tap the real thing at real coordinates instead
+        // of calling the handler directly — a seam-driven tap cannot see a broken hit area.
+        cards: () => this.cards.map((c) => ({ x: c.root.x, y: c.root.y, w: c.w, h: c.h, alpha: c.root.alpha })),
         // Pin the CPU's pick. A spec that asserts an exact opponent MUST call this — otherwise it is
         // right about half the time, which is an intermittently-red suite rather than a test.
         seed: (n: number) => { this.roll = makeRoll(n); },
@@ -174,7 +181,7 @@ export class FlowScene extends Phaser.Scene {
     }
 
     if (s.step === "mode" || s.step === "stage") {
-      const count = s.step === "stage" ? this.stageIds.length : MODE_OPTIONS.length;
+      const count = s.step === "stage" ? this.stageIds.length : modeOptions(s.touch).length;
       if (key === "a" || key === "left") this.state = moveMenu(s, -1, count);
       else if (key === "d" || key === "right") this.state = moveMenu(s, 1, count);
       else if (key === "enter" || key === "f") this.state = advance(s);
@@ -220,6 +227,18 @@ export class FlowScene extends Phaser.Scene {
     });
   }
 
+  /** Best effort, and deliberately silent. iPhone Safari still has no fullscreen for an arbitrary
+   *  element (Phaser answers FULLSCREEN_UNSUPPORTED and carries on), Android may refuse, and neither
+   *  is a reason to interrupt someone who just wanted to start a game. The letterboxed layout is
+   *  correct either way — fullscreen only makes it bigger. */
+  private requestFullscreen(): void {
+    try {
+      if (!this.scale.isFullscreen) this.scale.startFullscreen();
+    } catch {
+      /* refused: play windowed */
+    }
+  }
+
   private startMatch(): void {
     // Both players' flash callbacks land ~320ms after their own lock, and BOTH see `bothLocked`
     // once the second one is in — so this is reachable twice for a single match. scene.start is
@@ -253,19 +272,70 @@ export class FlowScene extends Phaser.Scene {
     this.cards = [];
     this.tags = [];
 
+    const touch = this.state.touch;
     if (this.state.step === "title") this.buildTitle();
-    else if (this.state.step === "mode") this.buildRow(MODE_OPTIONS.map((m) => m.label), 250, 130, "MODE", "← → choose · ENTER confirm");
-    else if (this.state.step === "stage") this.buildStages();
+    else if (this.state.step === "mode") {
+      this.buildRow(
+        modeOptions(touch).map((m) => m.label), 250, 130, "MODE",
+        touch ? "TAP a card · TAP again to confirm" : "← → choose · ENTER confirm",
+      );
+    } else if (this.state.step === "stage") this.buildStages();
     else this.buildChars();
 
+    // One BACK button, drawn for every step past the title. On a phone there is no Esc key, so
+    // without it a wrong tap on the mode screen is a dead end that needs a page reload.
+    if (touch && this.state.step !== "title") {
+      const backBtn = this.text(90, 44, "◀ BACK", 22, CSS.dim)
+        .setInteractive({ useHandCursor: true })
+        .on("pointerup", () => this.press("esc"));
+      this.layer.add(backBtn);
+    }
+
     this.paint();
+  }
+
+  /**
+   * What a TAP on card `i` means. One rule for every screen, so there is nothing to learn:
+   * **an unselected card selects; the selected card confirms.**
+   *
+   * Routed through `press()` and the pure state functions rather than poking `this.state`, so the tap
+   * path and the key path cannot diverge — and `rebuildIf` still owns the redraw.
+   *
+   * `pointerup`, not `pointerdown`: on the title screen the same gesture asks for fullscreen, and a
+   * fullscreen request from `pointerdown` is refused on touch devices.
+   */
+  private tapCard(i: number): void {
+    if (this.busy) return;
+    const s = this.state;
+    if (s.step === "mode" || s.step === "stage") {
+      const cur = s.step === "mode" ? s.modeIndex : s.stageIndex;
+      if (cur === i) return this.press("enter");
+      this.state = s.step === "mode" ? { ...s, modeIndex: i } : { ...s, stageIndex: i };
+      return this.rebuildIf(s);
+    }
+    if (s.step !== "chars") return;
+    if (s.cursors[0] === i) return this.press("f"); // lock P1 on the card they already hold
+    this.state = setChar(s, 0, i, this.roster.length);
+    this.rebuildIf(s);
   }
 
   private buildTitle(): void {
     const t = this.text(VIEW_WIDTH / 2, 250, "VIBE FIGHTER", 82, CSS.orange);
     const sub = this.text(VIEW_WIDTH / 2, 340, "rooftop dusk", 22, CSS.dim);
-    const hint = this.text(VIEW_WIDTH / 2, 470, "PRESS ENTER", 30);
+    const hint = this.text(VIEW_WIDTH / 2, 470, this.state.touch ? "TAP TO START" : "PRESS ENTER", 30);
     this.layer.add([t, sub, hint]);
+    if (this.state.touch) {
+      // A full-screen Zone rather than a button: the first tap is also the only user gesture we are
+      // guaranteed, and it is the one chance to ask for fullscreen. Mobile browsers keep a URL bar in
+      // landscape that eats ~15% of a screen this game has no spare pixels on.
+      const zone = this.add.zone(0, 0, VIEW_WIDTH, STAGE_HEIGHT).setOrigin(0, 0).setInteractive();
+      // pointerUP, not down: a fullscreen request from pointerdown is refused on touch devices.
+      zone.on("pointerup", () => {
+        this.requestFullscreen();
+        this.press("enter");
+      });
+      this.layer.add(zone);
+    }
     this.tweens.add({ targets: hint, alpha: 0.25, duration: 700, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
     // DEV-only entry to the Phase-10 Fighter Playground (a tuning tool — its stat write-back needs the
@@ -296,7 +366,11 @@ export class FlowScene extends Phaser.Scene {
 
   private buildStages(): void {
     this.layer.add(this.text(VIEW_WIDTH / 2, 100, "STAGE", 40, CSS.orange));
-    this.layer.add(this.text(VIEW_WIDTH / 2, 620, "← → choose · ENTER confirm · ESC back", 18, CSS.dim));
+    this.layer.add(this.text(
+      VIEW_WIDTH / 2, 620,
+      this.state.touch ? "TAP a stage · TAP again to confirm" : "← → choose · ENTER confirm · ESC back",
+      18, CSS.dim,
+    ));
     const cardW = 460;
     const cardH = 300;
     const gap = 40;
@@ -324,7 +398,9 @@ export class FlowScene extends Phaser.Scene {
     this.layer.add(
       this.text(
         VIEW_WIDTH / 2, 660,
-        cpu ? "P1 A/D move · ENTER or F lock · ESC back" : "P1 A/D + F   |   P2 ← → + ,   |   ESC back",
+        this.state.touch
+          ? "TAP a fighter · TAP again to lock in"
+          : cpu ? "P1 A/D move · ENTER or F lock · ESC back" : "P1 A/D + F   |   P2 ← → + ,   |   ESC back",
         18, CSS.dim,
       ),
     );
@@ -350,8 +426,12 @@ export class FlowScene extends Phaser.Scene {
   }
 
   private makeCard(x: number, y: number, w: number, h: number): Card {
+    const index = this.cards.length;
     const root = this.add.container(x, y).setDepth(10);
     const bg = this.add.rectangle(0, 0, w, h, DUSK_VIOLET, 0.85).setOrigin(0.5);
+    // The whole card is the tap target on touch — a phone player has no keys to move a cursor with.
+    // The rect is a CHILD of the container; Phaser resolves its hit area through the parent transform.
+    if (this.state.touch) bg.setInteractive({ useHandCursor: true }).on("pointerup", () => this.tapCard(index));
     const frame = this.add.graphics();
     root.add([bg, frame]);
     this.layer.add(root);

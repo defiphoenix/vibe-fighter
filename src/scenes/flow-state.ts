@@ -57,6 +57,19 @@ export const MODE_OPTIONS: ModeOption[] = [
   { label: "CPU · HARD", mode: "cpu", difficulty: "hard" },
 ];
 
+/**
+ * What the mode screen actually offers (Phase 18).
+ *
+ * Local 1v1 needs two players on one keyboard, which a phone does not have and a handset cannot be
+ * shared for — offering it on touch is offering a mode that cannot be played. Every consumer of the
+ * mode list goes through here rather than reading `MODE_OPTIONS` directly, because `modeIndex` is a
+ * raw index: the drawing, the movement wrap, and `modeOf` must all index the SAME array or index 1
+ * means "CPU easy" to one of them and "1v1" to another.
+ */
+export function modeOptions(touch: boolean): ModeOption[] {
+  return touch ? MODE_OPTIONS.filter((o) => o.mode !== "1v1") : MODE_OPTIONS;
+}
+
 export interface FlowState {
   step: Step;
   modeIndex: number;
@@ -64,6 +77,8 @@ export interface FlowState {
   /** which roster card each player's cursor sits on */
   cursors: [number, number];
   locked: [boolean, boolean];
+  /** touch-primary device: the mode screen drops local PvP. Fixed for the life of the flow. */
+  touch: boolean;
 }
 
 /** What FlowScene hands MatchScene through scene.start("Match", cfg). */
@@ -76,18 +91,21 @@ export interface MatchConfig {
 
 const STEPS: Step[] = ["title", "mode", "stage", "chars"];
 
-export function initialFlow(): FlowState {
-  return { step: "title", modeIndex: 0, stageIndex: 0, cursors: [0, 1], locked: [false, false] };
+export function initialFlow(touch = false): FlowState {
+  return { step: "title", modeIndex: 0, stageIndex: 0, cursors: [0, 1], locked: [false, false], touch };
 }
 
-export const modeOf = (s: FlowState): ModeOption => MODE_OPTIONS[s.modeIndex];
+export const modeOf = (s: FlowState): ModeOption => {
+  const opts = modeOptions(s.touch);
+  return opts[wrap(s.modeIndex, opts.length)];
+};
 export const isCpu = (s: FlowState): boolean => modeOf(s).mode === "cpu";
 
 const wrap = (i: number, n: number): number => ((i % n) + n) % n;
 
 /** Single-cursor movement for the mode/stage screens (either player's keys drive it). */
 export function moveMenu(s: FlowState, dir: number, count: number): FlowState {
-  if (s.step === "mode") return { ...s, modeIndex: wrap(s.modeIndex + dir, MODE_OPTIONS.length) };
+  if (s.step === "mode") return { ...s, modeIndex: wrap(s.modeIndex + dir, modeOptions(s.touch).length) };
   if (s.step === "stage") return { ...s, stageIndex: wrap(s.stageIndex + dir, count) };
   return s;
 }
@@ -117,6 +135,29 @@ export function moveChar(s: FlowState, player: Player, dir: number, count: numbe
     } else {
       cursors[opp] = cursors[player]; // swap: push them onto the card being vacated
     }
+  }
+  cursors[player] = target;
+  return { ...s, cursors };
+}
+
+/**
+ * Put a player's cursor on a specific card — what a TAP means, since a tap is positional where a key
+ * is directional (Phase 18).
+ *
+ * Shares `moveChar`'s rules rather than restating them: a locked player cannot move, and landing on
+ * the opponent's card either SWAPS with them or is refused if they are locked. Written as one call to
+ * `moveChar` with the signed distance would not do — the swap rule is about the DESTINATION, not the
+ * path — so the two branches are spelled out here and pinned by the same tests.
+ */
+export function setChar(s: FlowState, player: Player, index: number, count: number): FlowState {
+  if (s.step !== "chars" || s.locked[player] || count < 1) return s;
+  const target = wrap(index, count);
+  const opp: Player = player === 0 ? 1 : 0;
+  if (target === s.cursors[player]) return s;
+  const cursors: [number, number] = [s.cursors[0], s.cursors[1]];
+  if (target === cursors[opp]) {
+    if (s.locked[opp]) return s; // their card, and they have committed to it
+    cursors[opp] = cursors[player]; // swap: push them onto the card being vacated
   }
   cursors[player] = target;
   return { ...s, cursors };

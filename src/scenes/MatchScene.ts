@@ -10,6 +10,8 @@ import type { MatchConfig } from "./flow-state";
 import type { MatchPhase } from "../sim/match";
 import { Hud } from "../render/hud";
 import { CutInView } from "../render/cutin-view";
+import { TouchPad } from "../render/touch-view";
+import { touchMode } from "../render/touch";
 import { buildStage } from "../render/stage";
 import type { StagesFile } from "../render/stage";
 import { loadRegistry, buildConfig } from "../render/characters";
@@ -74,6 +76,9 @@ export class MatchScene extends Phaser.Scene {
   private sprites!: [FighterSprite, FighterSprite];
   private hud!: Hud;
   private cutIn!: CutInView;
+  /** Phase 18: the on-screen pad, built only on a touch-primary device. */
+  private pad?: TouchPad;
+  private menuBtn?: Phaser.GameObjects.Text;
   /** Consecutive hits each fighter has TAKEN without leaving hitstun. Index = the one being hit. */
   private combo: [number, number] = [0, 0];
   private cfg: MatchConfig = DEFAULT_CONFIG;
@@ -131,6 +136,8 @@ export class MatchScene extends Phaser.Scene {
     this.debug = false;
     this.bounds = allBounds(true);
     this.cpu = undefined;
+    this.pad = undefined;
+    this.menuBtn = undefined;
     this.latch = new EdgeLatch();
     this.testHoldP1 = {};
     this.testHoldP2 = {};
@@ -251,7 +258,10 @@ export class MatchScene extends Phaser.Scene {
       )
       .setOrigin(0.5, 1)
       .setDepth(101)
-      .setScrollFactor(0);
+      .setScrollFactor(0)
+      // On a phone this legend names keys that do not exist, and it sits exactly where the pad's
+      // bottom row goes. The pad's own labels are the legend there.
+      .setVisible(!touchMode());
 
     // The mid-fight quit confirmation. Built once and hidden; screen-space like the rest of the HUD.
     this.quitPrompt = this.add
@@ -269,6 +279,28 @@ export class MatchScene extends Phaser.Scene {
 
     this.buildEndMenu();
 
+    // Phase 18: the on-screen pad and the one control Esc has no touch equivalent for. Built here,
+    // BEFORE the camera block, so their objects can go into the ignore list below.
+    if (touchMode()) {
+      this.pad = new TouchPad(this);
+      // Bottom CENTRE, in the strip the keyboard legend just vacated — not the top corner, which is
+      // where the P2 portrait plate lives (measured off a phone screenshot: the two overlapped). It
+      // also sits between the two thumb clusters, so it is visible without being under a thumb.
+      this.menuBtn = this.add
+        .text(VIEW_WIDTH / 2, STAGE_HEIGHT - 10, "⎋ MENU", {
+          fontFamily: "monospace", fontSize: "20px", color: "#ffffff", stroke: "#000000", strokeThickness: 4,
+          backgroundColor: "#120a1cb0", padding: { x: 14, y: 8 },
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(97)
+        .setScrollFactor(0)
+        .setInteractive({ useHandCursor: true })
+        // The SAME arm-then-confirm path Esc takes — two taps mid-fight, one when the match is over.
+        // A one-tap quit here would throw away a match on a mis-tap, which is worse on a phone than
+        // on a keyboard because the button is where a thumb already rests.
+        .on("pointerup", () => this.pressMenu());
+    }
+
     // --- Cameras. MUST be last: Phaser starts every Game Object with cameraFilter 0 ("render on
     // every camera") and ignore() only sets one camera's bit, so anything created after this and
     // left out of BOTH lists draws twice, once at world zoom and once at 1:1. The two lists below
@@ -278,6 +310,8 @@ export class MatchScene extends Phaser.Scene {
     this.cameras.main.ignore([
       ...this.hud.objects,
       ...this.cutIn.objects,
+      ...(this.pad?.objects ?? []),
+      ...(this.menuBtn ? [this.menuBtn] : []),
       this.legend,
       this.quitPrompt,
       this.endScrim,
@@ -300,8 +334,8 @@ export class MatchScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setVisible(false);
     this.endUnderline = this.add.graphics().setDepth(103).setScrollFactor(0).setVisible(false);
-    this.endTexts = END_OPTIONS.map((label, i) =>
-      this.add
+    this.endTexts = END_OPTIONS.map((label, i) => {
+      const t = this.add
         .text(VIEW_WIDTH / 2, 400 + i * 56, label, {
           fontFamily: "monospace",
           fontSize: "32px",
@@ -312,8 +346,17 @@ export class MatchScene extends Phaser.Scene {
         .setOrigin(0.5, 0.5)
         .setDepth(103)
         .setScrollFactor(0)
-        .setVisible(false),
-    );
+        .setVisible(false);
+      // On touch a tap both selects and confirms — there is no second key to press. Phaser does not
+      // hit-test an invisible object, so this is inert until the menu is actually up.
+      if (touchMode()) {
+        t.setInteractive({ useHandCursor: true }).on("pointerup", () => {
+          this.endSel = i as 0 | 1;
+          this.confirmEndSel();
+        });
+      }
+      return t;
+    });
   }
 
   /** Show/hide the menu. Driven off `match.phase` every frame rather than off the `matchEnd` EVENT:
@@ -386,6 +429,22 @@ export class MatchScene extends Phaser.Scene {
     for (const s of this.sprites) s.clearFx();
   }
 
+  /**
+   * "Leave this match" — the one behaviour behind both the Esc key and the touch MENU button.
+   *
+   * Nothing left to lose once the match is decided, so leave immediately. Otherwise the first press
+   * only ARMS the prompt and the second one within the window actually quits. Returns true when the
+   * scene has been started, so the caller can bail out of the rest of its frame.
+   */
+  private pressMenu(): boolean {
+    if (this.world.match.phase === "matchEnd" || this.quitArmed) {
+      this.scene.start("Flow");
+      return true;
+    }
+    this.armQuit();
+    return false;
+  }
+
   /** First Esc mid-fight: show the prompt and open a short window for the confirming press. */
   private armQuit(): void {
     this.quitArmed = true;
@@ -419,18 +478,15 @@ export class MatchScene extends Phaser.Scene {
 
     const mDown = this.menuKey.isDown;
     if (mDown && !this.prevMenuDown) {
-      // Nothing left to lose once the match is decided, so leave immediately. Otherwise the first
-      // press only arms the prompt — the second one within the window actually quits.
-      if (this.world.match.phase === "matchEnd" || this.quitArmed) {
-        this.prevMenuDown = true;
-        this.scene.start("Flow");
-        return;
-      }
-      this.armQuit();
+      this.prevMenuDown = true;
+      if (this.pressMenu()) return;
     }
     this.prevMenuDown = mDown;
 
-    const raw = this.reader.read();
+    // The pad is drained exactly ONCE per update, and its held flags are OR'd into P1's keys inside
+    // InputReader — before the edge computation, so a tap becomes a rising edge through the same
+    // single implementation the keyboard uses. No second route into the sim.
+    const raw = this.reader.read(this.pad?.consume());
     if (import.meta.env.DEV) {
       raw[0] = { ...raw[0], ...this.testHoldP1 };
       raw[1] = { ...raw[1], ...this.testHoldP2 };
@@ -453,6 +509,10 @@ export class MatchScene extends Phaser.Scene {
     // Match-end menu: visibility tracks the phase, so a rematch and a directly-set phase both work.
     const atEnd = this.world.match.phase === "matchEnd";
     if (atEnd !== this.endShown) this.setEndMenu(atEnd);
+    // The pad goes away with the match: it would otherwise sit under the end menu's scrim, and its
+    // bottom-right buttons overlap where a thumb reaches for MAIN MENU. Hiding it also deactivates
+    // its listeners, so it cannot swallow that tap.
+    this.pad?.setVisible(!atEnd);
     // Menu navigation. Polled on EVERY frame and only ACTED on at matchEnd — never polled inside the
     // `if (atEnd)`. Phaser's `Key._justDown` is set on the keydown event and cleared only when a
     // JustDown() read consumes it or the key comes up; it is NOT frame-scoped. These keys are also
