@@ -75,6 +75,29 @@ test.describe("phone (touch profile)", () => {
     ).toBe(false);
   });
 
+  /** `?diag=1` is the only instrument that works on hardware nobody here is holding. If it silently
+   *  stopped rendering, the next device bug would be back to guesswork. */
+  test("?diag=1 prints what the device actually reports", async ({ page }) => {
+    await harnessReady(page, { route: "?diag=1", needs: ["__game", "__flow"] });
+    const texts = await page.evaluate(() => {
+      const scene = (window as any).__game.scene.getScene("Flow");
+      const out: string[] = [];
+      const walk = (list: any[]): void => {
+        for (const o of list) {
+          if (typeof o.text === "string") out.push(o.text);
+          if (Array.isArray(o.list)) walk(o.list);
+        }
+      };
+      walk(scene.children.list);
+      return out;
+    });
+    const diag = texts.find((t) => t.includes("maxTouchPoints"));
+    expect(diag, "the diagnostic line is on the title screen").toBeTruthy();
+    for (const key of ["touch=", "pointer:coarse=", "any-pointer:fine=", "vp="]) {
+      expect(diag, `reports ${key}`).toContain(key);
+    }
+  });
+
   test("the mode screen offers CPU only — two people cannot share one handset", async ({ page }) => {
     await flowReady(page);
     await keys(page, ["enter"]); // title -> mode

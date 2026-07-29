@@ -8,7 +8,7 @@ import {
 } from "./flow-state";
 import type { FlowState, MatchConfig, Player } from "./flow-state";
 import { makeRoll } from "./roll";
-import { touchMode } from "../render/touch";
+import { touchDiagnostics, touchMode } from "../render/touch";
 
 // Rooftop-dusk palette, sampled from the locked Phase 03 mockup and baked into the Phase 06
 // portraits. The menus share it deliberately: a card screen in a different palette from the
@@ -324,6 +324,19 @@ export class FlowScene extends Phaser.Scene {
     const sub = this.text(VIEW_WIDTH / 2, 340, "rooftop dusk", 22, CSS.dim);
     const hint = this.text(VIEW_WIDTH / 2, 470, this.state.touch ? "TAP TO START" : "PRESS ENTER", 30);
     this.layer.add([t, sub, hint]);
+
+    // `?diag=1`: let the DEVICE report what it sees. Wrapped to two lines because a phone viewport is
+    // narrower than this string. See touchDiagnostics() for why this exists at all.
+    if (new URLSearchParams(window.location.search).has("diag")) {
+      const parts = touchDiagnostics().split(" · ");
+      const half = Math.ceil(parts.length / 2);
+      const diag = this.text(
+        VIEW_WIDTH / 2, 620,
+        `${parts.slice(0, half).join(" · ")}\n${parts.slice(half).join(" · ")}`,
+        16, CSS.dim,
+      ).setAlign("center");
+      this.layer.add(diag);
+    }
     if (this.state.touch) {
       // A full-screen Zone rather than a button: the first tap is also the only user gesture we are
       // guaranteed, and it is the one chance to ask for fullscreen. Mobile browsers keep a URL bar in

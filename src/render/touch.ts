@@ -39,6 +39,34 @@ export function isTouchDevice(env: TouchEnv): boolean {
   return env.maxTouchPoints > 0 && env.pointerCoarse;
 }
 
+/**
+ * What this device actually reports, as one short line for `?diag=1`.
+ *
+ * Device classification is the only decision in this project that cannot be reproduced from the
+ * machine it is written on, and it has now shipped wrong once and survived a fix. Guessing at it from
+ * an emulator that agrees with whatever is written is how that happened. So the phone answers for
+ * itself: load `?diag=1` and read the line off the title screen.
+ *
+ * Its mere PRESENCE is half the diagnostic — a build without this function cannot draw it, so a line
+ * that does not appear means a stale cached bundle rather than a wrong predicate.
+ */
+export function touchDiagnostics(): string {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return "no window";
+  const mm = (q: string): string => (window.matchMedia?.(q).matches ? "1" : "0");
+  const forced = new URLSearchParams(window.location.search).get("touch");
+  return [
+    `touch=${touchMode() ? 1 : 0}${forced === "1" || forced === "0" ? "(forced)" : ""}`,
+    `maxTouchPoints=${navigator.maxTouchPoints ?? "?"}`,
+    `pointer:coarse=${mm("(pointer: coarse)")}`,
+    `any-pointer:coarse=${mm("(any-pointer: coarse)")}`,
+    `any-pointer:fine=${mm("(any-pointer: fine)")}`,
+    `hover:none=${mm("(hover: none)")}`,
+    `ontouchstart=${"ontouchstart" in window ? 1 : 0}`,
+    `vp=${window.innerWidth}x${window.innerHeight}`,
+    `dpr=${window.devicePixelRatio}`,
+  ].join(" · ");
+}
+
 let cachedTouch: boolean | undefined;
 
 /**
