@@ -8,22 +8,35 @@ const LIGHT = touchLayout().find((b) => b.id === "light")!;
 const LEFT = touchLayout().find((b) => b.id === "left")!;
 
 describe("isTouchDevice", () => {
-  it("is a phone: touch points, no fine pointer", () => {
-    expect(isTouchDevice({ maxTouchPoints: 5, anyPointerFine: false })).toBe(true);
+  it("is a phone: touch points, and you point with a finger", () => {
+    expect(isTouchDevice({ maxTouchPoints: 5, pointerCoarse: true })).toBe(true);
   });
 
   it("is NOT a plain desktop", () => {
-    expect(isTouchDevice({ maxTouchPoints: 0, anyPointerFine: true })).toBe(false);
+    expect(isTouchDevice({ maxTouchPoints: 0, pointerCoarse: false })).toBe(false);
   });
 
   /** The case capability-alone gets wrong. A touchscreen laptop has a trackpad, and local two-player
    *  is exactly what a laptop is good at — taking it away is a regression, not mobile support. */
-  it("is NOT a touchscreen laptop (touch AND a mouse)", () => {
-    expect(isTouchDevice({ maxTouchPoints: 10, anyPointerFine: true })).toBe(false);
+  it("is NOT a touchscreen laptop (touch, but you point with a trackpad)", () => {
+    expect(isTouchDevice({ maxTouchPoints: 10, pointerCoarse: false })).toBe(false);
+  });
+
+  /**
+   * The real Samsung S23+ / Android 16 case, which shipped BROKEN.
+   *
+   * The first version of this predicate was `maxTouchPoints > 0 && !anyPointerFine`, and every
+   * emulator agreed with it. On the actual phone Android reports `any-pointer: fine` TRUE — it
+   * advertises stylus/DeX pointer capability — so the whole touch path switched itself off: the title
+   * read "PRESS ENTER", nothing was tappable, and portrait never raised the rotate gate. The primary
+   * pointer is still a finger, which is the question that was always being asked.
+   */
+  it("IS a phone that also advertises a fine pointer (stylus / DeX)", () => {
+    expect(isTouchDevice({ maxTouchPoints: 5, pointerCoarse: true })).toBe(true);
   });
 
   it("is not a mouseless kiosk with no touch either", () => {
-    expect(isTouchDevice({ maxTouchPoints: 0, anyPointerFine: false })).toBe(false);
+    expect(isTouchDevice({ maxTouchPoints: 0, pointerCoarse: true })).toBe(false);
   });
 });
 

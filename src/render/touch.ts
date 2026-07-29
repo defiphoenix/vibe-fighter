@@ -16,20 +16,27 @@ export const TOUCH_BUTTONS: TouchButton[] = ["left", "right", "up", "down", "lig
 export interface TouchEnv {
   /** navigator.maxTouchPoints */
   maxTouchPoints: number;
-  /** matchMedia("(any-pointer: fine)").matches — a mouse/trackpad is present */
-  anyPointerFine: boolean;
+  /** matchMedia("(pointer: coarse)").matches — the PRIMARY pointing device is a finger */
+  pointerCoarse: boolean;
 }
 
 /**
- * Touch-PRIMARY device: it can be touched and there is no fine pointer anywhere on it.
+ * Touch-PRIMARY device: it can be touched, and the pointer you actually point with is a finger.
  *
- * Capability alone (what `game.device.input.touch` reports) is not the question being asked. A
- * touchscreen Windows laptop answers yes to capability and would lose local two-player — which is the
- * one mode a laptop is genuinely good at — and gain an on-screen pad nobody needs. `any-pointer: fine`
- * is the signal that separates the two: a phone has none, a laptop with a trackpad has one.
+ * Capability alone (what `game.device.input.touch` reports) is the wrong question — a touchscreen
+ * Windows laptop answers yes, and would lose local two-player, the one mode a laptop is genuinely good
+ * at, while gaining a pad nobody needs. But **`any-pointer: fine` is the wrong discriminator**, which
+ * this shipped with and a real phone disproved in one try: a Samsung S23+ on Android 16 reports
+ * `any-pointer: fine` TRUE (Android exposes stylus/DeX pointer capability), so the whole touch path
+ * switched itself off — the title read "PRESS ENTER", nothing was tappable, and portrait never raised
+ * the rotate gate. Every emulator said otherwise.
+ *
+ * `pointer: coarse` asks about the PRIMARY pointer instead of whether any fine one could exist. A
+ * phone answers coarse whatever else it supports; a laptop answers fine because you point with the
+ * trackpad. That is the distinction this function was always trying to make.
  */
 export function isTouchDevice(env: TouchEnv): boolean {
-  return env.maxTouchPoints > 0 && !env.anyPointerFine;
+  return env.maxTouchPoints > 0 && env.pointerCoarse;
 }
 
 let cachedTouch: boolean | undefined;
@@ -42,22 +49,23 @@ let cachedTouch: boolean | undefined;
  * three chances for them to disagree — the exact shape of the Phase 17 meter bug, where the HUD and
  * the sim answered the same question differently. Memoised, so they cannot.
  *
- * DEV only: `?touch=1` / `?touch=0` forces the answer, so both modes are reachable from one dev
- * server. Gated like `?scene=gym` — a production build has no override.
+ * **`?touch=1` / `?touch=0` forces the answer, in PRODUCTION as well as dev.** Normally a seam like
+ * this would be DEV-gated with the rest of them, but device classification is the one decision here
+ * that cannot be reproduced from this machine — it is a claim about hardware nobody here is holding,
+ * and it shipped wrong once. A URL parameter is the difference between a player confirming it in ten
+ * seconds and another deploy round trip. It can only pick a UI mode, so there is nothing to abuse.
  */
 export function touchMode(): boolean {
   if (cachedTouch !== undefined) return cachedTouch;
   if (typeof window === "undefined" || typeof navigator === "undefined") return false;
-  if (import.meta.env.DEV) {
-    const forced = new URLSearchParams(window.location.search).get("touch");
-    if (forced === "1" || forced === "0") {
-      cachedTouch = forced === "1";
-      return cachedTouch;
-    }
+  const forced = new URLSearchParams(window.location.search).get("touch");
+  if (forced === "1" || forced === "0") {
+    cachedTouch = forced === "1";
+    return cachedTouch;
   }
   cachedTouch = isTouchDevice({
     maxTouchPoints: navigator.maxTouchPoints ?? 0,
-    anyPointerFine: window.matchMedia?.("(any-pointer: fine)").matches ?? false,
+    pointerCoarse: window.matchMedia?.("(pointer: coarse)").matches ?? false,
   });
   return cachedTouch;
 }

@@ -351,9 +351,16 @@ bridge. What follows is only what you cannot learn by opening the file.
   exactly one implementation of `*Pressed` and touch inherits the 1-frame rising edge instead of
   re-deriving it. The rules live in Phaser-free [`render/touch.ts`](src/render/touch.ts);
   [`render/touch-view.ts`](src/render/touch-view.ts) is the adapter. Three things that are load-bearing:
-  - **"Touch" means touch AND no fine pointer** (`matchMedia("(any-pointer: fine)")`), not
-    `game.device.input.touch`, which reports capability — a touchscreen laptop would otherwise lose
-    local PvP and gain a pad it does not need. **`touchMode()` is memoised**: Flow, Match and `main.ts`
+  - **"Touch" means `maxTouchPoints > 0` AND `matchMedia("(pointer: coarse)")`** — the PRIMARY pointer
+    is a finger. Not `game.device.input.touch` (capability: a touchscreen laptop would lose local PvP
+    and gain a pad it does not need), and **NOT `!any-pointer: fine`**, which is what shipped and what
+    a real Samsung S23+ / Android 16 disproved on the first try: Android reports `any-pointer: fine`
+    TRUE for stylus/DeX capability, so the entire phase switched itself off on the device it was built
+    for — title read "PRESS ENTER", nothing tappable, no rotate gate. Every emulator agreed with the
+    broken version. `any-pointer` asks "could a fine pointer exist"; `pointer` asks "what do you point
+    with", which is the actual question. **`?touch=1` / `?touch=0` overrides in PRODUCTION too** (not
+    DEV-gated like the other seams) precisely because this decision cannot be reproduced from this
+    machine. **`touchMode()` is memoised**: Flow, Match and `main.ts`
     all ask, at different times, and three derivations are three chances to disagree (R-14's shape).
     Threading it through `MatchConfig` does NOT work — `?scene=match` boots with no FlowScene.
   - **`TouchPadState.consume()` is a queued press counter with a forced 1-frame release gap.** Phaser

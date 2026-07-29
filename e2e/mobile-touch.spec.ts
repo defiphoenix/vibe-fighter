@@ -58,13 +58,21 @@ test.describe("phone (touch profile)", () => {
     await flowReady(page);
     const env = await page.evaluate(() => ({
       maxTouchPoints: navigator.maxTouchPoints,
-      anyPointerFine: window.matchMedia("(any-pointer: fine)").matches,
+      pointerCoarse: window.matchMedia("(pointer: coarse)").matches,
       htmlHasTouchClass: document.documentElement.classList.contains("touch"),
     }));
     // If this ever flips, every other assertion in this file passes for the wrong reason.
     expect(env.maxTouchPoints).toBeGreaterThan(0);
-    expect(env.anyPointerFine).toBe(false);
+    expect(env.pointerCoarse).toBe(true);
     expect(env.htmlHasTouchClass).toBe(true);
+    // The emulator agreed with the PREVIOUS predicate too, and a real Samsung S23+ did not: Android
+    // reports `any-pointer: fine` TRUE for stylus/DeX capability, which switched the entire phase off
+    // on the one device it was built for. Recorded here so nobody re-derives that discriminator from
+    // an emulation that cannot show the difference.
+    expect(
+      await page.evaluate(() => window.matchMedia("(any-pointer: fine)").matches),
+      "emulation cannot prove anything about any-pointer: fine on real hardware",
+    ).toBe(false);
   });
 
   test("the mode screen offers CPU only — two people cannot share one handset", async ({ page }) => {

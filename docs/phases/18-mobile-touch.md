@@ -55,10 +55,13 @@ selects; tap the selected card confirms**), the title is a full-screen Zone that
 
 ### The three decisions worth keeping
 
-**Touch means "touch AND no fine pointer", not "has touch".** `game.device.input.touch` answers
-capability, and a touchscreen Windows laptop answers yes — it would have lost local two-player, the one
-mode a laptop is *good* at, and gained a pad nobody needs. `matchMedia("(any-pointer: fine)")` is what
-separates a phone from a laptop with a trackpad.
+**Touch means "has touch AND you point with a finger", not "has touch".** `game.device.input.touch`
+answers capability, and a touchscreen Windows laptop answers yes — it would have lost local two-player,
+the one mode a laptop is *good* at, and gained a pad nobody needs.
+
+**The first discriminator was wrong, and a real phone found it in one try — see the post-deploy
+defect below.** `!matchMedia("(any-pointer: fine)")` shipped; the correct test is
+`matchMedia("(pointer: coarse)")`.
 
 **`touchMode()` is memoised, deliberately.** FlowScene, MatchScene and `main.ts` all need the answer and
 are constructed at different times. Three independent derivations are three chances to disagree — the
@@ -259,6 +262,48 @@ reading the diff rather than by asserting it.
 Worth recording because it cost the pass three false starts: **CDP's `Input.dispatchTouchEvent` with
 `type: "touchEnd"` treats the LISTED touch points as the ones that END; unlisted points stay down.** An
 empty array ends everything. Getting it backwards reads exactly like a stuck button.
+
+## Post-deploy defect: the phase switched itself off on the one device it was for
+
+**Found by the user on a Samsung S23+ / Android 16, minutes after deploy.** Reported symptoms: the game
+"opens like a portrait", touching does nothing, and the title still says **PRESS ENTER**.
+
+Three symptoms, one cause, and the third names it exactly: the title string is `touch ? "TAP TO START"
+: "PRESS ENTER"`, so **`touchMode()` returned `false`**. With it false there is no rotate gate (hence
+portrait), no title Zone and no card handlers (hence nothing tappable), and the keyboard hint. Nothing
+was wrong with the pad, the gate, or the input path — the device was never classified as touch.
+
+**Cause.** `isTouchDevice` was `maxTouchPoints > 0 && !matchMedia("(any-pointer: fine)").matches`. On
+real Android, `any-pointer: fine` is **TRUE** — the platform advertises stylus / DeX pointer capability
+whether or not one is attached. So the second clause was false and the whole phase disabled itself.
+
+**Fix.** `maxTouchPoints > 0 && matchMedia("(pointer: coarse)").matches`. `any-pointer` asks *could a
+fine pointer exist anywhere on this machine*; `pointer` asks *what do you point with*, which is the
+question this function was always trying to answer. A phone answers coarse regardless of what else it
+supports; a laptop answers fine because you point with the trackpad — so the touchscreen-laptop case
+this predicate exists for still holds. **Watched failing**: inverting the clause reds three cases
+including the new one named for this device.
+
+**Why no test caught it, and what changed.** Every emulator reports `any-pointer: fine` as **false** on
+a mobile profile — Pixel 5 and iPhone 13 both did, under Playwright and under an independent QA pass
+that specifically hunted for vacuous assertions. The broken predicate was not under-tested; it was
+**untestable from here**, because it is a claim about hardware nobody in this loop was holding. Two
+things now acknowledge that rather than pretend otherwise:
+
+- `touch.test.ts` carries the S23+ case by name — touch points, coarse primary pointer, *and* a fine
+  pointer advertised — so the shape that shipped is pinned even though the emulator cannot produce it.
+- `mobile-touch.spec.ts` asserts that the emulator reports `any-pointer: fine === false`, with a
+  comment saying that is exactly why the emulation could not settle this. The assertion's job is to
+  stop someone re-deriving the old discriminator from a green suite.
+- **`?touch=1` / `?touch=0` now overrides in PRODUCTION**, not just dev. Every other seam in this repo
+  is DEV-gated; this one is not, because device classification is the single decision here that cannot
+  be reproduced locally, and a URL parameter is the difference between a ten-second confirmation on the
+  real phone and another deploy round trip. It can only choose a UI mode.
+
+The generalisable version, which is this repo's oldest rule pointed at a new target: **an emulator is
+code checked against code.** `docs/lessons.md` is full of boxes measured against sprites and animations
+measured against moves; a device profile is the same category of claim, and agreeing with itself proves
+nothing about a phone.
 
 ## Deliberately not done
 
