@@ -172,3 +172,34 @@ of the same sheet: 50/61/57/55/60px, sd ≈ 4.6), so a single better sample is n
 
 Same rule for art: prefer a measurement to an opinion, and a wrong metric is more dangerous than no
 metric. Detail in [`docs/art-pipeline.md`](art-pipeline.md).
+
+## An emulator is code checked against code (Phase 18)
+
+The newest case, and the one that generalises furthest from art. Phase 18 classified a touch device as
+`maxTouchPoints > 0 && !matchMedia("(any-pointer: fine)")`. It shipped, and on a real Samsung S23+ the
+whole phase switched itself off: the title read `PRESS ENTER`, nothing was tappable, portrait never
+raised the rotate gate. **Android reports `any-pointer: fine` TRUE** — it advertises stylus/DeX pointer
+capability whether or not one is attached. The right question is `pointer: coarse`: *what do you point
+with*, not *could a fine pointer exist anywhere on this machine*.
+
+What makes it belong in this file is not the wrong media query, it is **why nothing went red**. Pixel 5
+and iPhone 13 emulation both report `any-pointer: fine` as false — under Playwright, and under an
+independent QA pass whose brief was specifically to hunt for assertions that pass for the wrong reason.
+It found none, because there were none to find. The predicate was not under-tested; it was
+**untestable from here**. A device profile is a claim about hardware, and an emulator asked to check it
+answers with the same assumption the code was written from — exactly like a box measured against
+another number instead of against the sprite.
+
+**And the fix for that class is an instrument, not another guess.** The corrected predicate deployed
+and the phone still said `PRESS ENTER`, leaving two indistinguishable hypotheses (wrong predicate, or a
+cached bundle). The third attempt stopped fixing and added `?diag=1`, which prints what the device
+itself reports onto the title screen — and whose mere *presence* separates a stale bundle from a wrong
+test, because a build without that function cannot draw the line. That is the attempt that landed.
+
+- **When the thing you cannot measure is hardware, ship a way to ask it.** Two deploys were spent
+  guessing; one diagnostic ended it. `?touch=1` and `?diag=1` are deliberately the only seams in this
+  repo that are not DEV-gated, for that reason.
+- **A green suite over an emulated profile is evidence about the emulator.** Say so in the assertion:
+  `mobile-touch.spec.ts` now asserts the emulator reports `any-pointer: fine === false` *with a comment
+  explaining that this is precisely why emulation could not settle the question* — so the next reader
+  cannot re-derive the broken discriminator from a passing test.

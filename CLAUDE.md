@@ -358,9 +358,14 @@ bridge. What follows is only what you cannot learn by opening the file.
     TRUE for stylus/DeX capability, so the entire phase switched itself off on the device it was built
     for — title read "PRESS ENTER", nothing tappable, no rotate gate. Every emulator agreed with the
     broken version. `any-pointer` asks "could a fine pointer exist"; `pointer` asks "what do you point
-    with", which is the actual question. **`?touch=1` / `?touch=0` overrides in PRODUCTION too** (not
-    DEV-gated like the other seams) precisely because this decision cannot be reproduced from this
-    machine. **`touchMode()` is memoised**: Flow, Match and `main.ts`
+    with", which is the actual question. **Two seams exist for this and are NOT DEV-gated**, because
+    device classification is the one decision here that cannot be reproduced from this machine:
+    **`?touch=1` / `?touch=0`** forces the mode, and **`?diag=1`** prints what the device actually
+    reports (`maxTouchPoints`, `pointer:coarse`, `any-pointer:*`, `hover:none`, viewport, dpr) on the
+    title screen. Reach for `?diag=1` FIRST on any "it doesn't work on my phone" report — two fix
+    attempts were burned guessing at hardware before it existed. Its mere presence also settles the
+    stale-cache hypothesis: a build without it cannot draw it.
+    **`touchMode()` is memoised**: Flow, Match and `main.ts`
     all ask, at different times, and three derivations are three chances to disagree (R-14's shape).
     Threading it through `MatchConfig` does NOT work — `?scene=match` boots with no FlowScene.
   - **`TouchPadState.consume()` is a queued press counter with a forced 1-frame release gap.** Phaser

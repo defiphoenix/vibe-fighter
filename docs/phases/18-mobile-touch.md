@@ -305,6 +305,39 @@ code checked against code.** `docs/lessons.md` is full of boxes measured against
 measured against moves; a device profile is the same category of claim, and agreeing with itself proves
 nothing about a phone.
 
+### It took a second round, and a diagnostic, to actually land
+
+The `pointer: coarse` fix deployed and the phone **still** reported `PRESS ENTER`. At that point there
+were two live hypotheses — the predicate is still wrong, or the phone is running a cached bundle — and
+no way to tell them apart from here. The live bundle was verified server-side (`index-C9nT-hfg.js`
+contained `pointer: coarse` and zero occurrences of `any-pointer: fine`), which proved the deploy but
+said nothing about what the phone had loaded.
+
+So rather than guess a third time, **`?diag=1` was added**: it prints `maxTouchPoints`,
+`pointer:coarse`, `any-pointer:coarse/fine`, `hover:none`, `ontouchstart`, viewport and dpr onto the
+title screen, plus the resolved flag. Its *presence* is half the instrument — a build without the
+function cannot draw the line, so a missing line means a stale bundle rather than a wrong predicate.
+
+**The user then confirmed the game working on the S23+.** One case for `docs/lessons.md`: when a defect
+lives on hardware you do not have, the cheapest correct move is to stop fixing and start
+**instrumenting**. Two deploys were spent guessing; the third made the device answer for itself.
+
+**Open, and deliberately not written down as fact:** the `?diag=1` readings were never captured, so
+*which* hypothesis was right — stale cache vs. predicate — is unresolved. If it was the cache, then the
+`any-pointer: fine` diagnosis stands but `pointer: coarse` may never have been strictly necessary; if
+it was the predicate, the readings would have said which clause failed. **Confirm next session** by
+loading `?diag=1` once, and correct this section if it turns out the cache was the whole story.
+
+## Carry-over into the next session
+
+The user has confirmed the phase working on real hardware and has **a short list of remaining issues to
+be described next session**. They are deliberately not enumerated or guessed at here — writing down a
+speculative defect list is how a doc starts lying. What is known:
+
+- the touch classification, the pad, the menus and the rotate gate work on a Samsung S23+ / Android 16;
+- issues remain, reported but not yet specified;
+- the `?diag=1` readings above are still outstanding.
+
 ## Deliberately not done
 
 - **`screen.orientation.lock()` is never called.** MDN: "Limited availability … not Baseline because it

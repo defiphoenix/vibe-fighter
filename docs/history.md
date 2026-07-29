@@ -396,6 +396,25 @@ top-right corner by arithmetic that never asked what was already there: it lande
 portrait plate. Moved to the bottom-centre strip the keyboard legend vacates on touch. Every gate was
 green in both positions.
 
+**Then it shipped, and a real phone switched the whole thing off.** On a Samsung S23+ the title still
+read `PRESS ENTER` — which is exactly the string that means `touchMode()` returned false, so there was
+no rotate gate, nothing tappable and no pad. The classification had been "touch AND no fine pointer",
+and Android reports `any-pointer: fine` **true**: it advertises stylus/DeX capability whether or not
+one is attached. The right question is `pointer: coarse` — *what do you point with*, not *could a fine
+pointer exist somewhere*. Pixel 5 and iPhone 13 emulation both agreed with the broken version, under
+Playwright and under a QA pass that was hunting for exactly this kind of false green. The predicate was
+not under-tested; it was **untestable from here**. An emulator is code checked against code, which is
+the same lesson as every hit box measured against another number instead of against the sprite.
+
+**The second attempt did not land either, and that is the more useful half of the story.** After the
+fix deployed the phone still said `PRESS ENTER`, with two live explanations — wrong predicate, or a
+cached bundle — and no way to separate them remotely. The answer was to stop fixing and start
+instrumenting: `?diag=1` now prints what the device itself reports onto the title screen, and its mere
+presence distinguishes a stale bundle from a wrong test, because a build without that function cannot
+draw the line. It worked on the next try. **When a defect lives on hardware you do not have, the third
+guess is worth less than the first instrument.** Both `?touch=1` and `?diag=1` are deliberately not
+DEV-gated for that reason — they are the only seams in this repo that ship.
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git
