@@ -226,6 +226,40 @@ Final counts after this round: **344 unit, 85 browser** (12 in `mobile-touch.spe
 
 ---
 
+## Independent QA — clean, and it closed two of my own gaps
+
+A QA agent was given the **acceptance criteria and nothing else** — not my conclusions, not my specs —
+and told to reach its own verdict by driving the app through the Playwright CLI. It wrote its own
+adversarial suite, ran it on `devices["Pixel 5 landscape"]` **and `devices["iPhone 13 landscape"]`** (a
+profile this repo's specs had never used), and deleted everything it created. Tree verified clean
+afterwards: `git status --short` empty, `git diff --stat HEAD` empty.
+
+**Verdict: 5/5 criteria PASS, 3/3 invariants PASS, zero defects.** Every red result it produced traced
+to a bug in its own test code, not the product. It validated its own assertions by mutating
+`consume()` and watching them go red first.
+
+Three pieces of coverage it added that this phase did not have:
+
+- **Two-finger and three-finger holds, in a browser.** JUMP held while LIGHT is added mid-air; then
+  RIGHT + LIGHT + BLOCK down together with BLOCK and LIGHT released while RIGHT stays down. Both hold
+  on both profiles. This closes the limit recorded above, which had only a unit test behind it.
+- **A finger held on LIGHT across an entire KO and into round 2's fight phase.** Round 2 opens at
+  exactly `maxHealth` and stays there for 90 more ticks with the same contact still down — no phantom
+  re-fire across a round boundary. Nothing in the suite had tested that.
+- **A rotation to portrait and back with a button physically held down**, confirming the
+  `Pointer.reset()` added for Codex diff finding 2 genuinely clears the stale contact rather than
+  leaving the pad believing it is live. That is the fix being exercised by the failure mode that
+  motivated it, which the earlier version of this log could not claim.
+
+One environment ceiling it named honestly and could not close: a real notch / `env(safe-area-inset-*)`
+cannot be exercised under Chromium's iPhone emulation, because WebKit is not actually running. The
+mitigation is structural — `viewport-fit=cover` was deliberately not added — and it verified that by
+reading the diff rather than by asserting it.
+
+Worth recording because it cost the pass three false starts: **CDP's `Input.dispatchTouchEvent` with
+`type: "touchEnd"` treats the LISTED touch points as the ones that END; unlisted points stay down.** An
+empty array ends everything. Getting it backwards reads exactly like a stuck button.
+
 ## Deliberately not done
 
 - **`screen.orientation.lock()` is never called.** MDN: "Limited availability … not Baseline because it
@@ -246,8 +280,9 @@ Final counts after this round: **344 unit, 85 browser** (12 in `mobile-touch.spe
   only makes it bigger.
 - **iOS ignores `user-scalable=no` / `maximum-scale`.** `touch-action: none` protects gestures that
   begin on the canvas, which is where the pad is; a pinch starting in the letterbox bar is not blocked.
-- **Two-finger play is supported (`addPointer(3)`) but the phase's evidence for it is a unit test**, not
-  a browser case — CDP multi-touch through the pumped clock was not worth the spec complexity here.
+- ~~Two-finger play is supported (`addPointer(3)`) but the phase's evidence for it is a unit test.~~
+  **Closed by the QA pass below** — two-finger and three-finger holds were driven through real CDP
+  touch events on two device profiles.
 - The journey spec ends at **damage + a clean exit**, not a KO: reaching a KO by tapping is ~17 exchanges
   against a live CPU and would be a slow, flaky test. Real KOs are already covered by
   `phase16-parity.spec.ts`.
