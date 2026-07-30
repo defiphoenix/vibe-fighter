@@ -525,6 +525,12 @@ that fixed the art — are in [`docs/lessons.md`](docs/lessons.md). The rules th
 - **Any cross-fighter comparison of an ABSOLUTE stat is suspect** — `maxHealth`, `scale` and the
   pushboxes all differ per fighter. Compare shares (R-13) and effective reach (see Balance); a test
   written from one fighter's numbers cannot see the asymmetry.
+- **A test built on `config.ts`'s `TEST_DUMMY` cannot see a defect that lives in the SHIPPED registry.**
+  Same class, different axis: the fixture is hand-authored and does not move when
+  `public/configs/character-gym.json` does. Phase 19 trimmed all 21 attack widths and `cpu.test.ts` —
+  which builds from the fixture — stayed green through a CPU that dealt ZERO damage for a whole round on
+  one of the three real fighters. `probe/koprobe.test.ts` has the same blind spot by construction. When
+  a change edits the registry, at least one test must READ the registry.
 - **An animation is a claim about a move.** Measure its LENGTH (`fps` is DERIVED in
   `src/render/anim-timing.ts`, never authored), its PHASE (contact frame vs active window, measured by
   `check:sync`; budget the wind-up `startup - 1` ticks for `PLAY_LAG_TICKS`), and whether the wind-up

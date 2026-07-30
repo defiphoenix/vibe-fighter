@@ -1,6 +1,7 @@
 # Phase 19 — mobile viewport, the debug leak, hit-box reach, and pad art
 
-**Status: implemented, gates green.**
+**Status: shipped, deployed, and CONFIRMED BY THE USER on their own device.**
+Commits `ba7fc59` → `759d2b8` → `d5b106e`, live at https://vibe-fighter-dusky.vercel.app.
 
 Phase 18 shipped mobile play and the user confirmed it working on a real Samsung S23+. Then they
 played it. Four defects came back, three of which no test in this repo could see.
@@ -384,10 +385,22 @@ regression. Taking the symptom as evidence and the diagnosis as a hypothesis is 
 
 The spec was **kept**, not deleted, with its provenance and both fixes recorded in its header.
 
+## Confirmed on the device
+
+The user retested on their own phone after the review pass deployed and accepted it. Two things that
+were open questions at the time of writing are now **settled by the person holding the handset**, and
+are recorded here so nobody re-opens them from a metric:
+
+- **The trimmed reach feels right.** Every attack lost 8-30px and neutral is genuinely closer-quarters;
+  that was the intended outcome and it plays. Do not "restore" reach on the strength of the old numbers.
+- **The pad's idle opacity is fine as shipped.** It reads as translucent over a busy stage in a
+  screenshot, which is why it was flagged — on the real screen it is legible. Left alone.
+
 ## Carry-over
 
-- The `?diag=1` readings from the real S23+ are **still** uncaptured (open since Phase 18). One load
-  settles whether the original Phase 18 symptom was the stale bundle or the predicate.
+- The `?diag=1` readings from the real S23+ are **still** uncaptured (open since Phase 18). Now purely
+  archaeological rather than blocking — the game works — but one load would still settle whether the
+  original Phase 18 symptom was the stale bundle or the predicate.
 - Dev scenes remain anchored to 1280 by choice; if `?scene=gym|playground` should follow the viewport,
   that is a small follow-up.
 - `characterCardWidth` still budgets against `VIEW_WIDTH` on purpose: the row then fits at every width

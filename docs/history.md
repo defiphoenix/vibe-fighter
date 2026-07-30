@@ -481,6 +481,13 @@ real gate now, pins the budget as a literal (the boundary cases derive their inp
 so they cannot see it move), and pins the flag→exit mapping — with the one case it still cannot catch
 written down rather than implied.
 
+**Confirmed on the phone.** The user retested after the review pass deployed and accepted it: the game
+fills the screen, it is centred, the pad reads as real art, and the tighter neutral plays. Both open
+judgement calls closed the same way — the trimmed reach feels right, and the pad's idle opacity is fine
+on a real screen even though it looked thin in a screenshot. Worth recording as an outcome rather than a
+metric: this phase's four defects were all found by a person playing the game, and the last word on
+whether they are fixed belonged to the same person, not to the suite.
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git
