@@ -144,17 +144,21 @@ test.describe("phone (touch profile)", () => {
     expect(m.uiW, "UI camera — P2's HUD plate lives out here").toBe(m.gameW);
   });
 
-  // The case above cannot see the ONE thing it most looks like it covers: the explicit initial
-  // `applyViewport()` in main.ts. Removing that line leaves it green, because Chromium's emulation
-  // grows the parent from 0 to its real size during startup, so Phaser's 500ms parent-bounds poll
-  // emits a RESIZE anyway and the subscription alone does the work.
+  // What this case actually proves, stated precisely, because an earlier version of this comment
+  // claimed something stronger and wrong.
   //
-  // That accident is what this case removes. Pinning `#game` to a FIXED pixel size before Phaser boots
-  // means `getParentBounds()` measures the final size on its very first read and never sees a change —
-  // so no poll RESIZE ever fires, `boot()`/`READY` both refresh before main.ts can subscribe, and the
-  // PRE_STEP call is the only thing left that can widen the game. Watched failing with that call
-  // deleted: gameSize stays at the authored 1280.
-  test("the game widens even when NO resize event ever fires (a phone opened and left alone)", async ({ page }) => {
+  // It pins `#game` to a FIXED pixel size, so `getParentBounds()` measures the final size on its very
+  // first read and never sees a change — which means Phaser's 500 ms parent-bounds POLL can never fire
+  // a RESIZE. What remains is the refresh `ScaleManager.boot()` registers on
+  // `GameEvents.READY` (ScaleManager.js:460), which lands after main.ts has subscribed and before any
+  // scene's `create()`. So this asserts the game is sized correctly on the READY-driven resize alone,
+  // with the poll removed as a confound. It is NOT "no resize ever fires".
+  //
+  // It also does not, and cannot, justify a fallback for the boot-time refresh that main.ts misses:
+  // suppressing THAT would mean suppressing READY too, which no browser-level fixture can do. An
+  // explicit `applyViewport()` on PRE_STEP was carried for a while for exactly that case, could not be
+  // made to matter here, and was removed — see the comment in main.ts.
+  test("the game is sized correctly with Phaser's parent-bounds poll ruled out", async ({ page }) => {
     // The pin is applied by REWRITING THE DOCUMENT, not with addInitScript: an init script runs against
     // the initial empty document, which the navigation then replaces, so an appended <style> is simply
     // discarded (measured — the tag was absent from the loaded page). Rewriting the served HTML lands
@@ -179,7 +183,7 @@ test.describe("phone (touch profile)", () => {
     // Fixture guard: without the pin this case is just a slower copy of the one above.
     expect(m.parentW, "the pin did not take — this case proves nothing without it").toBe(640);
     expect(m.parentH).toBe(290);
-    expect(m.gameW, "the game never widened: the initial applyViewport() call is missing")
+    expect(m.gameW, "the game never took the parent's aspect on the READY-driven resize")
       .toBe(Math.round((STAGE_HEIGHT * 640) / 290));
   });
 

@@ -1,15 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { World } from "./world";
 import type { CpuSeam } from "./world";
-import { CpuController, DAMAGE_SCALE } from "./cpu";
+import { CpuController, DAMAGE_SCALE, reachOf } from "./cpu";
 import type { Difficulty } from "./cpu";
 import { FIGHTER_A, FIGHTER_B } from "./config";
-import { ACTIONABLE } from "./fighter";
+import { ACTIONABLE, Fighter, METER_MAX } from "./fighter";
+import { assembleCharacter } from "./character-builder";
+import shippedRegistry from "../../public/configs/character-gym.json";
+import type { CharacterData } from "./types";
 import { emptyInput, isAttackState } from "./types";
 import type { InputSnapshot } from "./types";
 import { DT } from "./constants";
 
 const NONE: [InputSnapshot, InputSnapshot] = [emptyInput(), emptyInput()];
+
+/** The REAL roster, not config.ts's fixture — the reach drift this file now guards only exists here. */
+const SHIPPED = shippedRegistry as unknown as Record<string, { data: CharacterData }>;
 
 /** fresh world in the fight phase with the pair `gap` px apart (same helper shape as combat.test). */
 function fightWorld(gap = 400): World {
@@ -328,5 +334,90 @@ describe("difficulty is survivable", () => {
       ticks++;
     }
     expect(w.fighters[0].isKO).toBe(true);
+  });
+});
+
+// Phase 19. The CPU's attack ranges used to be two hand-copied constants (LIGHT_RANGE 110 /
+// HEAVY_RANGE 150) taken from the brawler's boxes. The roster-wide reach trim moved every one of
+// those numbers and left the copy behind, so the CPU committed heavies outside its real range and
+// threw full-meter supers at thin air. These pin the derivation, on the SHIPPED roster — the fixture
+// in config.ts was never trimmed and cannot see this class of drift.
+describe("CPU ranges are measured from the fighter's own boxes, not mirrored", () => {
+  // Filter on the SHAPE, not the name: the registry carries doc/meta keys and a `_`-prefix convention
+  // is not enforced anywhere.
+  const ids = Object.keys(SHIPPED).filter((k) => SHIPPED[k]?.data?.attacks != null);
+
+  it("reads each state's reach off the shipped config", () => {
+    expect(ids.length).toBeGreaterThanOrEqual(3);
+    for (const id of ids) {
+      const data = SHIPPED[id].data;
+      const f = new Fighter(assembleCharacter(id, data), 0);
+      for (const [state, key] of [["attackLight", "light"], ["attackHeavy", "heavy"], ["special", "special"]] as const) {
+        const box = data.attacks[key].hit;
+        expect(reachOf(f, state), `${id}/${state}`).toBe(box.x + box.w);
+      }
+    }
+  });
+
+  it("knows the special is SHORTER than the heavy on every shipped fighter", () => {
+    // This is the assumption the old code got wrong, stated as a fact so a future reach change that
+    // invalidates it again shows up here rather than as a wasted super in a live match.
+    for (const id of ids) {
+      const f = new Fighter(assembleCharacter(id, SHIPPED[id].data), 0);
+      expect(reachOf(f, "special"), `${id}: special vs heavy`)
+        .toBeLessThan(reachOf(f, "attackHeavy"));
+    }
+  });
+
+  // The defect this pins was found by an independent QA pass, not by me: a jiujitsu CPU dealt ZERO
+  // damage to an idle player for a whole round, on every difficulty. Cause was an invariant I broke
+  // when I derived the ranges — the reaction timer used the heavy's reach while the approach used the
+  // light's, which is only safe while every heavy out-reaches its own light. It does not: jiujitsu's
+  // heavy is 110 and its light 113, so the CPU parked in the 3px gap between them, too close to keep
+  // walking and too far to arm the timer, and simply stood there.
+  it("every fighter's CPU actually damages an idle opponent (no approach/reaction dead zone)", () => {
+    for (const id of ids) {
+      const cfg = assembleCharacter(id, SHIPPED[id].data);
+      const w = new World(cfg, cfg);
+      w.match.phase = "fight";
+      w.match.introTicks = 0;
+      const cpu = new CpuController(1, "normal", 7);
+      const startHp = w.fighters[0].health;
+      // 20s of fight — long enough for `normal`'s 66-tick cooldown to land several attacks from any
+      // starting distance, short enough to stay a unit test.
+      for (let i = 0; i < 1200 && !w.fighters[0].isKO; i++) w.advance(DT, NONE, cpu);
+      expect(w.fighters[0].health, `${id}: its CPU never landed a hit in 20s`).toBeLessThan(startHp);
+    }
+  });
+
+  it("never spends a full meter on a super the fighter cannot reach with", () => {
+    for (const id of ids) {
+      const cfg = assembleCharacter(id, SHIPPED[id].data);
+      const probe = new Fighter(cfg, 0);
+      const special = reachOf(probe, "special");
+      const heavy = reachOf(probe, "attackHeavy");
+      // A gap the HEAVY covers but the SUPER does not — exactly where riding the heavy's range threw
+      // the bar away. Sits strictly between the two, so the CPU is in "swing now" territory.
+      const gap = Math.floor((special + heavy) / 2) + 1;
+      expect(gap, `${id}: fixture needs a gap between the two reaches`).toBeGreaterThan(special);
+      expect(gap).toBeLessThanOrEqual(heavy);
+
+      const w = new World(cfg, cfg);
+      w.match.phase = "fight";
+      w.match.introTicks = 0;
+      // hard has the highest specialChance (0.7), so a broken gate shows up fastest here.
+      const cpu = new CpuController(1, "hard", 12345);
+      let sawSpecial = false;
+      for (let i = 0; i < 900; i++) {
+        // Pin the pair at `gap` every tick: pushback and knockback would otherwise drift them out of
+        // the window under test, and a drifting fixture proves nothing.
+        w.fighters[0].reset(848 - gap / 2, 1);
+        w.fighters[1].reset(848 + gap / 2, -1);
+        w.fighters[1].meter = METER_MAX;
+        w.advance(DT, NONE, cpu);
+        if (w.fighters[1].state === "special") sawSpecial = true;
+      }
+      expect(sawSpecial, `${id}: fired a super at ${gap}px, which its own box cannot reach`).toBe(false);
+    }
   });
 });

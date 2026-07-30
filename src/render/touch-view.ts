@@ -132,9 +132,14 @@ export class TouchPad {
     this.shown = v;
     for (const b of this.buttons) b.setVisible(v);
     for (const t of this.labels) t.setVisible(v);
-    // Making the Graphics invisible does NOT unsubscribe the scene-level listeners, so without this a
-    // hidden pad keeps collecting contacts and hands them to the sim the moment it reappears.
+    // Hiding the art does NOT unsubscribe the scene-level listeners, so without this a hidden pad
+    // keeps collecting contacts and hands them to the sim the moment it reappears.
     this.state.setActive(v);
+    // Reset the art to idle WHILE HIDDEN, not on the way back. `consume()` skips drawing while hidden,
+    // so a button that was visually down when the match ended would otherwise keep its pressed frame
+    // in `lastHeld`, and the pad would reappear on a rematch showing a press nobody is making — for
+    // one update, until the next `consume()` corrects it. Visual only, but it is a lie about input.
+    if (!v) this.draw({} as TouchHeld);
   }
 
   /** Held flags for this frame. Call ONCE per update, before `InputReader.read`. */

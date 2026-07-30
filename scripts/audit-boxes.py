@@ -37,8 +37,11 @@ Runs synthetic fixtures first: a wrong metric is more dangerous than no metric.
 Deps: Pillow + numpy.  Run: `python scripts/audit-boxes.py`  (npm run audit:boxes)
 """
 from __future__ import annotations
+import contextlib
+import io
 import json
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -192,6 +195,12 @@ def _sheet(poses: list[tuple[int, int, int, int]]) -> np.ndarray:
     return out
 
 
+def exit_code(flags: list[str], advisory: bool) -> int:
+    """The gate's verdict. One named function so the mapping can be pinned by the selftest and so a
+    change to it is a legible line in a diff rather than a buried `return`."""
+    return 0 if advisory or not flags else 1
+
+
 def selftest() -> None:
     BOT, TOPROW, ARM = 200, 60, 100          # feet row (exclusive), body top, the arm's row
     feet_row, fig_h = BOT - 1, BOT - 1 - TOPROW
@@ -238,22 +247,64 @@ def selftest() -> None:
         f"the static planted leg was measured as the reach: {strike_reach(wm)} (arm tip is {ARM_TIP})"
     assert strike_reach(frozen) is None, "an unmoving sheet has no measurable reach"
 
-    # The AIR_GAP_MAX boundary itself, both sides. Without these the threshold is a number nobody has
-    # watched fail: it sat at exactly the worst shipped value for two phases, so no sheet could ever
-    # exceed it and the REACH-GAP branch was unreachable in practice.
-    # `air` is a pure function of the box and the measured limb, so the fixture is that arithmetic:
-    #     air = (hit_far + DEF_HURT_HALF) - DEF_SILHOUETTE_HALF - reach
-    def _air(hit_far: int, reach: int) -> int:
-        return (hit_far + DEF_HURT_HALF) - DEF_SILHOUETTE_HALF - reach
+    # The AIR_GAP_MAX boundary, both sides -- driven through the REAL `audit_state()`, not through a
+    # local copy of its arithmetic.
+    #
+    # The first version of this fixture recomputed `air` itself and asserted on that. It was
+    # decoration: reverting AIR_GAP_MAX from 30 back to 60, or weakening the predicate, or restoring
+    # `return 0` in main(), would all have left it green, because it never touched the code under test.
+    # That is precisely the defect this whole file exists to catch, committed inside the fix for it.
+    with tempfile.TemporaryDirectory() as td:
+        sheet_png = Path(td) / "fixture.png"
+        Image.fromarray(_sheet([(TOPROW, BOT, 0, 0), (TOPROW, BOT, ARM, 60), (TOPROW, BOT, ARM, 60)]),
+                        "RGBA").save(sheet_png)
 
-    at_limit = ARM_TIP + AIR_GAP_MAX + DEF_SILHOUETTE_HALF - DEF_HURT_HALF
-    assert _air(at_limit, ARM_TIP) == AIR_GAP_MAX, _air(at_limit, ARM_TIP)
-    assert not _air(at_limit, ARM_TIP) > AIR_GAP_MAX, "a box exactly ON the budget must NOT flag"
-    assert _air(at_limit + 1, ARM_TIP) == AIR_GAP_MAX + 1
-    assert _air(at_limit + 1, ARM_TIP) > AIR_GAP_MAX, "one px over the budget MUST flag"
+        def _judge(hit_far: int) -> list[str]:
+            """Run the shipped audit over a synthetic sheet whose arm tip is known.
+
+            stdout is swallowed: `audit_state` prints a report row, and two fixture rows in the middle
+            of the roster table read as two extra sheets nobody can find.
+            """
+            data = {
+                "attacks": {"light": {"body": "stand",
+                                      # y band straddles the arm's own row so HIT-MISS stays quiet and
+                                      # REACH-GAP is the only thing this fixture can trip.
+                                      "hit": {"x": 40, "y": arm_y - 9, "w": hit_far - 40, "h": 20}}},
+                "boxes": {"hurtStand": [{"x": -30, "y": 0, "w": 60, "h": fig_h}]},
+            }
+            with contextlib.redirect_stdout(io.StringIO()):
+                return audit_state("fixture", "attackLight", data, sheet_png, 3)
+
+        # air == AIR_GAP_MAX exactly: on the budget, must NOT flag (the predicate is `>`, not `>=`).
+        at_limit = ARM_TIP + AIR_GAP_MAX + DEF_SILHOUETTE_HALF - DEF_HURT_HALF
+        assert _judge(at_limit) == [], f"a box exactly ON the budget must not flag: {_judge(at_limit)}"
+        # ...and one px past it must, naming REACH-GAP.
+        over = _judge(at_limit + 1)
+        assert any("REACH-GAP" in n for n in over), f"one px over the budget MUST flag: {over}"
+        # The gate has to be able to FAIL, not merely to print. main() returns 1 on any flag.
+        assert len(over) == 1, f"the over-budget fixture tripped something else too: {over}"
+
+    # ...and the BUDGET ITSELF, pinned as a number. The two fixtures above derive `at_limit` FROM
+    # AIR_GAP_MAX, so they verify the mechanism at whatever the threshold happens to be -- they would
+    # stay green if it were quietly put back to 60. This line is the policy: 30px is about a sixth of a
+    # fighter's height, close enough that the blow reads as landing on him. Raising it is a balance
+    # decision and has to be made on purpose, in a diff that shows this number changing.
+    assert AIR_GAP_MAX == 30, f"the visible-air budget moved to {AIR_GAP_MAX} -- was that deliberate?"
+
+    # The flag -> exit-code mapping, pinned as its own function so an accidental INVERSION is caught
+    # here. Be clear about the limit: this cannot catch main() being rewritten to ignore
+    # `exit_code()` altogether and `return 0` unconditionally. That was measured (a flagged roster then
+    # exits 0 and the gate is decorative) and it is guarded by review, not by a fixture -- putting the
+    # decision in one named function is what makes such a diff obvious to read.
+    assert exit_code([], advisory=False) == 0
+    assert exit_code(["monk/attackHeavy: REACH-GAP ..."], advisory=False) == 1, \
+        "a flagged sheet MUST fail the gate"
+    assert exit_code(["monk/attackHeavy: REACH-GAP ..."], advisory=True) == 0, \
+        "--advisory is the documented escape hatch for an art-regeneration session"
 
     print("audit-boxes selftest: 8 fixtures OK (jab band, planted-leg trap, frozen sheet, "
-          "low-box-vs-high-strike, forward reach, reach planted-leg trap, air budget at/over)")
+          "low-box-vs-high-strike, forward reach, reach planted-leg trap, "
+          "air budget at/over via the real audit_state)")
 
 
 def main() -> int:
@@ -277,7 +328,7 @@ def main() -> int:
             print(f"  - {f}")
     else:
         print("\nevery attack box agrees with its own sheet")
-    return 0 if advisory or not flags else 1
+    return exit_code(flags, advisory)
 
 
 if __name__ == "__main__":

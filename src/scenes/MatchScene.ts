@@ -354,7 +354,15 @@ export class MatchScene extends Phaser.Scene {
     this.layout(liveWidth(this.scale.gameSize.width));
   }
 
-  private onResize = (gameSize: Phaser.Structs.Size): void => this.layout(liveWidth(gameSize.width));
+  /** `setGameSize()` emits RESIZE from inside its own `refresh()`, so one accepted change arrives
+   *  TWICE — once nested, once from the outer emit — both already carrying the final width. Skipping
+   *  the repeat is not just saved work: `pad.layout()` cancels live contacts, and doing that a second
+   *  time would drop a finger the player never lifted. The explicit call in `create()` bypasses this
+   *  guard deliberately, so a first layout can never be skipped. */
+  private onResize = (gameSize: Phaser.Structs.Size): void => {
+    const w = liveWidth(gameSize.width);
+    if (w !== this.viewW) this.layout(w);
+  };
 
   /** Re-anchor every screen-space element to a new game width. */
   private layout(width: number): void {

@@ -259,6 +259,16 @@ bridge. What follows is only what you cannot learn by opening the file.
   the follow-camera always frames both. It only ever REDUCES a gap far larger than any pushbox, so it
   can't create overlap; a midpoint near a wall just clamps back in. This is the SF-style off-screen fix;
   camera zoom-out was rejected because the stage art is exactly viewport-height.
+- **`cpu.ts`'s attack RANGES are derived from the fighter's own boxes, never mirrored** (Phase 19).
+  They were `LIGHT_RANGE = 110` / `HEAVY_RANGE = 150`, hand-copied from the brawler; the roster-wide
+  reach trim orphaned them, and the CPU then committed heavies out of range and spent **full meters** on
+  supers that could not reach — the special is now SHORTER than the heavy on all three fighters, which
+  the old comment explicitly assumed it never would be. `reachOf()` reads `allHitBoxes()`. Two traps
+  behind that: **neither normal is reliably the longer one** (jiujitsu heavy 110 < light 113), so the
+  approach walks to `min` and the reaction timer arms inside `max` — pairing "timer on heavy" with
+  "approach on light" left that fighter parked in the 3px gap dealing ZERO damage for a whole round; and
+  **`cpu.test.ts` must build from the shipped registry**, because `config.ts`'s `TEST_DUMMY` was never
+  trimmed and cannot express the inverted case at all.
 - **`cpu.ts` is sampled once per TICK, inside the fixed-timestep loop** (`CpuSeam` on `World.advance`).
   A CPU sampled once per render frame acts at the display's rate and is not reproducible. It skips
   `EdgeLatch` deliberately (it re-derives its edges every tick). **`reactionTicks` is what makes a

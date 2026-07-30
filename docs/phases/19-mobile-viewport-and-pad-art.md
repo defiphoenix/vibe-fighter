@@ -318,6 +318,72 @@ quarter of the whole gap — ~28px here.
 
 ---
 
+## Codex diff review — no blocker, and two Mediums worth the price of the review
+
+Run read-only against `ba7fc59`. Every finding was re-derived before being acted on.
+
+**Medium 1 — the CPU's attack ranges were two hand-copied constants, and the trim orphaned them.**
+`cpu.ts` had `LIGHT_RANGE = 110` / `HEAVY_RANGE = 150`, written from the brawler's *pre-trim* boxes, with
+a comment asserting "the special reaches at least as far as the heavy on every fighter". After fix 3
+that was false for all three (brawler 104 vs 120, jiujitsu 108 vs 110, monk 110 vs 122), so the CPU
+committed heavies outside its real range and threw **full-meter supers** at thin air. Fixed by deriving
+each range from the fighter's own boxes via `allHitBoxes()` — the mirror is gone, not merely corrected.
+This is the classic shape of this repo's recurring defect: I changed the geometry and left a copy of it
+somewhere else.
+
+**Medium 2 — my own boundary fixture was decoration.** The `air = 30 / 31` selftest I added to
+`audit-boxes.py` recomputed the arithmetic locally instead of calling `audit_state()`, so reverting
+`AIR_GAP_MAX` to 60, weakening the predicate, or restoring `return 0` would all have left it green.
+Committed inside the fix for exactly that defect class. It now drives the real `audit_state()` over a
+synthetic sheet, pins the budget as a literal (the boundary cases derive `at_limit` *from* the
+threshold, so they cannot catch it moving), and pins the flag→exit mapping in a named `exit_code()`.
+Watched failing on four separate mutations. One limit stated rather than hidden: nothing here catches
+`main()` being rewritten to ignore `exit_code()` entirely — that was measured, and it is guarded by
+review.
+
+Low/Nit, all fixed: a hidden pad could flash one stale pressed frame on a rematch (`setVisible(false)`
+now resets the art while hidden); `setGameSize()` re-emits RESIZE from inside its own `refresh()`, so
+each accepted change laid out twice and cancelled the pad's contacts twice (the RESIZE path now skips an
+unchanged width, while `create()`'s explicit call deliberately bypasses that guard).
+
+## Independent QA — it found a defect the whole committed suite could not see
+
+A QA agent was given the eight acceptance criteria and nothing else — not the diff, not this log. It
+wrote its own suite on Pixel 5, iPhone 13, a 900×415 profile and desktop, covering things I had not:
+rotation and fullscreen transitions with a contact **physically held**, a per-button pressed-frame
+comparison, body-to-body vs across-a-gap reach, and winnability per difficulty.
+
+**Verdict: one real defect, and it was mine.** *A jiujitsu CPU dealt ZERO damage to an idle player for
+an entire round, on every difficulty* — 105 HP untouched after 90 seconds. The cause was the Medium 1
+fix above: deriving the ranges exposed an invariant the old constants had silently guaranteed. The
+reaction timer counted while `dist <= reach.heavy` and the approach walked while `dist > reach.light`,
+which only works while every heavy out-reaches its own light. Jiujitsu's heavy is **110** and its light
+**113**, so its CPU parked in that 3px gap — too close to keep walking, too far to arm the timer — and
+stood still. `Reaches` now carries `min`/`max`: walk to the shorter reach, arm the timer inside the
+longer one, so no ordering of the two can open a gap.
+
+Measured before and after, shipped roster, CPU vs an idle player:
+
+| | before | after |
+|---|---|---|
+| jiujitsu CPU, normal | no KO, 105/105 after 90s | KO at 33.4s |
+| jiujitsu CPU, hard | no KO, 105/105 after 90s | KO at 17.0s |
+| brawler CPU, hard | KO at 13.8s | unchanged |
+| monk CPU, hard | KO at 17.1s | unchanged |
+
+`easy` still fails to KO inside a round on every pairing, which is the intended design and what
+`cpu.test.ts`'s existing survivability case asserts.
+
+Two things about the process are worth keeping. **The unit suite could not have caught this**:
+`cpu.test.ts` built its world from `config.ts`'s `TEST_DUMMY`, whose boxes were never trimmed, so the
+inverted-reach case does not exist there. The new cases build from the **shipped registry** instead.
+And **one of the QA agent's two failures was its own fixture**: its `setup()` reset phase, wins, hitstop
+and health but not the round clock, so after a ~6000-tick sweep the 60s timer was expired and every
+later round ended before the heavy's 9-tick startup finished — which reads exactly like a real
+regression. Taking the symptom as evidence and the diagnosis as a hypothesis is what separated the two.
+
+The spec was **kept**, not deleted, with its provenance and both fixes recorded in its header.
+
 ## Carry-over
 
 - The `?diag=1` readings from the real S23+ are **still** uncaptured (open since Phase 18). One load

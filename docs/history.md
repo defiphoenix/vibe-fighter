@@ -461,6 +461,26 @@ distrust.
 equator of every button — a binary `(yy > c)` mask where a ramp was needed. Right size, pairwise
 distinct, correct radius, every fixture green. Only looking at it found it.
 
+**The reach trim orphaned a copy of the geometry, and fixing that opened a second hole.** Codex's diff
+review found `cpu.ts` still carrying `LIGHT_RANGE = 110` / `HEAVY_RANGE = 150`, hand-copied from the
+brawler's pre-trim boxes, with a comment asserting the special always out-reaches the heavy. After the
+trim that was false for all three fighters, so the CPU was throwing **full-meter supers** at air.
+Deriving the ranges from `allHitBoxes()` fixed it — and broke something the constants had silently
+guaranteed: the reaction timer keyed off the heavy while the approach keyed off the light, which only
+works while every heavy is the longer of the two. Jiujitsu's heavy is 110 and its light 113, so its CPU
+parked in that 3px gap, too close to walk and too far to arm the timer, and dealt **zero damage for an
+entire round on every difficulty**. Found by an independent QA pass briefed on the acceptance criteria
+alone; invisible to the unit suite, which built its world from `config.ts`'s never-trimmed fixture rather
+than the shipped roster. One of that agent's two failures was its own fixture forgetting to reset the
+round clock — **symptom as evidence, diagnosis as hypothesis** is what told the two apart.
+
+**And my own boundary fixture was decoration, committed inside the fix for decoration.** The
+`air = 30 / 31` selftest recomputed the arithmetic instead of calling `audit_state()`, so reverting the
+threshold, weakening the predicate, or restoring `return 0` would all have left it green. It drives the
+real gate now, pins the budget as a literal (the boundary cases derive their input *from* the threshold,
+so they cannot see it move), and pins the flag→exit mapping — with the one case it still cannot catch
+written down rather than implied.
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git

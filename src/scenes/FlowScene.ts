@@ -67,7 +67,13 @@ export class FlowScene extends Phaser.Scene {
   private stripe!: Phaser.GameObjects.Rectangle;
   /** The title screen's full-screen tap target, when the title step is up. */
   private titleZone?: Phaser.GameObjects.Zone;
-  private onResize = (gameSize: Phaser.Structs.Size): void => this.layout(liveWidth(gameSize.width));
+  /** See MatchScene's copy: `setGameSize()` re-emits RESIZE from inside `refresh()`, so an accepted
+   *  change arrives twice with the same final width. The explicit call in `create()` skips this guard
+   *  on purpose. */
+  private onResize = (gameSize: Phaser.Structs.Size): void => {
+    const w = liveWidth(gameSize.width);
+    if (w !== this.viewW) this.layout(w);
+  };
   /** The CPU pick's randomness. Seeded from the wall clock in normal play — the render layer may read
    *  a clock, `src/sim/` may not — and replaced wholesale by the DEV `__flow.seed` seam so an e2e can
    *  assert an exact opponent instead of a coin flip. */

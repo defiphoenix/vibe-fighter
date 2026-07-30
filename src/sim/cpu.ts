@@ -1,6 +1,8 @@
 import { ACTIONABLE, METER_MAX } from "./fighter";
+import { allHitBoxes } from "./character-builder";
 import { emptyInput, isAttackState } from "./types";
-import type { InputSnapshot } from "./types";
+import type { Fighter } from "./fighter";
+import type { InputSnapshot, StateName } from "./types";
 import type { CpuSeam, World } from "./world";
 
 // A CPU opponent for 1vCPU. It lives in sim/ because it must obey the same two rules the rest of
@@ -45,12 +47,48 @@ const KNOBS: Record<Difficulty, Knobs> = {
  *  The behaviour knobs decide how often it touches you; this decides what a touch costs. */
 export const DAMAGE_SCALE: Record<Difficulty, number> = { easy: 0.55, normal: 0.7, hard: 0.85 };
 
-// Distances in px between fighter centers, read off the shipped boxes (brawler light reaches
-// x+w = 110 forward, heavy 155; the pushboxes are 56 wide so the pair can never be closer than ~56).
-const LIGHT_RANGE = 110;
-const HEAVY_RANGE = 150;
 const GUARD_RANGE = 175; // start respecting an opponent's attack from here in
 const BLOCK_HOLD = 18; // ticks of guard per committed block decision
+
+/**
+ * One fighter's own attack reaches, plus the two aggregates the range logic needs.
+ *
+ * `min`/`max` exist rather than "light and heavy" because NEITHER is reliably the longer one, and
+ * assuming otherwise is a real bug this file shipped: the old code paired a reaction timer keyed to the
+ * heavy with an approach keyed to the light, which only worked while every heavy out-reached every
+ * light. After Phase 19's trim the jiujitsu's heavy (110) is SHORTER than its light (113), and that
+ * fighter's CPU parked in the 110-113 gap — too close to keep walking, too far to arm the timer — and
+ * dealt ZERO damage for a whole round on every difficulty.
+ */
+interface Reaches {
+  light: number;
+  heavy: number;
+  special: number;
+  /** The SHORTER of the two normals — walk to here and either one connects. */
+  min: number;
+  /** The LONGER of the two — inside this, some attack is live, so the reaction timer should run. */
+  max: number;
+}
+
+/**
+ * How far this fighter's own `state` actually reaches, in px forward of its centre.
+ *
+ * DERIVED, never mirrored. This used to be `LIGHT_RANGE = 110` / `HEAVY_RANGE = 150`, hand-copied from
+ * the brawler's boxes — and Phase 19's roster-wide reach trim moved every one of those numbers without
+ * touching the copy. The result was a CPU committing heavies outside its real range and, worse,
+ * spending a FULL METER on a super at heavy range, because the code assumed "the special reaches at
+ * least as far as the heavy on every fighter". After the trim that was false for all three:
+ * brawler 104 vs 120, jiujitsu 108 vs 110, monk 110 vs 122.
+ *
+ * Deliberately conservative — the box's own far edge, with no allowance for the defender's hurt box
+ * extending ~30px back toward us. So the CPU steps a little inside its true range before swinging,
+ * which is what the old constants did too, and a whiffed commitment is worse than a short walk.
+ */
+export function reachOf(f: Fighter, state: StateName): number {
+  let far = 0;
+  for (const b of allHitBoxes(f.cfg, state)) far = Math.max(far, b.x + b.w);
+  return far;
+}
 
 export class CpuController implements CpuSeam {
   private rngState: number;
@@ -61,6 +99,9 @@ export class CpuController implements CpuSeam {
   /** consecutive ACTIONABLE ticks with the opponent in reach — the reaction timer */
   private inReachTicks = 0;
   private readonly knobs: Knobs;
+  /** This fighter's own reaches, measured once. The controller is constructed before it knows WHICH
+   *  fighter it drives, so this fills in on the first tick; the boxes are static after assembly. */
+  private reach?: Reaches;
 
   constructor(readonly index: 0 | 1, readonly difficulty: Difficulty, seed = 0x2f6e2b1) {
     this.knobs = KNOBS[difficulty];
@@ -77,6 +118,26 @@ export class CpuController implements CpuSeam {
     this.inReachTicks = 0;
   }
 
+  /** This fighter's own reaches, measured on first use and cached — the boxes are static once the
+   *  character is assembled, and the controller does not know which fighter it drives until it ticks. */
+  private reachFor(me: Fighter): Reaches {
+    if (!this.reach) {
+      const light = reachOf(me, "attackLight");
+      const heavy = reachOf(me, "attackHeavy");
+      // `min`/`max` rather than assuming heavy is the longer one. It is not: since the Phase 19 trim
+      // the jiujitsu's heavy (110) is SHORTER than its light (113), and hardcoding the old
+      // relationship opened a dead zone that stopped that fighter attacking at all — see the comments
+      // on the two use sites.
+      this.reach = {
+        light, heavy,
+        special: reachOf(me, "special"),
+        min: Math.min(light, heavy),
+        max: Math.max(light, heavy),
+      };
+    }
+    return this.reach;
+  }
+
   /** xorshift32 — deterministic, no Math.random, uniform enough for "should I block this". */
   private rand(): number {
     let x = this.rngState;
@@ -91,6 +152,9 @@ export class CpuController implements CpuSeam {
     const me = world.fighters[this.index];
     const opp = world.fighters[this.index === 0 ? 1 : 0];
     const input = emptyInput();
+    // Measured from THIS fighter's own boxes, once. Every range decision below reads it, so the
+    // controller can never be tuned against another character's reach (see reachOf).
+    const myReach = this.reachFor(me);
 
     if (this.cooldown > 0) this.cooldown--;
     if (this.blockTicks > 0) this.blockTicks--;
@@ -105,7 +169,9 @@ export class CpuController implements CpuSeam {
     //    must also update on guarding ticks — the guard branch returns early, and freezing the
     //    counter there let a block episode carry a stale charge across a trip out of range.
     const canAct = ACTIONABLE.has(me.state);
-    if (canAct && dist <= HEAVY_RANGE) this.inReachTicks++;
+    // `max`, not `heavy`: the timer must run whenever ANY normal could be thrown, or a fighter whose
+    // heavy is the shorter of the two never arms it at the distance it stops walking at.
+    if (canAct && dist <= myReach.max) this.inReachTicks++;
     else this.inReachTicks = 0;
 
     // 2. Guard a telegraphed attack. One roll per opponent attack (`reacted`), so blockChance reads
@@ -127,16 +193,19 @@ export class CpuController implements CpuSeam {
 
     // 3. In range and off cooldown: swing — but only once the reaction timer above has run.
     const heavy = this.rand() < this.knobs.heavyChance;
-    const reach = heavy ? HEAVY_RANGE : LIGHT_RANGE;
+    const reach = heavy ? myReach.heavy : myReach.light;
     if (this.cooldown === 0 && this.inReachTicks > this.knobs.reactionTicks && dist <= reach && me.grounded) {
       // Jitter the cooldown so the tempo isn't a metronome, and re-arm the reaction so the delay
       // applies to EVERY commitment, not just the first time you walked into range.
       this.cooldown = this.knobs.attackCooldown + Math.floor(this.rand() * this.knobs.cooldownJitter);
       this.inReachTicks = 0;
       // Spend a full bar first when the roll says so. The special is grounded-only and lands HIGH, so
-      // it needs neither the stance bit below nor a separate range — it reaches at least as far as the
-      // heavy on every fighter. A refused press is harmless: think() just consumes the edge.
-      if (me.meter >= METER_MAX && this.rand() < this.knobs.specialChance) {
+      // it needs no stance bit — but it DOES need its own range check: since Phase 19's reach trim the
+      // special is SHORTER than the heavy on all three fighters, so riding the heavy's range threw a
+      // whole meter at thin air. Rolling the dice before testing the distance keeps the RNG stream
+      // identical to before; if the super would whiff we fall through to a normal, which still spends
+      // the cooldown and keeps the bar for a better moment.
+      if (me.meter >= METER_MAX && this.rand() < this.knobs.specialChance && dist <= myReach.special) {
         input.special = true;
         input.specialPressed = true;
         return input;
@@ -157,7 +226,10 @@ export class CpuController implements CpuSeam {
     }
 
     // 4. Otherwise close the gap (or hesitate, which is what makes easy feel easy).
-    if (dist > LIGHT_RANGE && this.rand() < this.knobs.approachBias) {
+    // `min`, not `light`: walk until BOTH normals are live. Stopping at the longer one left the
+    // jiujitsu parked between its heavy (110) and its light (113) -- too close to approach, too far to
+    // arm the reaction timer -- so it stood still and dealt zero damage for a whole round.
+    if (dist > myReach.min && this.rand() < this.knobs.approachBias) {
       if (towardRight) input.right = true;
       else input.left = true;
       if (me.grounded && dist < GUARD_RANGE * 2 && this.rand() < this.knobs.jumpChance) {
