@@ -144,6 +144,45 @@ test.describe("phone (touch profile)", () => {
     expect(m.uiW, "UI camera — P2's HUD plate lives out here").toBe(m.gameW);
   });
 
+  // The case above cannot see the ONE thing it most looks like it covers: the explicit initial
+  // `applyViewport()` in main.ts. Removing that line leaves it green, because Chromium's emulation
+  // grows the parent from 0 to its real size during startup, so Phaser's 500ms parent-bounds poll
+  // emits a RESIZE anyway and the subscription alone does the work.
+  //
+  // That accident is what this case removes. Pinning `#game` to a FIXED pixel size before Phaser boots
+  // means `getParentBounds()` measures the final size on its very first read and never sees a change —
+  // so no poll RESIZE ever fires, `boot()`/`READY` both refresh before main.ts can subscribe, and the
+  // PRE_STEP call is the only thing left that can widen the game. Watched failing with that call
+  // deleted: gameSize stays at the authored 1280.
+  test("the game widens even when NO resize event ever fires (a phone opened and left alone)", async ({ page }) => {
+    // The pin is applied by REWRITING THE DOCUMENT, not with addInitScript: an init script runs against
+    // the initial empty document, which the navigation then replaces, so an appended <style> is simply
+    // discarded (measured — the tag was absent from the loaded page). Rewriting the served HTML lands
+    // before any script or layout, which is the only ordering that makes the pin real.
+    // 640x290 is 2.207:1 — inside the world's aspect band, so the expected width is the formula's
+    // answer rather than the clamp, and it fits inside this profile's viewport so nothing overflows
+    // and no scrollbar can perturb the parent bounds.
+    await page.route(/\/(\?.*)?$/, async (route) => {
+      const res = await route.fetch();
+      const body = (await res.text()).replace(
+        "#game { position: relative; width: 100%; height: 100%; overflow: hidden; }",
+        "#game { position: relative; width: 640px; height: 290px; overflow: hidden; }",
+      );
+      await route.fulfill({ response: res, body });
+    });
+    await harnessReady(page, { route: MATCH, needs: ["__game", "__world"] });
+
+    const m = await page.evaluate(() => {
+      const s = (window as any).__game.scale;
+      return { gameW: s.gameSize.width, parentW: s.parentSize.width, parentH: s.parentSize.height };
+    });
+    // Fixture guard: without the pin this case is just a slower copy of the one above.
+    expect(m.parentW, "the pin did not take — this case proves nothing without it").toBe(640);
+    expect(m.parentH).toBe(290);
+    expect(m.gameW, "the game never widened: the initial applyViewport() call is missing")
+      .toBe(Math.round((STAGE_HEIGHT * 640) / 290));
+  });
+
   test("P2's HUD plate and the pad's right cluster are on screen at the phone's width", async ({ page }) => {
     await harnessReady(page, { route: MATCH, needs: ["__game", "__world"] });
     await pump(page, 2);

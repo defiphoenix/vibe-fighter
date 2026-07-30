@@ -116,28 +116,29 @@ function applyOrientation(): void {
 // fullscreen, and the 500 ms parent-bounds poll — ends in `refresh()`, which emits RESIZE. So one
 // subscription covers all of them, including while the loop is asleep behind the rotate overlay
 // (those are plain DOM handlers and do not go through the TimeStep).
+//
+// This subscription is also enough to size the game at BOOT, which is not obvious and was worth
+// tracing, because getting it wrong either way costs a phone-shaped bug:
+//
+//  * `Game`'s constructor calls `DOMContentLoaded(this.boot)`, and that helper invokes its callback
+//    SYNCHRONOUSLY when `document.readyState` is already `interactive` — which is exactly the state a
+//    deferred module script runs in. So `ScaleManager.boot()`'s own `refresh()` happens INSIDE
+//    `new Phaser.Game(...)` above, before this line exists, and its RESIZE is genuinely missed.
+//  * But `boot()` also registers `game.events.once(READY, this.refresh)` (ScaleManager.js:460), and
+//    READY is emitted later, once the texture manager is ready — i.e. after this module has finished
+//    evaluating. THAT refresh emits a RESIZE this listener does catch, and it lands before any
+//    scene's `create()`, so every scene is built at the final width.
+//
+// An explicit `applyViewport()` on PRE_STEP was carried here for a while as insurance against the
+// first bullet. It was removed once the second one was traced: it never fired first, it could not be
+// made to matter by any test (including one that pins the parent to a fixed size so no poll RESIZE
+// can fire), and unfalsifiable insurance is just code.
 game.scale.on(Phaser.Scale.Events.RESIZE, applyViewport);
 
-// FIRST calls ride PRE_STEP, not the boot lines above, for two INDEPENDENT reasons:
-//
-//  * applyOrientation: `TimeStep.sleep()` is a no-op unless the loop is already `running`, and
-//    `Game.start()` calls `loop.start()` after READY — so a boot that is already in portrait would
-//    set the class and never actually pause.
-//  * applyViewport: DEFENSIVE, and honestly labelled as such. ScaleManager calls `refresh()` inside
-//    `boot()` and again on READY, both before this module can subscribe, and afterwards its poll
-//    only refreshes when the parent size has actually CHANGED — so in principle a device that opens
-//    in landscape and is left alone could emit no further RESIZE and strand the game at 1280.
-//    MEASURED: that is not what happens under Chromium's phone emulation, where the parent goes
-//    0 -> real during startup and the poll fires anyway; removing this line left every acceptance
-//    case green. It is kept because correctness should not depend on that accident of timing, and it
-//    costs one idempotent call. Do NOT claim a test covers it — none does.
-//
-// PRE_STEP runs before any scene's `create()` (Boot's own create waits on the loader), so scenes are
-// built at the final width and their initial `layout()` reads the right number first time.
-game.events.once(Phaser.Core.Events.PRE_STEP, () => {
-  applyViewport();
-  applyOrientation();
-});
+// applyOrientation's first call DOES need PRE_STEP, for a reason of its own: `TimeStep.sleep()` is a
+// no-op unless the loop is already `running`, and `Game.start()` calls `loop.start()` after READY —
+// so a boot that is already in portrait would set the class and never actually pause.
+game.events.once(Phaser.Core.Events.PRE_STEP, applyOrientation);
 window.addEventListener("resize", applyOrientation);
 window.addEventListener("orientationchange", applyOrientation);
 // iOS Safari does not reliably fire the other two when its toolbars move.

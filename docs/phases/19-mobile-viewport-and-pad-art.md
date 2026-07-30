@@ -256,21 +256,45 @@ invariants now sweep `[1280, 1559, 1696]` instead of the default argument, plus 
 | `monk.light` trimmed alone to 65 | **RED:** `reach-parity.test.ts`, `expected 75 … >= 85` |
 | `frameFor` ignores `pressed` | **RED:** `the pressed frame never appeared` (browser) |
 | the debug legend un-gated | the string reappears in `dist/` (1 occurrence vs 0) |
+| the initial `applyViewport()` call removed | **GREEN — and that is why the call was deleted.** See below. |
 
-### One thing that did NOT fail when it was supposed to, and is recorded rather than dressed up
+### The Codex blocker was half right, and chasing the other half deleted code
 
-The Codex plan review's single **blocker** was that the explicit initial `applyViewport()` call is
-required, because ScaleManager refreshes during `boot()` and on `READY` — both before `main.ts` can
-subscribe — and its 500ms poll only refreshes when the parent size has actually **changed**. Sound
-reasoning, and I built to it.
+The plan review's single **blocker** was that an explicit initial `applyViewport()` call is required,
+because ScaleManager refreshes during `boot()` and on `READY` — both, it argued, before `main.ts` can
+subscribe — and afterwards the 500 ms poll only refreshes when the parent size has actually **changed**.
+So a phone opened in landscape and left alone would emit no RESIZE and sit at 1280 forever. I built to
+that, then tried to watch it fail.
 
-Then I mutated it: **removing that initial call left every acceptance case green.** A probe explained
-why — under Chromium's phone emulation the parent goes `0 → real` during startup, so the poll fires a
-RESIZE anyway and the subscription alone is sufficient *there*. The call is **kept**, because
-correctness should not depend on that accident of timing on a device I am not holding, and it costs one
-idempotent guarded call. But it is labelled in `main.ts` as defensive and **explicitly not covered by a
-test**, rather than being listed above as though it had been verified. A blocker whose premise the
-environment contradicts is still worth fixing; it is not worth claiming credit for.
+**It would not fail.** Removing the call left every case green. The first explanation was environmental
+— Chromium's emulation grows the parent from 0 during startup, so the poll fires anyway — and I wrote
+that down as an untestable defensive line. That was the lazy answer, and it was wrong.
+
+A test built specifically to kill that explanation settled it: **rewrite the served HTML so `#game` is a
+fixed pixel size**, and the parent bounds are final on the very first read, so no poll RESIZE can ever
+fire. (An `addInitScript` cannot do this — it runs against the initial empty document, which the
+navigation replaces; the injected `<style>` was measurably absent from the loaded page.) The case still
+passed with the call removed. So the environment was not the explanation.
+
+Tracing it properly gives the real ordering, which is the useful artefact:
+
+- `Game`'s constructor calls `DOMContentLoaded(this.boot)`, and that helper invokes its callback
+  **synchronously** when `document.readyState` is already `interactive` — exactly the state a deferred
+  module script runs in. So `ScaleManager.boot()`'s refresh really does happen *inside*
+  `new Phaser.Game(...)`, before the subscription exists. **Codex was right about this half.**
+- But `boot()` also registers `game.events.once(READY, this.refresh)` (`ScaleManager.js:460`), and READY
+  is emitted later, once the texture manager is ready — after this module finishes evaluating. That
+  refresh emits a RESIZE the listener *does* catch, and it lands before any scene's `create()`.
+
+So the subscription alone is sufficient **deterministically**, not by luck, and the extra call was
+insurance against a case that cannot occur. It was **deleted**, and `main.ts` now carries the traced
+ordering instead of a hedge. The test that killed the hypothesis was kept — it independently pins that
+the game is sized correctly against a stable parent, which is worth having on its own.
+
+The general lesson, which is this repo's own rule pointed at my own reasoning: **a mutation that will
+not go red is telling you something about the code, not about the harness.** The first instinct was to
+explain the green away as an emulator artefact; the correct move was to build the one environment where
+the excuse could not hold, and then read the source.
 
 ### The Pixel 5 profile can only prove the clamp — so a second profile was added
 

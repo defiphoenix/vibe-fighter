@@ -443,13 +443,19 @@ attack** rather than a per-fighter target: a common target erases the monk's pus
 construction and reds `reach-parity.test.ts`, whereas subtracting the same number from all three
 preserves every pairwise difference by arithmetic.
 
-**A Codex blocker whose premise the environment contradicted.** The review said the explicit initial
-`applyViewport()` call was required, because Phaser refreshes before `main.ts` can subscribe and its
-poll only fires on an actual size change. Sound — but removing that line left every acceptance case
-green, because under Chromium's phone emulation the parent goes 0 → real during startup and the poll
-fires anyway. The call is kept (correctness should not depend on that accident on hardware I am not
-holding) and labelled in the source as defensive and untested, rather than listed as verified. Fixing a
-blocker is worth doing; claiming a mutation you did not observe is not.
+**A mutation that would not go red, and what it was actually saying.** Codex's one blocker was that an
+explicit initial `applyViewport()` call was required, because Phaser refreshes before `main.ts` can
+subscribe. I built it, then could not make removing it fail. The first explanation was environmental —
+Chromium's emulation grows the parent from 0, so the poll fires a RESIZE anyway — and it got written down
+as a defensive, untestable line. Wrong answer. A test that **rewrites the served HTML to pin `#game` to a
+fixed pixel size**, so the parent bounds are final on the first read and no poll RESIZE can fire, still
+passed without the call. Reading the source gave the real ordering: `DOMContentLoaded()` invokes its
+callback *synchronously* at `readyState: interactive`, so `boot()`'s refresh is indeed missed (Codex was
+right about that half) — but `boot()` also registers a refresh on READY, which fires after module eval
+and before any scene's `create()`. The subscription is sufficient deterministically, the extra call
+guarded a case that cannot occur, and it was deleted. **A mutation that refuses to go red is telling you
+something about the code, not about the harness** — the instinct to blame the emulator was the thing to
+distrust.
 
 **And a preview caught what no assertion could, again.** The first pad bake had a hard seam across the
 equator of every button — a binary `(yy > c)` mask where a ramp was needed. Right size, pairwise
