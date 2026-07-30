@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
 import { World } from "../sim/world";
 import { STAGE_WIDTH, STAGE_HEIGHT, VIEW_WIDTH } from "../sim/constants";
+import { liveWidth } from "../render/viewport";
 import { groupZoom, stepZoom } from "../render/camera-frame";
 import { EdgeLatch, InputReader } from "./input";
 import { drawDebugBoxes, allBounds, BOUND_KINDS, type BoundsToggles } from "../render/boxes";
@@ -72,7 +73,10 @@ const END_MOVE_MS = 120;
 export class MatchScene extends Phaser.Scene {
   private world!: World;
   private reader!: InputReader;
-  private debugG!: Phaser.GameObjects.Graphics;
+  /** DEV only. The whole box overlay — Graphics, keys and draw calls — does not exist in a production
+   *  build: `B` used to toggle real hit boxes on the deployed game, and `addKey` captures by default,
+   *  so it also swallowed `B`/`1`-`4` from the page for no reason. */
+  private debugG?: Phaser.GameObjects.Graphics;
   private sprites!: [FighterSprite, FighterSprite];
   private hud!: Hud;
   private cutIn!: CutInView;
@@ -87,10 +91,10 @@ export class MatchScene extends Phaser.Scene {
   // tuning tool). `debug` gates the whole overlay; `bounds` picks which kinds it draws.
   private debug = false;
   private bounds: BoundsToggles = allBounds(true);
-  private debugKey!: Phaser.Input.Keyboard.Key;
+  private debugKey?: Phaser.Input.Keyboard.Key;
   private restartKey!: Phaser.Input.Keyboard.Key;
   private menuKey!: Phaser.Input.Keyboard.Key;
-  private boundKeys!: Phaser.Input.Keyboard.Key[];
+  private boundKeys: Phaser.Input.Keyboard.Key[] = [];
   private prevDebugDown = false;
   private prevRestartDown = false;
   private prevMenuDown = false;
@@ -107,6 +111,8 @@ export class MatchScene extends Phaser.Scene {
    *  scroll factor exempts an object from SCROLL, not from ZOOM, so at ZOOM_MAX the bars would grow
    *  25% and the outer ones would leave the screen. */
   private uiCam!: Phaser.Cameras.Scene2D.Camera;
+  /** Live game width — see render/viewport.ts. Written only by `layout()`. */
+  private viewW = VIEW_WIDTH;
   private legend!: Phaser.GameObjects.Text;
   // Match-end menu (scene-local: a UI selection is not simulation state).
   private endSel: 0 | 1 = 0;
@@ -213,7 +219,7 @@ export class MatchScene extends Phaser.Scene {
       (window as unknown as { __stage: unknown }).__stage = { cam: this.cameras.main, layers: stage.layers };
     }
 
-    this.debugG = this.add.graphics().setDepth(50);
+    if (import.meta.env.DEV) this.debugG = this.add.graphics().setDepth(50);
     this.hud = new Hud(this, [idA, idB]);
     this.cutIn = new CutInView(this);
 
@@ -228,12 +234,14 @@ export class MatchScene extends Phaser.Scene {
 
     const kb = this.input.keyboard!;
     const KC = Phaser.Input.Keyboard.KeyCodes;
-    this.debugKey = kb.addKey(KC.B);
     this.restartKey = kb.addKey(KC.ENTER);
     this.menuKey = kb.addKey(KC.ESC);
-    // 1-4 pick which bound kinds the overlay draws, same order as BOUND_KINDS (hurt/hit/push/guard);
-    // B still toggles the overlay itself.
-    this.boundKeys = [KC.ONE, KC.TWO, KC.THREE, KC.FOUR].map((k) => kb.addKey(k));
+    if (import.meta.env.DEV) {
+      this.debugKey = kb.addKey(KC.B);
+      // 1-4 pick which bound kinds the overlay draws, same order as BOUND_KINDS (hurt/hit/push/guard);
+      // B still toggles the overlay itself.
+      this.boundKeys = [KC.ONE, KC.TWO, KC.THREE, KC.FOUR].map((k) => kb.addKey(k));
+    }
     // Match-end menu navigation. Both players' up/down bindings work — whoever won should not have
     // to reach across the keyboard. These keys are also P1 jump/crouch and P2 jump/crouch, which is
     // harmless: a matchEnd tick consumes no input at all.
@@ -252,7 +260,10 @@ export class MatchScene extends Phaser.Scene {
         STAGE_HEIGHT - 6,
         // Two lines: as one it measured 1535px against a 1280 viewport, so ~128px fell off each
         // end — including the P1 bindings. Measured, not eyeballed; it had been clipped for phases.
-        "P1 A/D·W·S·Q block·F/G·E super   |   P2 ←→·↑·↓·/ block·,/.·M super   |   B hitboxes · 1-4 kinds · Esc menu\n"
+        // The box overlay is DEV-only, so the shipped string must not advertise it.
+        "P1 A/D·W·S·Q block·F/G·E super   |   P2 ←→·↑·↓·/ block·,/.·M super   |   "
+          + (import.meta.env.DEV ? "B hitboxes · 1-4 kinds · " : "")
+          + "Esc menu\n"
           + "CROUCH attacks are LOWS: block CROUCHING   ·   SUPER needs a full meter and spends all of it",
         { fontFamily: "monospace", fontSize: "14px", color: "#ffffff", stroke: "#000000", strokeThickness: 3, align: "center" },
       )
@@ -305,8 +316,19 @@ export class MatchScene extends Phaser.Scene {
     // every camera") and ignore() only sets one camera's bit, so anything created after this and
     // left out of BOTH lists draws twice, once at world zoom and once at 1:1. The two lists below
     // must therefore stay exhaustive and disjoint; e2e/camera-group.spec.ts asserts exactly that.
-    this.uiCam = this.cameras.add(0, 0, VIEW_WIDTH, STAGE_HEIGHT).setName("ui");
-    this.uiCam.ignore([...stage.objects, ...this.sprites.map((s) => s.sprite), this.debugG]);
+    // Sized from the LIVE scale, never the VIEW_WIDTH constant. `CameraManager.onResize` only
+    // auto-resizes a camera whose dimensions equal the PREVIOUS game size, so a UI camera hardcoded
+    // to 1280 after FlowScene has already widened the game never matches and stays 1280 for good —
+    // which crops P2's portrait plate and health bar clean off a phone screen. `layout()` keeps it
+    // right afterwards.
+    this.uiCam = this.cameras
+      .add(0, 0, this.scale.gameSize.width, this.scale.gameSize.height)
+      .setName("ui");
+    this.uiCam.ignore([
+      ...stage.objects,
+      ...this.sprites.map((s) => s.sprite),
+      ...(this.debugG ? [this.debugG] : []),
+    ]);
     this.cameras.main.ignore([
       ...this.hud.objects,
       ...this.cutIn.objects,
@@ -320,6 +342,34 @@ export class MatchScene extends Phaser.Scene {
     ]);
     // Screen-space objects keep setScrollFactor(0) anyway: it is what stage.spec.ts checks, and it
     // keeps them correct if the UI camera ever gains a scroll of its own.
+
+    // The game width follows the device (render/viewport.ts), so every screen-space anchor above is
+    // provisional until this runs. The bound property is what makes `off()` work: an inline arrow
+    // cannot be removed, and this scene is re-entered on Esc -> Flow -> match and on REMATCH, so a
+    // leaked listener would write into a shut-down scene.
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.onResize);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize);
+    });
+    this.layout(liveWidth(this.scale.gameSize.width));
+  }
+
+  private onResize = (gameSize: Phaser.Structs.Size): void => this.layout(liveWidth(gameSize.width));
+
+  /** Re-anchor every screen-space element to a new game width. */
+  private layout(width: number): void {
+    this.viewW = width;
+    this.uiCam.setSize(width, STAGE_HEIGHT);
+    this.hud.layout(width);
+    this.cutIn.layout(width);
+    this.pad?.layout(width);
+    this.legend.setX(width / 2);
+    this.quitPrompt.setX(width / 2);
+    this.menuBtn?.setX(width / 2);
+    this.endScrim.setSize(width, STAGE_HEIGHT);
+    for (const t of this.endTexts) t.setX(width / 2);
+    // The underline is a Graphics: its rect is baked at draw time, so moving the texts is not enough.
+    if (this.endShown) this.paintEndMenu(false);
   }
 
   /** The match-end choice, built once and hidden. Selection is shown by a caret AND weight, not by
@@ -391,7 +441,7 @@ export class MatchScene extends Phaser.Scene {
     const top = this.endTexts[0].y - 30;
     const bottom = this.endTexts[this.endTexts.length - 1].y + 30;
     this.endUnderline.fillStyle(0x000000, 0.62);
-    this.endUnderline.fillRect(VIEW_WIDTH / 2 - 200, top, 400, bottom - top);
+    this.endUnderline.fillRect(this.viewW / 2 - 200, top, 400, bottom - top);
     this.endUnderline.fillStyle(END_ACCENT, 1);
     this.endUnderline.fillRect(sel.x - sel.displayWidth / 2, sel.y + 22, sel.displayWidth, 3);
     if (!animate) return;
@@ -463,8 +513,9 @@ export class MatchScene extends Phaser.Scene {
     this.quitTimer = undefined;
   }
 
-  update(time: number, delta: number): void {
-    const dDown = this.debugKey.isDown;
+  /** DEV only — the keys are never bound in a production build, so this is never called there. */
+  private updateDebugKeys(): void {
+    const dDown = this.debugKey?.isDown ?? false;
     if (dDown && !this.prevDebugDown) this.debug = !this.debug;
     this.prevDebugDown = dDown;
 
@@ -475,6 +526,10 @@ export class MatchScene extends Phaser.Scene {
         this.debug = true; // toggling a kind with the overlay off is otherwise a silent no-op
       }
     });
+  }
+
+  update(time: number, delta: number): void {
+    if (import.meta.env.DEV) this.updateDebugKeys();
 
     const mDown = this.menuKey.isDown;
     if (mDown && !this.prevMenuDown) {
@@ -605,14 +660,19 @@ export class MatchScene extends Phaser.Scene {
   }
 
   private render(): void {
-    this.debugG.clear();
     const [a, b] = this.world.fighters;
     const frozen = this.world.hitstop > 0;
     this.sprites[0].update(a, this.world.frontIndex === 0, frozen);
     this.sprites[1].update(b, this.world.frontIndex === 1, frozen);
-    if (this.debug) {
-      drawDebugBoxes(this.debugG, a, this.bounds);
-      drawDebugBoxes(this.debugG, b, this.bounds);
+    // `import.meta.env.DEV` folds to `false` in the build, so Rollup drops the whole branch and
+    // `drawDebugBoxes` never reaches the production bundle — not even as an unreachable per-frame
+    // `clear()` on a Graphics nobody can see.
+    if (import.meta.env.DEV && this.debugG) {
+      this.debugG.clear();
+      if (this.debug) {
+        drawDebugBoxes(this.debugG, a, this.bounds);
+        drawDebugBoxes(this.debugG, b, this.bounds);
+      }
     }
   }
 }

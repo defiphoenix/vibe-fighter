@@ -67,6 +67,23 @@ check_job, check_blocks, shared_block = art_gate.check_job, art_gate.check_block
 # id -> aspect. The aspect label lies (`3:4` really returns 1792x2400 = 0.7467:1), so it is only ever
 # used to check the job record against itself; the pixel truth comes from params.width/height.
 UI_ASSETS = {"health-bar": "21:9", "portrait-base": "3:4", "meter-bar": "21:9"}
+
+# --- the touch pad's art (Phase 19) --------------------------------------------------------------
+# PROCEDURAL, not generated: no model, no credits, no `concepts/` input — so `--pad` runs on a fresh
+# clone, where the generative UI/prop paths cannot (their raw art is gitignored).
+#
+# FOUR frames for EIGHT buttons. `touch-view.ts` only ever varies the art by two things — action vs
+# movement, and pressed vs not — because each button's identity is carried by its Text label. Sixteen
+# per-button frames would be the same geometry at four times the texture.
+PAD_R = 52        # src/render/touch.ts BUTTON_R -- the HIT radius; the drawn circle IS this circle
+PAD_BLEED = 12    # src/render/touch.ts PAD_BLEED -- stroke + antialias headroom outside it
+PAD_CELL = 2 * (PAD_R + PAD_BLEED)  # 128
+PAD_SS = 4        # supersample factor: draw at 4x and LANCZOS down (the game renders with LINEAR)
+# Rooftop-dusk, the same values touch-view.ts used when the pad was vector circles.
+PAD_PLATE = (0x12, 0x0a, 0x1c)
+PAD_ACTION = (0xfd, 0x91, 0x46)  # DUSK_ORANGE
+PAD_MOVE = (0xc9, 0xb8, 0xd4)
+PAD_WHITE = (0xff, 0xff, 0xff)
 PROP_ASPECTS = {"crowd": "16:9", "vents": "1:1", "beacon": "1:1", "steam": "2:3"}
 PROP_FRAMES = 4  # frames 1..3 are --image-chained from frame 0, so refs=0 for -0 and refs=1 after
 
@@ -470,6 +487,89 @@ def pack(rows: list[list[tuple[str, np.ndarray]]]) -> tuple[Image.Image, dict]:
     return Image.fromarray(sheet), frames
 
 
+def _pad_frame(accent: tuple[int, int, int], pressed: bool) -> np.ndarray:
+    """One touch-pad button, drawn at PAD_SS x and resampled down.
+
+    Supersample + LANCZOS rather than a drawing library's own antialiasing: the game renders with
+    LINEAR filtering and no `pixelArt`, and the button is DOWNscaled on every phone, so a slightly
+    soft edge is correct and a hard aliased one shimmers.
+
+    Not a flat disc. The vector version it replaces read as cheap because it was two flat alphas; this
+    carries a vertical gradient, an inner top bevel and a seated inner shadow, which is what makes a
+    circle read as a physical button rather than a debug overlay.
+    """
+    s = PAD_CELL * PAD_SS
+    c = (s - 1) / 2.0
+    r = PAD_R * PAD_SS
+    yy, xx = np.mgrid[0:s, 0:s].astype(np.float64)
+    dist = np.hypot(xx - c, yy - c)
+    inside = dist <= r
+
+    out = np.zeros((s, s, 4), np.float64)
+
+    # Body: a vertical gradient. Lit from the top, like every other plate in the HUD atlas.
+    t = np.clip(yy / (s - 1), 0.0, 1.0)[..., None]
+    if pressed:
+        top = np.array(accent, np.float64)
+        bottom = np.array(accent, np.float64) * 0.55   # pressed = lit, and deeper toward the bottom
+        body_a = 0.62
+    else:
+        top = np.array(PAD_PLATE, np.float64) * 1.9 + 12.0  # lifted, so the plate is not a black hole
+        bottom = np.array(PAD_PLATE, np.float64)
+        body_a = 0.46
+    body = top * (1.0 - t) + bottom * t
+    out[..., :3] = body
+    out[..., 3] = np.where(inside, body_a * 255.0, 0.0)
+
+    # Inner shadow: darken the bottom inside edge so the disc sits IN the plate rather than on it.
+    # The vertical term must RAMP, not switch: `(yy > c)` is a binary mask and drew a hard seam
+    # straight across the equator of every button. Visible immediately in a preview, invisible to
+    # every assertion here — the frames were still the right size, still distinct, still the right
+    # radius.
+    below = np.clip((yy - c) / (r * 0.55), 0.0, 1.0)
+    seat = np.clip((dist - (r - 10 * PAD_SS)) / (10 * PAD_SS), 0.0, 1.0) * below
+    out[..., :3] *= (1.0 - 0.45 * seat)[..., None]
+
+    # Top bevel: a bright inner arc, strongest at the top and fading by the equator.
+    bev_band = np.clip(1.0 - np.abs(dist - (r - 5 * PAD_SS)) / (5 * PAD_SS), 0.0, 1.0)
+    bev = bev_band * np.clip((c - yy) / r, 0.0, 1.0) * inside
+    out[..., :3] = out[..., :3] * (1 - bev[..., None]) + np.array(PAD_WHITE, np.float64) * bev[..., None]
+    out[..., 3] = np.maximum(out[..., 3], bev * 170.0)
+
+    # Ring. The pressed state gets a thicker white one — the press has to be unmistakable at arm's
+    # length on a lit screen, which is the one thing the old flat version did adequately.
+    ring_w = (5 if pressed else 3) * PAD_SS
+    ring_col = np.array(PAD_WHITE if pressed else accent, np.float64)
+    ring_a = 1.0 if pressed else 0.85
+    ring = np.clip(1.0 - np.abs(dist - r) / (ring_w / 2.0), 0.0, 1.0)
+    out[..., :3] = out[..., :3] * (1 - ring[..., None]) + ring_col * ring[..., None]
+    out[..., 3] = np.maximum(out[..., 3], ring * ring_a * 255.0)
+
+    # Outer glow, so the ring separates from a busy stage without a hard black outline.
+    glow = np.clip(1.0 - (dist - r) / (PAD_BLEED * PAD_SS), 0.0, 1.0) * (dist > r)
+    gcol = np.array(accent, np.float64)
+    out[..., :3] = np.where((glow > 0)[..., None], gcol, out[..., :3])
+    out[..., 3] = np.maximum(out[..., 3], glow * (0.34 if pressed else 0.20) * 255.0)
+
+    im = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA")
+    return np.array(im.resize((PAD_CELL, PAD_CELL), Image.LANCZOS))
+
+
+def build_pad(fail: list[str]) -> tuple[Image.Image, dict, dict]:
+    """The touch pad's four frames. Deterministic, no inputs, no credits."""
+    cells = [
+        ("pad-move", _pad_frame(PAD_MOVE, False)),
+        ("pad-move-down", _pad_frame(PAD_MOVE, True)),
+        ("pad-action", _pad_frame(PAD_ACTION, False)),
+        ("pad-action-down", _pad_frame(PAD_ACTION, True)),
+    ]
+    sheet, frames = pack([cells])
+    fail += check_texture_size(sheet, "pad-atlas")
+    facts = {name: {"size": (im.shape[1], im.shape[0]),
+                    "opaque": int((im[..., 3] > 8).sum())} for name, im in cells}
+    return sheet, frames, facts
+
+
 def check_texture_size(im: Image.Image, name: str) -> list[str]:
     """A sheet larger than the GPU's max texture size does not draw AT ALL.
 
@@ -730,10 +830,37 @@ def selftest() -> None:
         assert any("does not describe" in b for b in png_matches_job("f", d, d / "f.png")), \
             "a record whose size disagrees with its PNG must fail"
 
-    print("build-atlases selftest: 25 fixtures OK (slot found/open/decorative/none/ambiguous/solid, "
+    # --- Phase 19: the touch pad's art -----------------------------------------------------------
+    # The contract that matters is that the DRAWN circle is the HIT circle. Nothing else can check
+    # it: the hit test lives in TypeScript and is a pure radius comparison, so a pad drawn at the
+    # wrong size would look fine and simply stop registering taps near its edge.
+    pad_cells = {n: _pad_frame(c, p) for n, c, p in [
+        ("pad-move", PAD_MOVE, False), ("pad-move-down", PAD_MOVE, True),
+        ("pad-action", PAD_ACTION, False), ("pad-action-down", PAD_ACTION, True),
+    ]}
+    for name, cell in pad_cells.items():
+        assert cell.shape == (PAD_CELL, PAD_CELL, 4), f"{name}: {cell.shape}"
+        # Measure the opaque radius back off the pixels, along the centre row, rather than trusting
+        # the constant that drew it. +-1px for the LANCZOS edge; the glow is below the alpha floor.
+        row = cell[PAD_CELL // 2, :, 3] > 128
+        cols = np.flatnonzero(row)
+        measured = (cols[-1] - cols[0] + 1) / 2.0
+        assert abs(measured - PAD_R) <= 1.5, \
+            f"{name}: drawn radius {measured} != hit radius {PAD_R} -- taps near the edge would miss"
+
+    # A copy-paste that made `-down` identical to idle would ship a pad with no press feedback, and
+    # every other check here would still pass.
+    for base in ("pad-move", "pad-action"):
+        assert not np.array_equal(pad_cells[base], pad_cells[f"{base}-down"]), \
+            f"{base}: the pressed frame is identical to the idle one -- the press would be invisible"
+    assert not np.array_equal(pad_cells["pad-move"], pad_cells["pad-action"]), \
+        "the movement and action frames are identical -- the colour affordance is gone"
+
+    print("build-atlases selftest: 28 fixtures OK (slot found/open/decorative/none/ambiguous/solid, "
           "key raises x2, T-shape rejected, slot IS the window + cover-trim + usable-arch, "
           "bottom-anchor enforced, packer rects, discrete-apex HUD band, max-texture, "
-          "speck filter + aggregate-drop guard, faint-art kept, png<->job)")
+          "speck filter + aggregate-drop guard, faint-art kept, png<->job, "
+          "pad drawn-radius == hit-radius + pressed/idle + move/action distinct)")
 
 
 def _prompts(d: Path, ids: list[str]) -> dict:
@@ -973,6 +1100,25 @@ def previews(ui_sheet: Image.Image, ui_frames: dict, pr_sheet: Image.Image, pr_f
 def main() -> int:
     selftest()
     if "--selftest" in sys.argv:
+        return 0
+
+    # `--pad` is a genuinely INDEPENDENT mode, not a filter applied afterwards. build_ui() and
+    # build_props() are provenance-gated on `concepts/**` raw art that .gitignore excludes, so running
+    # them first would make the procedural pad un-regenerable on any machine but this one.
+    if "--pad" in sys.argv:
+        fail: list[str] = []
+        sheet, frames, facts = build_pad(fail)
+        if fail:
+            print("\nFAIL")
+            for f in fail:
+                print(f"  - {f}")
+            return 1
+        write_atlas(OUT_UI / "pad-atlas.png", sheet, frames,
+                    {"phase": "19", "source": "procedural (scripts/build-atlases.py --pad)"})
+        print(f"\npad-atlas  {sheet.width}x{sheet.height}  frames {list(frames)}")
+        for name, f in facts.items():
+            print(f"  {name:16} {f['size'][0]}x{f['size'][1]}  opaque {f['opaque']}px")
+        print(f"wrote {(OUT_UI / 'pad-atlas.png').relative_to(ROOT)}")
         return 0
 
     fail: list[str] = []

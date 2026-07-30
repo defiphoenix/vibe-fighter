@@ -1,12 +1,13 @@
 import * as Phaser from "phaser";
-import { TouchPadState, touchLayout, type TouchButtonSpec, type TouchHeld } from "./touch";
+import {
+  TouchPadState, touchLayout, frameFor, BUTTON_R, PAD_BLEED, PAD_ATLAS, PAD_FRAMES,
+  type TouchButtonSpec, type TouchHeld,
+} from "./touch";
+import { STAGE_HEIGHT } from "../sim/constants";
+import { liveWidth } from "./viewport";
 
-// Rooftop-dusk palette, same values FlowScene and the HUD use — a control pad in a different palette
-// reads as a debug overlay bolted onto the game.
-const PLATE = 0x120a1c;
-const ACTION = 0xfd9146; // DUSK_ORANGE
-const MOVE = 0xc9b8d4;
-const PRESSED = 0xffffff;
+// The rooftop-dusk palette that used to live here as four hex constants is now baked into
+// `ui/pad-atlas.png` by `scripts/build-atlases.py --pad`, which mirrors the same values.
 
 /**
  * The on-screen pad: eight vector buttons that feed `InputSnapshot` through the SAME path the
@@ -14,7 +15,12 @@ const PRESSED = 0xffffff;
  *
  * All the rules — which contact owns which button, multi-touch, slide-off, and turning a tap into
  * exactly one rising edge — live in the Phaser-free `touch.ts` so vitest can reach them. This class
- * is the adapter: it draws circles, forwards pointer events, and owns the camera/depth bookkeeping.
+ * is the adapter: it places the art, forwards pointer events, and owns the camera/depth bookkeeping.
+ *
+ * The buttons are ATLAS IMAGES (Phase 19), not the vector circles this drew for Phase 18 — four
+ * frames covering action/movement x idle/pressed, generated procedurally by
+ * `scripts/build-atlases.py --pad`. `touchLayout()` remains the single source of truth for x/y/r, so
+ * the art can never disagree with the hit test; the constructor throws if the frames say otherwise.
  *
  * **Depth 96/97**, deliberately BELOW the end scrim (99), the HUD (100/101), the Esc prompt (102),
  * the end menu (103) and the super cut-in (104-106). The pad sits at the bottom of the screen and the
@@ -28,18 +34,52 @@ const PRESSED = 0xffffff;
  * them. The UI camera has no scroll and no zoom, so `pointer.x/y` in game space ARE layout coords.
  */
 export class TouchPad {
-  private g: Phaser.GameObjects.Graphics;
+  /** One Image per button, carrying the atlas art. Replaced the single Graphics the pad used to draw
+   *  eight vector circles into. */
+  private buttons: Phaser.GameObjects.Image[];
   private labels: Phaser.GameObjects.Text[];
   readonly objects: Phaser.GameObjects.GameObject[];
-  private state = new TouchPadState();
-  private layout: TouchButtonSpec[] = touchLayout();
+  private state: TouchPadState;
+  /** Button geometry for the CURRENT game width. Named `specs` rather than `layout` so `layout()`
+   *  can be the verb — this class and `TouchPadState` each hold a copy and both are rewritten there. */
+  private specs: TouchButtonSpec[];
   private scene: Phaser.Scene;
   private shown = true;
+  /** Last drawn pressed-state per button, so `draw()` only touches frames that actually changed. */
+  private lastHeld: Partial<TouchHeld> = {};
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    this.g = scene.add.graphics().setDepth(96).setScrollFactor(0);
-    this.labels = this.layout.map((b) =>
+    this.specs = touchLayout(liveWidth(scene.scale.gameSize.width), STAGE_HEIGHT);
+    this.state = new TouchPadState(this.specs);
+
+    // Validate the whole atlas up front and throw naming the frame, exactly as Hud does. Two
+    // independent reasons this is not paranoia:
+    //  * `Texture.get(name)` does NOT throw on a missing frame — it `console.warn`s and returns the
+    //    atlas's FIRST frame (Texture.js:255-270). A renamed frame would silently draw the wrong
+    //    state on every button forever, and every geometric assertion would still pass.
+    //  * the drawn circle IS the hit circle. If the art's radius stops matching BUTTON_R, taps near
+    //    the edge miss with nothing on screen to explain why — so the size is checked, not assumed.
+    const tex = scene.textures.get(PAD_ATLAS);
+    const cell = 2 * (BUTTON_R + PAD_BLEED);
+    for (const frame of PAD_FRAMES) {
+      if (!tex || !tex.has(frame)) throw new Error(`touch pad: missing frame "${frame}" in atlas "${PAD_ATLAS}"`);
+      const f = tex.get(frame);
+      if (f.width !== cell || f.height !== cell) {
+        throw new Error(
+          `touch pad: frame "${frame}" is ${f.width}x${f.height}, expected ${cell}x${cell} `
+          + `(2 * (BUTTON_R ${BUTTON_R} + PAD_BLEED ${PAD_BLEED})) — rerun `
+          + "`python scripts/build-atlases.py --pad`",
+        );
+      }
+    }
+
+    // Origin stays the default 0.5: the layout's x/y IS the circle's centre, so there is no origin
+    // arithmetic anywhere and the art cannot drift off the hit test by half a button.
+    this.buttons = this.specs.map((b) =>
+      scene.add.image(b.x, b.y, PAD_ATLAS, frameFor(b.id, false)).setDepth(96).setScrollFactor(0),
+    );
+    this.labels = this.specs.map((b) =>
       scene.add
         .text(b.x, b.y, b.label, {
           fontFamily: "monospace",
@@ -53,7 +93,9 @@ export class TouchPad {
         .setDepth(97)
         .setScrollFactor(0),
     );
-    this.objects = [this.g, ...this.labels];
+    // EVERY object goes in here: `MatchScene` spreads this into exactly one camera's ignore list, and
+    // an object in neither list renders twice (e2e/mobile-touch.spec.ts audits every cameraFilter).
+    this.objects = [...this.buttons, ...this.labels];
 
     // Phaser removes these with the scene (InputPlugin.shutdown drops every listener), so there is
     // nothing to unsubscribe on a scene restart.
@@ -72,10 +114,23 @@ export class TouchPad {
     this.draw({} as TouchHeld);
   }
 
+  /** Re-anchor the pad to a new game width. Writes BOTH copies of the layout — this class draws from
+   *  `this.layout` and `TouchPadState` hit-tests against its own — because a pad whose art and hit
+   *  test disagree is invisible to every desktop test and unplayable on the device. */
+  layout(width: number): void {
+    this.specs = touchLayout(width, STAGE_HEIGHT);
+    this.state.setLayout(this.specs);
+    for (const [i, b] of this.specs.entries()) {
+      this.buttons[i].setPosition(b.x, b.y);
+      this.labels[i].setPosition(b.x, b.y);
+    }
+    this.draw({} as TouchHeld);
+  }
+
   setVisible(v: boolean): void {
     if (v === this.shown) return;
     this.shown = v;
-    this.g.setVisible(v);
+    for (const b of this.buttons) b.setVisible(v);
     for (const t of this.labels) t.setVisible(v);
     // Making the Graphics invisible does NOT unsubscribe the scene-level listeners, so without this a
     // hidden pad keeps collecting contacts and hands them to the sim the moment it reappears.
@@ -95,15 +150,16 @@ export class TouchPad {
     return held;
   }
 
+  /** Swap frames for whatever CHANGED. The colours and the pressed bevel are baked into the atlas
+   *  (`build-atlases.py --pad`), so this is now four possible frame names rather than a per-frame
+   *  re-stroke of eight circles. `layout()` passes an empty object to force every button back to idle,
+   *  which is correct: `setLayout` has just dropped the contacts. */
   private draw(held: Partial<TouchHeld>): void {
-    this.g.clear();
-    for (const b of this.layout) {
-      const isAction = b.id === "light" || b.id === "heavy" || b.id === "block" || b.id === "special";
+    for (const [i, b] of this.specs.entries()) {
       const on = held[b.id] === true;
-      this.g.fillStyle(on ? (isAction ? ACTION : MOVE) : PLATE, on ? 0.55 : 0.42);
-      this.g.fillCircle(b.x, b.y, b.r);
-      this.g.lineStyle(on ? 5 : 3, on ? PRESSED : isAction ? ACTION : MOVE, on ? 1 : 0.85);
-      this.g.strokeCircle(b.x, b.y, b.r);
+      if (this.lastHeld[b.id] === on) continue;
+      this.lastHeld[b.id] = on;
+      this.buttons[i].setFrame(frameFor(b.id, on));
     }
   }
 }

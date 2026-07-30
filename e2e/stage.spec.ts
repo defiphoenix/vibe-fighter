@@ -28,14 +28,18 @@ test("parallax layers, occlusion, and camera bounds", async ({ page }) => {
   await readyMatch(page);
   await pump(page, 4);
 
-  // camera world bounds == 1696 wide (world), viewport is 1280 (canvas).
+  // camera world bounds == 1696 wide (world); the camera viewport is the LIVE game width.
+  // Phase 19: that is 1280 on this 16:9 desktop profile but wider on a phone, so asserting the
+  // constant here would silently be an assertion about playwright.config.ts's viewport rather than
+  // about the stage. Compare against what the game actually is.
   const bounds = await page.evaluate(() => {
     const cam = (window as any).__stage.cam;
     const b = cam.getBounds();
-    return { w: b.width, h: b.height, view: cam.width };
+    return { w: b.width, h: b.height, view: cam.width, gameW: (window as any).__game.scale.gameSize.width };
   });
   expect(bounds.w).toBe(1696);
-  expect(bounds.view).toBe(1280);
+  expect(bounds.view).toBe(bounds.gameW);
+  expect(bounds.view, "the world must stay wider than the camera, or nothing scrolls").toBeLessThanOrEqual(bounds.w);
 
   // per-layer contract: no squash (scaleX==scaleY), runtime width ~1697, origin (0,0), factor + depth.
   const layers = await page.evaluate(() =>

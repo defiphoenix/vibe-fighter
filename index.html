@@ -13,9 +13,20 @@
     <style>
       html, body { margin: 0; height: 100%; background: #10131a; overscroll-behavior: none; }
       body { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-      #game { display: grid; place-items: center; height: 100%; }
-      /* Without this a drag across the pad scrolls or pans the page instead of holding a button. */
-      canvas { image-rendering: pixelated; touch-action: none; }
+      /* NOT a centering context. Phaser's `autoCenter: CENTER_BOTH` centres the canvas itself by
+         writing marginLeft/marginTop (ScaleManager.updateCenter), and CSS grid centres the canvas's
+         MARGIN BOX — so `place-items: center` here stacked with it and parked the canvas about a
+         quarter of the letterbox gap to the right. One centerer, and it has to be the one that
+         recomputes on every resize. Same reason the Phaser docs say not to style the canvas. */
+      #game { position: relative; width: 100%; height: 100%; overflow: hidden; }
+      /* `image-rendering: pixelated` used to be here and contradicted the renderer: main.ts
+         deliberately does NOT set `pixelArt`, because the fighters are video-derived frames and the
+         backgrounds are painted art. Nearest-neighbour resampling of that under Scale.FIT is exactly
+         the shimmer/crunch LINEAR filtering exists to avoid, and a phone resamples every frame.
+         `display: block` keeps the canvas off the inline baseline (no phantom descender gap).
+         `touch-action: none`: without it a drag across the pad scrolls the page instead of holding
+         a button. */
+      canvas { display: block; touch-action: none; }
 
       /* The rotate gate. Shown only when src/main.ts puts `.rotate` on <html> — one tested decision
          (`shouldBlockForOrientation`) drives the overlay AND the loop pause, so the two cannot

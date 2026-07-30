@@ -121,8 +121,39 @@ export interface TouchButtonSpec {
 }
 
 /** Button radius in GAME space. At 1280x720 letterboxed into a 844x390 phone (FIT scale 0.542) this
- *  draws ~56 CSS px across, about 9 mm — the floor for a reliable thumb target. */
-const BUTTON_R = 52;
+ *  draws ~56 CSS px across, about 9 mm — the floor for a reliable thumb target.
+ *
+ *  EXPORTED because the art is generated against it: `scripts/build-atlases.py` draws each pad frame
+ *  as a circle of exactly this radius, and `TouchPad`'s constructor refuses to start if the loaded
+ *  frame is not `2 * (BUTTON_R + PAD_BLEED)` across. A radius change on either side is then a loud
+ *  boot failure rather than a pad whose art has quietly stopped matching its hit test. */
+export const BUTTON_R = 52;
+
+/** Transparent margin around the drawn circle in each atlas frame — headroom for the ring stroke and
+ *  its antialiasing, so the art is never clipped by the frame edge. Part of the same contract. */
+export const PAD_BLEED = 12;
+
+/** Texture key for the pad art (see `scripts/build-atlases.py --pad`). */
+export const PAD_ATLAS = "pad-atlas";
+
+/** The action half of the pad. Attacks and block share one accent colour; movement gets the other. */
+export function isActionButton(id: TouchButton): boolean {
+  return id === "light" || id === "heavy" || id === "block" || id === "special";
+}
+
+/**
+ * Which atlas frame a button wears right now. FOUR frames cover all eight buttons, because the art
+ * only ever varies by those two axes — each button's identity is carried by its `Text` label, not by
+ * its shape. Pure and exported so the frame NAMES are unit-tested: `Texture.get()` answers a missing
+ * frame with a `console.warn` and the atlas's FIRST frame, so a renamed frame would not throw, it
+ * would just quietly draw the wrong state forever.
+ */
+export function frameFor(id: TouchButton, pressed: boolean): string {
+  return `pad-${isActionButton(id) ? "action" : "move"}${pressed ? "-down" : ""}`;
+}
+
+/** Every frame the pad atlas must contain, for the boot-time completeness check. */
+export const PAD_FRAMES = ["pad-move", "pad-move-down", "pad-action", "pad-action-down"] as const;
 
 /**
  * Where the buttons sit, in GAME space (1280x720), so they ride `Scale.FIT` with everything else and
@@ -214,6 +245,21 @@ export class TouchPadState {
   setActive(on: boolean): void {
     this.active = on;
     if (!on) this.cancel();
+  }
+
+  /**
+   * Move the buttons — the game width is not a constant (render/viewport.ts), so the pad re-anchors
+   * to the screen edges when the viewport changes.
+   *
+   * `cancel()` FIRST, and it is not optional: every live contact is recorded against the button it
+   * was over, and after the swap those assignments describe positions that no longer exist. A thumb
+   * resting on LIGHT at the old x would keep LIGHT held while the drawn button sits somewhere else —
+   * a stuck input with no visible cause. Dropping the contacts costs the player one re-press during
+   * a rotation they are already not playing through.
+   */
+  setLayout(layout: TouchButtonSpec[]): void {
+    this.cancel();
+    this.layout = layout;
   }
 
   down(pointerId: number, x: number, y: number): void {

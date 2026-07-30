@@ -1,6 +1,6 @@
 import * as Phaser from "phaser";
 import { World } from "../sim/world";
-import { VIEW_WIDTH } from "../sim/constants";
+import { liveWidth } from "./viewport";
 import { hudEntrance } from "./hud-entrance";
 import { meterView, type MeterView } from "./meter-view";
 
@@ -119,6 +119,8 @@ export class Hud {
   private barH: number;
   private barTop: number;
   private barX: [number, number];
+  /** Drawn width of a portrait plate — the only creation-time measurement `layout()` needs. */
+  private plateW = 0;
   private slot: Slot;
   private meterW = 0;
   private meterH = 0;
@@ -159,9 +161,12 @@ export class Hud {
     this.scene = scene;
     this.window = win;
 
-    // Portrait outboard at the screen edge, bar inboard running toward centre; P2 mirrors.
-    const faceX: [number, number] = [MARGIN, VIEW_WIDTH - MARGIN - plateW];
-    this.barX = [MARGIN + plateW + GAP, VIEW_WIDTH - MARGIN - plateW - GAP - this.barW];
+    // Portrait outboard at the screen edge, bar inboard running toward centre; P2 mirrors. Every x
+    // below is set by `layout()`, which is the ONLY place horizontal position is computed — the game
+    // width is not a constant any more (see render/viewport.ts), and two copies of this arithmetic
+    // would be two chances to disagree about where P2's plate is.
+    this.plateW = plateW;
+    this.barX = [0, 0];
     // The portrait plate is much taller than the bar (it is a 0.74:1 bust, the bar is 3.19:1), so the
     // bar is centred against it rather than top-aligned — top-aligned left the bar floating at the
     // ceiling with a tall frame hanging beside it.
@@ -181,46 +186,46 @@ export class Hud {
     // Built hidden on a placeholder frame: an Image needs SOME texture at construction, and showing
     // the plate art twice is worse than showing nothing. applyPortraits() reveals it once a real
     // portrait is in place.
-    const face = (i: 0 | 1): Phaser.GameObjects.Image =>
-      scene.add.image(faceX[i] + win.dx + win.w / 2, TOP + win.dy + win.h / 2, ATLAS, PORTRAIT_PLATE)
+    const face = (): Phaser.GameObjects.Image =>
+      scene.add.image(0, TOP + win.dy + win.h / 2, ATLAS, PORTRAIT_PLATE)
         .setOrigin(0.5)
         .setDepth(100)
         .setVisible(false)
         .setScrollFactor(0);
-    this.faces = [face(0), face(1)];
+    this.faces = [face(), face()];
 
     // One Graphics for both bars' backdrop + coloured fill, drawn BEHIND the plates so it shows
     // through the transparent `health-bar-slot` while the bevel stays on top.
     this.fillG = scene.add.graphics().setDepth(100).setScrollFactor(0);
 
-    const plate = (x: number, y: number, frame: string, flip: boolean): Phaser.GameObjects.Image =>
-      scene.add.image(x, y, ATLAS, frame)
+    const plate = (y: number, frame: string, flip: boolean): Phaser.GameObjects.Image =>
+      scene.add.image(0, y, ATLAS, frame)
         .setOrigin(0, 0) // the slot arithmetic is top-left based; an Image defaults to centred
         .setScale(...(frame === PORTRAIT_PLATE ? [PORTRAIT_SCALE, PORTRAIT_SCALE] : [BAR_SCALE_X, BAR_SCALE_Y]) as [number, number])
         .setFlipX(flip)
         .setDepth(101)
         .setScrollFactor(0);
-    this.facePlates = [plate(faceX[0], TOP, PORTRAIT_PLATE, false), plate(faceX[1], TOP, PORTRAIT_PLATE, false)];
-    this.barPlates = [plate(this.barX[0], this.barTop, BAR_PLATE, false), plate(this.barX[1], this.barTop, BAR_PLATE, true)];
+    this.facePlates = [plate(TOP, PORTRAIT_PLATE, false), plate(TOP, PORTRAIT_PLATE, false)];
+    this.barPlates = [plate(this.barTop, BAR_PLATE, false), plate(this.barTop, BAR_PLATE, true)];
     // P2's meter is flipped for the same reason its bar is: the plate art is lit from the top-left,
     // so an unmirrored copy on the right reads as a different piece of furniture.
-    this.meterPlates = [plate(this.barX[0], this.meterY, METER_PLATE, false), plate(this.barX[1], this.meterY, METER_PLATE, true)];
+    this.meterPlates = [plate(this.meterY, METER_PLATE, false), plate(this.meterY, METER_PLATE, true)];
 
     const font = { fontFamily: "monospace", color: "#ffffff" };
     // Timer under the bars, not above them: the plates now run nearly to the centre, and a number
     // sitting in the gap between them read as a third HUD element rather than the round clock.
-    this.timerText = scene.add.text(VIEW_WIDTH / 2, this.barTop + this.barH + 6, "", { ...font, fontSize: "44px" }).setOrigin(0.5, 0).setDepth(101).setScrollFactor(0);
-    this.centerText = scene.add.text(VIEW_WIDTH / 2, 300, "", { ...font, fontSize: "60px", color: "#ffdd44" }).setOrigin(0.5).setDepth(101).setScrollFactor(0);
+    this.timerText = scene.add.text(0, this.barTop + this.barH + 6, "", { ...font, fontSize: "44px" }).setOrigin(0.5, 0).setDepth(101).setScrollFactor(0);
+    this.centerText = scene.add.text(0, 300, "", { ...font, fontSize: "60px", color: "#ffdd44" }).setOrigin(0.5).setDepth(101).setScrollFactor(0);
     // Sits ON the meter plate, centred, and is created AFTER the plates so the stable depth sort in
     // band 101 puts it above them. Dark on the gold READY fill; it is only ever visible over that.
-    const ready = (i: 0 | 1): Phaser.GameObjects.Text =>
-      scene.add.text(this.barX[i] + this.meterW / 2, this.meterY + this.meterH / 2, READY_LABEL, {
+    const ready = (): Phaser.GameObjects.Text =>
+      scene.add.text(0, this.meterY + this.meterH / 2, READY_LABEL, {
         ...font, fontSize: "20px", color: "#3a1e00", fontStyle: "bold",
       }).setOrigin(0.5).setDepth(101).setScrollFactor(0).setVisible(false);
-    this.readyText = [ready(0), ready(1)];
+    this.readyText = [ready(), ready()];
 
-    this.p1Pips = scene.add.text(this.barX[0], pipY, "", { ...font, fontSize: "18px", color: "#66ccff" }).setDepth(101).setScrollFactor(0);
-    this.p2Pips = scene.add.text(this.barX[1] + this.barW, pipY, "", { ...font, fontSize: "18px", color: "#ff8866" }).setOrigin(1, 0).setDepth(101).setScrollFactor(0);
+    this.p1Pips = scene.add.text(0, pipY, "", { ...font, fontSize: "18px", color: "#66ccff" }).setDepth(101).setScrollFactor(0);
+    this.p2Pips = scene.add.text(0, pipY, "", { ...font, fontSize: "18px", color: "#ff8866" }).setOrigin(1, 0).setDepth(101).setScrollFactor(0);
 
     this.objects = [
       ...this.faces,
@@ -239,7 +244,36 @@ export class Hud {
       this.slides.push({ obj: o, baseY: o.y });
     }
 
+    // Position everything for the CURRENT game width. Load-bearing rather than tidy: the scale is
+    // already reshaped to the device by the time any scene runs `create()`, and on a phone that is
+    // left alone no further RESIZE ever fires — so a HUD that waited for one would sit at 1280
+    // forever and P2's plate would hang off the side of the screen.
+    this.layout(liveWidth(scene.scale.gameSize.width));
+
     this.applyPortraits(ids);
+  }
+
+  /** Re-anchor everything horizontal to a new game width. The ONE place x is computed; `bar()` and
+   *  `meter()` read `barX` live each frame, so the coloured fills follow with nothing to invalidate.
+   *  Vertical position is width-independent and deliberately untouched — `slides` caches `baseY`. */
+  layout(width: number): void {
+    const win = this.window;
+    const faceX: [number, number] = [MARGIN, width - MARGIN - this.plateW];
+    this.barX = [
+      MARGIN + this.plateW + GAP,
+      width - MARGIN - this.plateW - GAP - this.barW,
+    ];
+    for (const i of [0, 1] as const) {
+      this.faces[i].setX(faceX[i] + win.dx + win.w / 2);
+      this.facePlates[i].setX(faceX[i]);
+      this.barPlates[i].setX(this.barX[i]);
+      this.meterPlates[i].setX(this.barX[i]);
+      this.readyText[i].setX(this.barX[i] + this.meterW / 2);
+    }
+    this.timerText.setX(width / 2);
+    this.centerText.setX(width / 2);
+    this.p1Pips.setX(this.barX[0]);
+    this.p2Pips.setX(this.barX[1] + this.barW);
   }
 
   /** Cover-crop each portrait into its plate's window: scale to the LARGER ratio so the window is

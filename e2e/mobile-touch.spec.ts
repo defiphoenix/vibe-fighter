@@ -1,6 +1,7 @@
 import { test, expect, devices, type Page } from "@playwright/test";
 import { MATCH, keys, pump, pumpUntil, ready as harnessReady } from "./harness";
 import { touchLayout, type TouchButton } from "../src/render/touch";
+import { STAGE_HEIGHT, STAGE_WIDTH, VIEW_WIDTH } from "../src/sim/constants";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -23,9 +24,15 @@ import { touchLayout, type TouchButton } from "../src/render/touch";
 const { defaultBrowserType: _ignored, ...PHONE } = devices["Pixel 5 landscape"];
 const flowReady = (page: Page): Promise<void> => harnessReady(page, { needs: ["__game", "__flow"] });
 
-/** A pad button's position in CSS pixels. `displayScale` is base÷displayed, so it DIVIDES. */
+/** A pad button's position in CSS pixels. `displayScale` is base÷displayed, so it DIVIDES.
+ *
+ *  The layout MUST be computed from the live game width. Phase 19 reshapes the game to the device's
+ *  aspect, so on this profile it is ~1559 wide and the right-hand cluster sits at x≈1399 — a
+ *  `touchLayout()` with no argument would put it at 1120 and every action tap would land on empty
+ *  stage. That reads as "the button does nothing", not as a broken helper. */
 async function buttonXY(page: Page, id: TouchButton): Promise<{ x: number; y: number }> {
-  const b = touchLayout().find((x) => x.id === id)!;
+  const gameW = await page.evaluate(() => (window as any).__game.scale.gameSize.width as number);
+  const b = touchLayout(Math.round(gameW), STAGE_HEIGHT).find((x) => x.id === id)!;
   return page.evaluate(({ gx, gy }) => {
     const s = (window as any).__game.scale;
     return {
@@ -73,6 +80,87 @@ test.describe("phone (touch profile)", () => {
       await page.evaluate(() => window.matchMedia("(any-pointer: fine)").matches),
       "emulation cannot prove anything about any-pointer: fine on real hardware",
     ).toBe(false);
+  });
+
+  // --- Phase 19: the game fills the phone, and is centred on it ---------------------------------
+  //
+  // This case exists because NOTHING ELSE CAN CATCH THE FAILURE IT GUARDS. The width decision itself
+  // is pure and unit-tested, but the bug it replaced was that the decision was never APPLIED: Phaser
+  // refreshes the scale during boot and again on READY, both before main.ts can subscribe, and its
+  // 500ms poll only refreshes when the parent size actually CHANGES. A phone that opens in landscape
+  // and is then left alone emits no further RESIZE — so the game would sit at 1280 forever with a
+  // fully green unit suite. Only measuring the real thing on a real profile says otherwise.
+  test("the game is reshaped to the phone's aspect, centred, with both cameras following", async ({ page }) => {
+    await harnessReady(page, { route: MATCH, needs: ["__game", "__world"] });
+    const m = await page.evaluate(() => {
+      const g = (window as any).__game;
+      const s = g.scale;
+      const scene = g.scene.getScene("Match");
+      const [main, ui] = scene.cameras.cameras as any[];
+      const canvas = g.canvas.getBoundingClientRect();
+      return {
+        gameW: s.gameSize.width,
+        gameH: s.gameSize.height,
+        parentW: s.parentSize.width,
+        parentH: s.parentSize.height,
+        canvas: { left: canvas.left, right: canvas.right, width: canvas.width },
+        innerW: window.innerWidth,
+        mainW: main.width,
+        uiW: ui.width,
+      };
+    });
+
+    // 1. The game took the DEVICE's aspect, not the authored one — clamped to the world, because a
+    //    camera cannot show stage that does not exist. This emulated profile reports a 2.74:1 parent,
+    //    which is wider than the world's own 2.36:1, so it lands ON the ceiling.
+    expect(m.gameH, "the stage art is exactly this tall; height must never move").toBe(STAGE_HEIGHT);
+    expect(m.gameW, "still at the authored width = applyViewport never ran").toBeGreaterThan(VIEW_WIDTH);
+    const want = Math.min(STAGE_WIDTH, Math.max(VIEW_WIDTH, Math.round((STAGE_HEIGHT * m.parentW) / m.parentH)));
+    expect(m.gameW).toBe(want);
+
+    // 2. It is CENTRED. Half the original complaint: the canvas sat off to the right because
+    //    index.html centred it as a grid item AND Phaser centred it with a margin, and the two
+    //    stacked. Whenever bars DO exist they must be the same size on both sides.
+    //    Tolerance is 2px, and that is the floor of what is achievable rather than slack: Phaser
+    //    centres with `marginLeft = Math.floor((parentW - displayW) / 2)` while the display width is
+    //    fractional (690.17 here), so up to ~2px of asymmetry is baked into the integer margin. The
+    //    defect this guards was a quarter of the whole gap — ~28px on this profile.
+    const leftBar = m.canvas.left;
+    const rightBar = m.innerW - m.canvas.right;
+    expect(Math.abs(leftBar - rightBar), `bars L${leftBar} R${rightBar}`).toBeLessThanOrEqual(2);
+
+    // 3. Whatever bar is left is strictly less than the authored width would have given. This is the
+    //    honest form of "fills the screen" on a viewport too wide for the world: FIT is height-bound
+    //    here, so a 1280-wide game would draw 521px into an 802px viewport (281px of bar) where 1696
+    //    draws ~690 (112px). Asserting the improvement rather than perfection keeps the case true.
+    const barsNow = m.innerW - m.canvas.width;
+    const barsAtAuthoredWidth = m.innerW - VIEW_WIDTH * (m.canvas.width / m.gameW);
+    expect(barsNow).toBeLessThan(barsAtAuthoredWidth);
+
+    // 4. BOTH cameras followed. `CameraManager.onResize` only auto-resizes a camera whose size
+    //    equalled the previous game size, so the UI camera — created explicitly — is the one that
+    //    silently stays 1280 and crops P2's plate off the screen.
+    expect(m.mainW, "main camera").toBe(m.gameW);
+    expect(m.uiW, "UI camera — P2's HUD plate lives out here").toBe(m.gameW);
+  });
+
+  test("P2's HUD plate and the pad's right cluster are on screen at the phone's width", async ({ page }) => {
+    await harnessReady(page, { route: MATCH, needs: ["__game", "__world"] });
+    await pump(page, 2);
+    const m = await page.evaluate(() => {
+      const g = (window as any).__game;
+      const scene = g.scene.getScene("Match");
+      const w = g.scale.gameSize.width;
+      // Every screen-space object's right edge, so a plate hanging off the side is a number.
+      const rights = (scene.children.list as any[])
+        .filter((o) => o.scrollFactorX === 0 && o.visible && typeof o.getBounds === "function")
+        .map((o) => ({ depth: o.depth, right: o.getBounds().right, left: o.getBounds().left }));
+      return { w, maxRight: Math.max(...rights.map((r) => r.right)), minLeft: Math.min(...rights.map((r) => r.left)) };
+    });
+    expect(m.maxRight, "something screen-space hangs off the right edge").toBeLessThanOrEqual(m.w + 1);
+    expect(m.minLeft, "something screen-space hangs off the left edge").toBeGreaterThanOrEqual(-1);
+    // ...and it genuinely reaches the right edge rather than stopping at the old 1280 anchor.
+    expect(m.maxRight, "the HUD did not follow the widened viewport").toBeGreaterThan(VIEW_WIDTH);
   });
 
   /** `?diag=1` is the only instrument that works on hardware nobody here is holding. If it silently
@@ -172,6 +260,49 @@ test.describe("phone (touch profile)", () => {
     const after = await health(page);
     expect(after[1], "P2 took damage from a touch-driven light").toBeLessThan(before[1]);
     expect(after[0], "P1 was not hurt by their own button").toBe(before[0]);
+  });
+
+  // Phase 19: the pad is atlas art. Two things could go wrong invisibly — every button could be
+  // wearing the same frame (a `frameFor` that ignores its arguments, or `Texture.get`'s silent
+  // fallback to the first frame), and the pressed state could never be applied. Both would look like
+  // a pad that simply does not react, which is what the vector version was replaced FOR.
+  test("the pad wears atlas art, and a held button visibly swaps to its pressed frame", async ({ page }) => {
+    await harnessReady(page, { route: MATCH, needs: ["__sprites", "__world", "__game"] });
+    await stageFight(page);
+
+    const frames = (): Promise<Record<string, string>> => page.evaluate(() => {
+      const scene = (window as any).__game.scene.getScene("Match");
+      const out: Record<string, string> = {};
+      for (const o of scene.children.list as any[]) {
+        if (o.depth === 96 && o.type === "Image") out[`${Math.round(o.x)},${Math.round(o.y)}`] = o.frame.name;
+      }
+      return out;
+    });
+
+    const idle = await frames();
+    expect(Object.keys(idle), "8 pad buttons").toHaveLength(8);
+    // Movement and action buttons must NOT be wearing the same frame — that is the colour affordance,
+    // and it is also what a first-frame fallback would destroy.
+    const distinct = new Set(Object.values(idle));
+    expect([...distinct].sort(), "idle frames").toEqual(["pad-action", "pad-move"]);
+
+    // Hold LIGHT down with a real touch and read the frame back off the Game Object.
+    const light = await buttonXY(page, "light");
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: light.x, y: light.y }],
+    });
+    await pump(page, 2);
+    const held = await frames();
+    expect(Object.values(held), "the pressed frame never appeared").toContain("pad-action-down");
+    expect(Object.values(held).filter((f) => f === "pad-action-down"), "only the held button presses")
+      .toHaveLength(1);
+
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await pump(page, 3);
+    expect(Object.values(await frames()), "the button stayed pressed after release")
+      .not.toContain("pad-action-down");
   });
 
   test("one tap is one hit — a held button does not re-fire", async ({ page }) => {
@@ -277,9 +408,14 @@ test.describe("phone (touch profile)", () => {
     for (const o of audit) {
       expect(Number(o.onMain) + Number(o.onUi), `${o.type}@${o.depth} camera assignment`).toBe(1);
     }
-    // and the pad is actually in there, on the UI side: 8 circles are one Graphics + 8 labels.
+    // ...and the pad is actually in there, on the UI side. Phase 19 replaced the single Graphics that
+    // stroked eight circles with eight atlas IMAGES, so depth 96 is now a count, not a presence check
+    // — which is the stronger assertion: a pad that lost buttons on a resize would show up here.
+    const padArt = audit.filter((o) => o.onUi && o.depth === 96);
+    expect(padArt, "8 pad buttons at depth 96").toHaveLength(8);
+    expect(padArt.every((o) => o.type === "Image"), "pad buttons are atlas Images now").toBe(true);
+    // depth 97 = the 8 pad labels + the ⎋ MENU button.
     expect(audit.filter((o) => o.onUi && o.depth === 97).length).toBeGreaterThanOrEqual(9);
-    expect(audit.some((o) => o.onUi && o.depth === 96)).toBe(true);
   });
 
   /**
@@ -370,6 +506,40 @@ test.describe("phone (touch profile)", () => {
     await page.touchscreen.tap(menu.x, menu.y);
     await pumpUntil(page, "__flow");
     expect((await state()).step, "and the second tap lands back on the menu").toBe("title");
+  });
+});
+
+// The Pixel 5 profile above emulates a 2.74:1 page viewport, which is wider than the world itself —
+// so it can only ever prove the CLAMP. This profile is shaped like the device the phase was actually
+// reported broken on: a Samsung S23+ in landscape is ~2.17:1, comfortably inside the band, and there
+// the game is supposed to fill the screen exactly. Without this case "fills the width" is never
+// tested anywhere, only "fills it better than before".
+test.describe("a phone whose aspect fits inside the world (S23+ shaped)", () => {
+  test.use({ viewport: { width: 900, height: 415 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+
+  test("the canvas fills the screen edge to edge, with no bars at all", async ({ page }) => {
+    await harnessReady(page, { route: MATCH, needs: ["__game", "__world"] });
+    const m = await page.evaluate(() => {
+      const g = (window as any).__game;
+      const r = g.canvas.getBoundingClientRect();
+      return {
+        gameW: g.scale.gameSize.width,
+        parentW: g.scale.parentSize.width,
+        parentH: g.scale.parentSize.height,
+        left: r.left, right: r.right, width: r.width,
+        innerW: window.innerWidth,
+      };
+    });
+    // Guard the fixture itself: if this viewport ever stops being inside the band, the case below
+    // would pass for the wrong reason (a clamped width that happens to fit).
+    const aspect = m.parentW / m.parentH;
+    expect(aspect, "fixture drift: this profile must sit INSIDE the world's aspect").toBeLessThan(STAGE_WIDTH / STAGE_HEIGHT);
+    expect(aspect).toBeGreaterThan(VIEW_WIDTH / STAGE_HEIGHT);
+
+    expect(m.gameW).toBe(Math.round(STAGE_HEIGHT * aspect));
+    expect(m.width, "the canvas does not span the viewport").toBeCloseTo(m.innerW, 0);
+    expect(m.left, "left bar").toBeCloseTo(0, 0);
+    expect(m.innerW - m.right, "right bar").toBeCloseTo(0, 0);
   });
 });
 

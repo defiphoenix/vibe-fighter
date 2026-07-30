@@ -1,5 +1,6 @@
 import * as Phaser from "phaser";
 import { loadRegistry, eachSheet, textureKey } from "../render/characters";
+import { PAD_ATLAS } from "../render/touch";
 
 const STAGES = ["twilight", "sunset"];
 const LAYERS = ["far", "medium", "main", "near"];
@@ -19,6 +20,10 @@ export class BootScene extends Phaser.Scene {
     this.load.json("stages", "configs/stages.json");
     this.load.atlas("twilight-atlas", "props/twilight-atlas.png", "props/twilight-atlas.json");
     this.load.atlas("hud-atlas", "ui/hud-atlas.png", "ui/hud-atlas.json"); // Phase 07 HUD art, skinned in Phase 14
+    // Phase 19 touch pad art. Loaded unconditionally (4 frames, 64 KB) rather than behind
+    // `touchMode()`: the key assertion in create() is unconditional, and `?touch=1` can turn the pad
+    // on in production at any time — a conditional load would 404 exactly then.
+    this.load.atlas(PAD_ATLAS, "ui/pad-atlas.png", "ui/pad-atlas.json");
     for (const stage of STAGES) {
       for (const layer of LAYERS) {
         this.load.image(`${stage}-${layer}`, `backgrounds/${stage}/${layer}.png`);
@@ -36,7 +41,7 @@ export class BootScene extends Phaser.Scene {
     // The preload() atlases ride the same guard as everything else: they were queued in the first
     // pass, so by COMPLETE they must have registered. Cheaper to name the file here than to let
     // buildStage/Hud discover it one frame at a time.
-    const keys: string[] = ["twilight-atlas", "hud-atlas"];
+    const keys: string[] = ["twilight-atlas", "hud-atlas", PAD_ATLAS];
     for (const { id, state, sheet } of eachSheet(reg)) {
       const key = textureKey(id, state);
       keys.push(key);

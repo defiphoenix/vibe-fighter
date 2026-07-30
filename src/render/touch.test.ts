@@ -3,6 +3,7 @@ import {
   TOUCH_BUTTONS, TouchPadState, hitButton, isTouchDevice, shouldBlockForOrientation, touchLayout,
 } from "./touch";
 import { VIEW_WIDTH, STAGE_HEIGHT } from "../sim/constants";
+import { VIEW_MIN_WIDTH, VIEW_MAX_WIDTH } from "./viewport";
 
 const LIGHT = touchLayout().find((b) => b.id === "light")!;
 const LEFT = touchLayout().find((b) => b.id === "left")!;
@@ -64,24 +65,45 @@ describe("touchLayout", () => {
     expect([...ids].sort()).toEqual([...TOUCH_BUTTONS].sort());
   });
 
-  it("keeps every button fully inside the viewport", () => {
-    for (const b of touchLayout()) {
-      expect(b.x - b.r, `${b.id} left edge`).toBeGreaterThanOrEqual(0);
-      expect(b.x + b.r, `${b.id} right edge`).toBeLessThanOrEqual(VIEW_WIDTH);
-      expect(b.y - b.r, `${b.id} top edge`).toBeGreaterThanOrEqual(0);
-      expect(b.y + b.r, `${b.id} bottom edge`).toBeLessThanOrEqual(STAGE_HEIGHT);
+  // The game width is no longer a constant (render/viewport.ts reshapes it to the device), so these
+  // invariants are swept across the whole band rather than checked at the default. Checking only the
+  // default argument is what let the e2e's tap helper compute a right-hand button at 1120 while the
+  // pad drew it at 1399 — a coordinate nothing in the unit suite could contradict.
+  const WIDTHS = [VIEW_MIN_WIDTH, 1559, VIEW_MAX_WIDTH];
+
+  it("keeps every button fully inside the viewport, at every width", () => {
+    for (const w of WIDTHS) {
+      for (const b of touchLayout(w, STAGE_HEIGHT)) {
+        expect(b.x - b.r, `${b.id} left edge @${w}`).toBeGreaterThanOrEqual(0);
+        expect(b.x + b.r, `${b.id} right edge @${w}`).toBeLessThanOrEqual(w);
+        expect(b.y - b.r, `${b.id} top edge @${w}`).toBeGreaterThanOrEqual(0);
+        expect(b.y + b.r, `${b.id} bottom edge @${w}`).toBeLessThanOrEqual(STAGE_HEIGHT);
+      }
     }
   });
 
   /** Overlapping circles mean one tap lands on whichever is first in the array — i.e. a button you
    *  cannot reliably press. Measured as a geometric invariant, not eyeballed off the constants. */
-  it("never overlaps two buttons", () => {
-    const l = touchLayout();
-    for (let i = 0; i < l.length; i++) {
-      for (let j = i + 1; j < l.length; j++) {
-        const d = Math.hypot(l[i].x - l[j].x, l[i].y - l[j].y);
-        expect(d, `${l[i].id} vs ${l[j].id}`).toBeGreaterThan(l[i].r + l[j].r);
+  it("never overlaps two buttons, at every width", () => {
+    for (const w of WIDTHS) {
+      const l = touchLayout(w, STAGE_HEIGHT);
+      for (let i = 0; i < l.length; i++) {
+        for (let j = i + 1; j < l.length; j++) {
+          const d = Math.hypot(l[i].x - l[j].x, l[i].y - l[j].y);
+          expect(d, `${l[i].id} vs ${l[j].id} @${w}`).toBeGreaterThan(l[i].r + l[j].r);
+        }
       }
+    }
+  });
+
+  it("moves the action cluster to the actual right edge as the viewport widens", () => {
+    // The whole point of a wider viewport for the pad: the thumbs follow the SCREEN edges, they do
+    // not stay parked where a 1280 layout put them. Without this the bounds sweep above still passes
+    // with `rx` pinned to the constant — the buttons would just be comfortably inside a wider screen.
+    for (const w of WIDTHS) {
+      const byId = Object.fromEntries(touchLayout(w, STAGE_HEIGHT).map((b) => [b.id, b]));
+      expect(byId.block.x, `block @${w}`).toBe(w - 160);
+      expect(byId.up.x, `jump @${w}`).toBe(160); // the movement cluster stays on the left edge
     }
   });
 
@@ -172,6 +194,31 @@ describe("TouchPadState", () => {
     expect(s.consume().left).toBe(true); // pointer 2 is still on it
     s.up(2);
     expect(s.consume().left).toBe(false);
+  });
+
+  it("setLayout hit-tests against the NEW geometry, and drops the contacts it moved out from under", () => {
+    // The pad keeps two copies of its layout: this state object hit-tests against one, TouchPad
+    // draws from the other. If a resize writes only the drawing copy, every tap on a phone lands on
+    // where the button USED to be — and nothing on a desktop can see it.
+    const wide = touchLayout(VIEW_MAX_WIDTH, STAGE_HEIGHT);
+    const wideLight = wide.find((b) => b.id === "light")!;
+    const s = new TouchPadState();
+
+    // A finger is down on LIGHT at the 1280 position when the viewport widens.
+    s.down(1, LIGHT.x, LIGHT.y);
+    expect(s.consume().light).toBe(true);
+    s.setLayout(wide);
+    // Released, not left held at a coordinate the button no longer occupies.
+    expect(s.consume().light, "a contact must not survive the button moving out from under it").toBe(false);
+
+    // ...and the new geometry is what answers now.
+    expect(wideLight.x).not.toBe(LIGHT.x); // fixture guard: the button really did move
+    s.down(2, wideLight.x, wideLight.y);
+    expect(s.consume().light).toBe(true);
+    s.up(2);
+    s.consume();
+    s.down(3, LIGHT.x, LIGHT.y); // the OLD position is now empty stage
+    expect(s.consume().light, "the old position must no longer hit").toBe(false);
   });
 
   it("sliding a thumb off a button releases it, and onto another takes that one", () => {

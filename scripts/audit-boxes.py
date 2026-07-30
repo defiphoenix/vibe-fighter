@@ -26,10 +26,12 @@ Metric traps this is built around (all learned the expensive way, CLAUDE.md "Mea
     `stats.scale` is applied after authoring), and the sprite is feet-anchored, so local y is
     measured up from the figure's own lowest opaque row.
 
-ADVISORY, exit 0 — like audit:anim, and for the same reason. Four shipped sheets fail metric B today
-and each needs an art or a design decision, not a silent number change; a red gate nobody can make
-green just gets bypassed. The HARD enforcement of high/low semantics lives in
-`src/sim/registry.test.ts`'s blocking matrix, which is a real red gate.
+A HARD GATE since Phase 19 — exits 1 on any flag. It was advisory while four shipped sheets failed
+metric B and each needed an art or a design decision rather than a silent number change. Those are
+resolved and the whole roster now passes, so the rationale for exit 0 has expired: an advisory gate
+that is already green is just a gate nobody has to keep green. `--advisory` restores exit 0 for an art
+regeneration session, where looking at a number before moving it is the point.
+The HARD enforcement of high/low semantics lives in `src/sim/registry.test.ts`'s blocking matrix.
 
 Runs synthetic fixtures first: a wrong metric is more dangerous than no metric.
 Deps: Pillow + numpy.  Run: `python scripts/audit-boxes.py`  (npm run audit:boxes)
@@ -77,7 +79,11 @@ HURT_TALL_FRAC = 0.20    # box more than 20% TALLER than the art: hit by things 
 # a ranking, and `src/sim/reach-parity.test.ts` owns the real per-matchup enforcement.
 DEF_HURT_HALF = 30       # narrowest hurtStand half-width across the roster
 DEF_SILHOUETTE_HALF = 44 # median drawn half-width of a standing fighter, measured from the idle sheets
-AIR_GAP_MAX = 60         # px of empty space at max connect range before a box reads as disconnected
+# Phase 19 lowered this from 60 to 30, and trimmed all 21 sheets to clear it. At 60 the threshold was
+# exactly the worst shipped value, so four sheets sat ON it and the gate could not have failed —
+# a metric that cannot fail is decoration. 30px is about a sixth of a fighter's height: close enough
+# that the blow reads as landing on him rather than through the air in front of him.
+AIR_GAP_MAX = 30         # px of empty space at max connect range before a box reads as disconnected
 
 
 def cells(sheet: np.ndarray, n: int) -> list[np.ndarray]:
@@ -231,12 +237,28 @@ def selftest() -> None:
     assert strike_reach(wm) == ARM_TIP, \
         f"the static planted leg was measured as the reach: {strike_reach(wm)} (arm tip is {ARM_TIP})"
     assert strike_reach(frozen) is None, "an unmoving sheet has no measurable reach"
-    print("audit-boxes selftest: 6 fixtures OK (jab band, planted-leg trap, frozen sheet, "
-          "low-box-vs-high-strike, forward reach, reach planted-leg trap)")
+
+    # The AIR_GAP_MAX boundary itself, both sides. Without these the threshold is a number nobody has
+    # watched fail: it sat at exactly the worst shipped value for two phases, so no sheet could ever
+    # exceed it and the REACH-GAP branch was unreachable in practice.
+    # `air` is a pure function of the box and the measured limb, so the fixture is that arithmetic:
+    #     air = (hit_far + DEF_HURT_HALF) - DEF_SILHOUETTE_HALF - reach
+    def _air(hit_far: int, reach: int) -> int:
+        return (hit_far + DEF_HURT_HALF) - DEF_SILHOUETTE_HALF - reach
+
+    at_limit = ARM_TIP + AIR_GAP_MAX + DEF_SILHOUETTE_HALF - DEF_HURT_HALF
+    assert _air(at_limit, ARM_TIP) == AIR_GAP_MAX, _air(at_limit, ARM_TIP)
+    assert not _air(at_limit, ARM_TIP) > AIR_GAP_MAX, "a box exactly ON the budget must NOT flag"
+    assert _air(at_limit + 1, ARM_TIP) == AIR_GAP_MAX + 1
+    assert _air(at_limit + 1, ARM_TIP) > AIR_GAP_MAX, "one px over the budget MUST flag"
+
+    print("audit-boxes selftest: 8 fixtures OK (jab band, planted-leg trap, frozen sheet, "
+          "low-box-vs-high-strike, forward reach, reach planted-leg trap, air budget at/over)")
 
 
 def main() -> int:
     selftest()
+    advisory = "--advisory" in sys.argv
     reg = json.loads((ROOT / "public/configs/character-gym.json").read_text(encoding="utf-8"))
     flags: list[str] = []
     print("\n  sheet                    body   hurt h/fig   hit band    strike band  "
@@ -249,12 +271,13 @@ def main() -> int:
             flags += audit_state(fid, state, entry["data"], sheet,
                                  entry["render"]["sheets"][state]["frames"])
     if flags:
-        print(f"\n{len(flags)} box/art disagreement(s) -- ADVISORY, each needs an art or a design call:")
+        how = "ADVISORY (--advisory)" if advisory else "FAIL"
+        print(f"\n{len(flags)} box/art disagreement(s) -- {how}, each needs an art or a design call:")
         for f in flags:
             print(f"  - {f}")
     else:
         print("\nevery attack box agrees with its own sheet")
-    return 0  # advisory by design; see the module docstring
+    return 0 if advisory or not flags else 1
 
 
 if __name__ == "__main__":

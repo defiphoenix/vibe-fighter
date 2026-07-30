@@ -415,6 +415,46 @@ draw the line. It worked on the next try. **When a defect lives on hardware you 
 guess is worth less than the first instrument.** Both `?touch=1` and `?diag=1` are deliberately not
 DEV-gated for that reason — they are the only seams in this repo that ship.
 
+## Phase 19 — the mobile viewport, a debug leak, reach, and pad art
+
+Phase 18 was confirmed working on the S23+, and then it was *played*. Four defects came back and three
+of them were invisible to the whole suite. Full write-up:
+[`docs/phases/19-mobile-viewport-and-pad-art.md`](phases/19-mobile-viewport-and-pad-art.md).
+
+**"Not wide enough" and "not centered" were two different bugs.** The centring one is the one worth
+remembering: `index.html` centred the canvas as a CSS grid item *and* Phaser centred it with
+`autoCenter: CENTER_BOTH`. Both are correct alone; together, because grid centres the canvas's *margin
+box* and Phaser's centring **is** a margin, they compose and park the canvas a quarter of the letterbox
+gap off to one side. The width one was `Scale.FIT` faithfully pillarboxing a locked 16:9 canvas, fixed
+by reshaping the GAME to the device's aspect and letting FIT scale something that already fits.
+
+**The approved mechanism for that turned out to be a Phaser trap, and re-deriving it before building
+was what saved it.** The plan said `Scale.EXPAND` with `scale.min`/`max` as bounds. Those read as
+game-size bounds and are not: `parseConfig` maps them onto `displaySize`, the CSS size, and
+`Size.getNewWidth` clamps to `minWidth` *before* comparing to the parent — so `min.width: 1280` writes
+`style.width: 1280px` onto an 851px phone. It would have looked right on this desktop and been broken on
+every phone, which is this repo's oldest defect shape wearing a new hat.
+
+**A threshold set to the worst observed value cannot fail.** `audit-boxes.py` had measured, for two
+phases, that every attack connected through up to 60px of visible air — and passed, because
+`AIR_GAP_MAX` was 60 and four sheets sat exactly on it. The budget is 30 now, the gate exits non-zero,
+and there are fixtures on *both* sides of the boundary. The trim itself had to be a **uniform delta per
+attack** rather than a per-fighter target: a common target erases the monk's pushbox compensation by
+construction and reds `reach-parity.test.ts`, whereas subtracting the same number from all three
+preserves every pairwise difference by arithmetic.
+
+**A Codex blocker whose premise the environment contradicted.** The review said the explicit initial
+`applyViewport()` call was required, because Phaser refreshes before `main.ts` can subscribe and its
+poll only fires on an actual size change. Sound — but removing that line left every acceptance case
+green, because under Chromium's phone emulation the parent goes 0 → real during startup and the poll
+fires anyway. The call is kept (correctness should not depend on that accident on hardware I am not
+holding) and labelled in the source as defensive and untested, rather than listed as verified. Fixing a
+blocker is worth doing; claiming a mutation you did not observe is not.
+
+**And a preview caught what no assertion could, again.** The first pad bake had a hard seam across the
+equator of every button — a binary `(yy > c)` mask where a ramp was needed. Right size, pairwise
+distinct, correct radius, every fixture green. Only looking at it found it.
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git

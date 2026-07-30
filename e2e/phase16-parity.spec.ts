@@ -70,8 +70,9 @@ test.describe("Phase 16 — integration parity", () => {
           r2Low = hp;
         }
         if (m().phase !== "fight") { w.__holdP1({}); step(6); ticks += 6; continue; }
-        // Fighters START 260px apart and brawler's light reaches 110px forward against a hurt box
-        // that comes 30px back — so the first swings whiff and P1 has to walk in. `right` is held
+        // Fighters START 260px apart and brawler's light reaches 91px forward (Phase 19 trimmed the
+        // roster to a 30px visible-air budget; it was 110px) against a hurt box that comes 30px back
+        // — so the first swings whiff and P1 has to walk in, now for slightly longer. `right` is held
         // through the whole cycle: it does nothing while the attack locks him, and closes the
         // ~9-10px of knockback each connect adds once he recovers.
         // ONE frame of lightPressed = ONE rising edge. The DEV seam FORCES the flag every frame, so

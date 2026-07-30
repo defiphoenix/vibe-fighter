@@ -1,5 +1,6 @@
 import * as Phaser from "phaser";
-import { VIEW_WIDTH, STAGE_HEIGHT } from "../sim/constants";
+import { STAGE_HEIGHT } from "../sim/constants";
+import { liveWidth } from "./viewport";
 import { superCutIn } from "./super-cutin";
 import { portraitKey } from "./characters";
 
@@ -26,8 +27,14 @@ export class CutInView {
    *  no-mipmaps-on-NPOT softness that forced the HUD's own portrait bake does not apply here. */
   private readonly portraitH = STAGE_HEIGHT * 0.92;
 
+  /** Current game width. The cut-in owns the whole screen, so it is the one thing here that must
+   *  follow a viewport change exactly — a scrim cut to 1280 on a 1559-wide phone leaves a bright
+   *  unscrimmed strip down the side of a full-screen effect. */
+  private viewW: number;
+
   constructor(scene: Phaser.Scene) {
-    this.scrim = scene.add.rectangle(0, 0, VIEW_WIDTH, STAGE_HEIGHT, 0x0a0410)
+    this.viewW = liveWidth(scene.scale.gameSize.width);
+    this.scrim = scene.add.rectangle(0, 0, this.viewW, STAGE_HEIGHT, 0x0a0410)
       .setOrigin(0, 0).setDepth(104).setScrollFactor(0).setAlpha(0).setVisible(false);
     this.portrait = scene.add.image(0, STAGE_HEIGHT, "")
       .setOrigin(0.5, 1).setDepth(105).setScrollFactor(0).setVisible(false);
@@ -36,6 +43,12 @@ export class CutInView {
     this.sweep = scene.add.rectangle(0, 0, 90, STAGE_HEIGHT, 0xffffff)
       .setOrigin(0.5, 0).setDepth(106).setScrollFactor(0).setAlpha(0).setVisible(false);
     this.objects = [this.scrim, this.portrait, this.sweep];
+  }
+
+  /** Re-anchor to a new game width. */
+  layout(width: number): void {
+    this.viewW = width;
+    this.scrim.setSize(width, STAGE_HEIGHT);
   }
 
   /** Arm the cut-in for a fighter. `freezeTicks` is the super freeze the sim just started, which is
@@ -65,7 +78,7 @@ export class CutInView {
     this.scrim.setVisible(true).setAlpha(s.alpha * 0.72);
     // The sweep only exists mid-cross; at 0 and 1 it would sit parked on an edge.
     const crossing = s.sweep > 0 && s.sweep < 1;
-    this.sweep.setVisible(crossing).setAlpha(crossing ? s.alpha * 0.5 : 0).setX(s.sweep * VIEW_WIDTH);
+    this.sweep.setVisible(crossing).setAlpha(crossing ? s.alpha * 0.5 : 0).setX(s.sweep * this.viewW);
   }
 
   /** Hide everything and disarm. Safe to call at any time — a scene restart or a KO mid-freeze. */

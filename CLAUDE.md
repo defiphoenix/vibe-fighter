@@ -15,7 +15,9 @@ Phase 16 integration/parity gate
 ([`docs/phases/16-integration-parity-qa.md`](docs/phases/16-integration-parity-qa.md)), and a post-16
 defect pass ([`docs/phases/17-meter-lie-and-cpu-pick.md`](docs/phases/17-meter-lie-and-cpu-pick.md)),
 and Phase 18's mobile/touch support
-([`docs/phases/18-mobile-touch.md`](docs/phases/18-mobile-touch.md)).**
+([`docs/phases/18-mobile-touch.md`](docs/phases/18-mobile-touch.md)), and Phase 19's mobile viewport +
+pad art pass
+([`docs/phases/19-mobile-viewport-and-pad-art.md`](docs/phases/19-mobile-viewport-and-pad-art.md)).**
 Specs and gate
 results in [`docs/phases/`](docs/phases/); the narrative of what shipped when, including the fix passes
 between phases, is in [`docs/history.md`](docs/history.md). `prompts.pdf` holds the original spec.
@@ -75,13 +77,17 @@ npm run check:sync       # gate: measure each attack sheet's CONTACT frame, chec
 npm run audit:anim       # roster-wide animation REPORT (advisory, always exit 0)
 npm run audit:boxes      # roster-wide BOX-vs-ART report: hurt height vs the figure, hit band vs the
                          # measured strike, and the HORIZONTAL reach gap — limb tip vs box far edge
-                         # and the visible air at max connect range (advisory, exit 0; 1 sheet flags)
+                         # and the visible air at max connect range. HARD GATE since Phase 19: exits 1
+                         # on any flag, budget AIR_GAP_MAX=30. `--advisory` restores exit 0 for an art
+                         # regeneration session. All 21 sheets pass.
 npm run gen:placeholder  # regenerate 19 states x 3 fighters of placeholder sheets
                          # (`-- --state <name>` limits it — without it this OVERWRITES the real art)
 npm run key:layers       # re-key + validate the Phase 04 parallax layers
 npm run copy:stages      # pre-bake keyed layers to runtime 1697x720 into public/backgrounds
 npm run copy:portraits   # Phase 06 masters (1792x2400) -> select cards at 448x600 AND hud/<id>.png at 192x294
 npm run build:atlases    # key + measure + pack the Phase 07 UI/prop atlases into public/
+python scripts/build-atlases.py --pad  # ONLY the Phase 19 touch-pad atlas: procedural, no model, no
+                         # `concepts/` input, so unlike the default path it runs on a fresh clone
 npm run check:characters # validate the Phase 05 character refs
 npm run check:portraits  # validate the Phase 06 select portraits
 python scripts/art_gate.py                  # the shared art gate's own fixtures, standalone
@@ -286,6 +292,32 @@ bridge. What follows is only what you cannot learn by opening the file.
   guard tint** — a guarding fighter used to be tinted blue every frame, but once `block`/`blockCrouch`
   got real poses that pose IS the cue, and a whole-body blue tint just read as "the character turned
   blue". Only the white block-flash (a landed block) tints now.
+- **The canvas WIDTH is not a constant (Phase 19).** `Scale.FIT` alone pillarboxed a locked 16:9 canvas
+  on a phone, so `main.ts` reshapes the GAME to the device's aspect —
+  `scale.setGameSize(viewWidthFor(parentW, parentH), STAGE_HEIGHT)` from a `Scale.Events.RESIZE`
+  listener — and FIT then has nothing to letterbox. **The height NEVER moves** (the stage art is exactly
+  `STAGE_HEIGHT` tall and `centerOn` is bottom-aligned). The decision is Phaser-free in
+  [`render/viewport.ts`](src/render/viewport.ts), bounded by `VIEW_WIDTH` (the menus are budgeted
+  against it) and `STAGE_WIDTH` (above it the camera needs world that does not exist). `src/sim/` is
+  untouched: `MAX_SEPARATION` is still `VIEW_WIDTH - 240`, and `camera-frame.ts groupZoom` deliberately
+  keeps the CONSTANT so vertical framing is unchanged and the extra width only reveals more rooftop.
+  Four things are load-bearing:
+  - **`Phaser.Scale.EXPAND` + `scale.min`/`max` is a TRAP, not the answer.** `parseConfig` maps min/max
+    onto `displaySize` — the CSS size — and `Size.getNewWidth` clamps to `minWidth` BEFORE comparing to
+    the parent, so `min.width: 1280` writes `style.width: 1280px` onto an 851px phone with a -215px
+    margin. Looks fine on a desktop, wrong on every phone.
+  - **Do NOT also centre the canvas in CSS.** Phaser's `CENTER_BOTH` writes `marginLeft`/`marginTop`,
+    and a grid/flex parent centres the canvas's MARGIN BOX, so the two compose and park it a quarter of
+    the gap off to one side. That was the "not centered" bug. Same reason `image-rendering: pixelated`
+    must stay OFF the canvas — it contradicts the no-`pixelArt` LINEAR decision.
+  - **Every screen-space owner has a `layout(width)`** (`Hud`, `CutInView`, `TouchPad`, MatchScene,
+    FlowScene), called once from `create()` and again on RESIZE via a **bound property** so `SHUTDOWN`
+    can `off()` it. `TouchPadState` holds a SECOND copy of the pad layout — write both, and `cancel()`
+    the live contacts first or a thumb keeps holding a button that has moved.
+  - **A second camera created with an explicit size does NOT auto-resize.** `CameraManager.onResize`
+    only resizes cameras whose dimensions equal the PREVIOUS game size, so MatchScene's `uiCam` must be
+    built from `scale.gameSize` and sized in `layout()` — hardcoded at 1280 it cropped P2's HUD plate
+    off a phone screen entirely.
 - **`setScrollFactor(0)` does NOT exempt an object from ZOOM.** Hence the second, non-zooming camera for
   HUD/legend/quit-prompt/end-menu (`cameras.add` + reciprocal `ignore()` lists). An object missing from
   both lists renders TWICE; one in both renders never. The lists must stay exhaustive —
@@ -475,8 +507,11 @@ that fixed the art — are in [`docs/lessons.md`](docs/lessons.md). The rules th
 - **A box is a claim about a sprite.** Measure the strike: difference each frame against frame 0 and
   take the y band of the furthest-forward moved pixels. Never eyeball it, and never trust the move's
   NAME (`crouchHeavy`'s prompt said "low sweeping attack" for two phases while he punched at chest
-  height). `npm run audit:boxes` reports all 21 attack sheets (advisory); `registry.test.ts` is the
-  hard gate and sweeps every special x defender x spacing for which stance turns damage into chip.
+  height). `npm run audit:boxes` reports all 21 attack sheets and is a HARD gate (Phase 19);
+  `registry.test.ts` sweeps every special x defender x spacing for which stance turns damage into chip.
+  **A threshold set to the worst observed value cannot fail** — `AIR_GAP_MAX` sat at exactly 60 while
+  four shipped sheets sat on 60, so the REACH-GAP branch was unreachable and the whole roster connected
+  through up to 60px of visible air. It is 30 now, with fixtures on BOTH sides of the boundary.
 - **Any cross-fighter comparison of an ABSOLUTE stat is suspect** — `maxHealth`, `scale` and the
   pushboxes all differ per fighter. Compare shares (R-13) and effective reach (see Balance); a test
   written from one fighter's numbers cannot see the asymmetry.
@@ -512,6 +547,13 @@ The monk's art is a wide low stance, so his pushboxes are bigger (`pushStand 60`
 as if his moves "didn't reach" even though they executed and connected. A wide-bodied character needs
 correspondingly longer hit boxes just to break even. `reach-parity.test.ts` pins it. Only `w` was
 changed — **`y`/`h` decide high/low, so never touch them for a reach tweak**.
+
+**A roster-wide reach change must be a UNIFORM DELTA PER ATTACK, never a per-fighter target** (Phase
+19, when all 21 boxes were trimmed to a 30px visible-air budget). Trimming each fighter to the same
+`air` sets `far = limb + 44`, which makes effective reach `limb + 44 − pushHalf` — i.e. it erases the
+monk's pushbox compensation by construction and reds `reach-parity.test.ts` (jiujitsu light 90 vs monk
+85). Subtracting the SAME delta from all three moves every far edge equally, so the ordering and every
+pairwise difference survive untouched and the parity test is green by arithmetic rather than by luck.
 
 ### Testing
 

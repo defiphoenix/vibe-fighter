@@ -87,6 +87,26 @@ test("hud-atlas loads in Phaser and every declared frame resolves", async ({ pag
   expect(await rectsInsideSheet(page, "hud-atlas")).toEqual([]);
 });
 
+test("pad-atlas loads in Phaser and every declared frame resolves", async ({ page }) => {
+  const r = await loadAtlas(page, "pad-atlas-probe", "ui/pad-atlas.png", "ui/pad-atlas.json");
+  expect(r.error ?? "").toBe("");
+  expect(r.ok).toBe(true);
+
+  // Four frames for eight buttons: action/movement x idle/pressed. Named explicitly because
+  // `Texture.get()` answers an unknown frame with a console.warn and the atlas's FIRST frame — so a
+  // typo would draw `pad-move` on every button in every state and throw nothing.
+  expect(r.frames.sort()).toEqual(["pad-action", "pad-action-down", "pad-move", "pad-move-down"]);
+  expect(await rectsInsideSheet(page, "pad-atlas-probe")).toEqual([]);
+
+  // The drawn circle IS the hit circle (src/render/touch.ts BUTTON_R 52 + PAD_BLEED 12).
+  const sizes = await page.evaluate(() => {
+    const t = (window as any).__game.textures.get("pad-atlas-probe");
+    return ["pad-move", "pad-move-down", "pad-action", "pad-action-down"]
+      .map((n) => { const f = t.get(n); return { n, w: f.cutWidth, h: f.cutHeight }; });
+  });
+  for (const s of sizes) expect(s, `${s.n}`).toMatchObject({ w: 128, h: 128 });
+});
+
 test("the fill slot sits inside the bar, which is what makes it composite-able", async ({ page }) => {
   await loadAtlas(page, "hud-atlas", "ui/hud-atlas.png", "ui/hud-atlas.json");
   const geom = await page.evaluate(() => {

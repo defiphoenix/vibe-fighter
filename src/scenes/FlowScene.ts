@@ -1,5 +1,6 @@
 import * as Phaser from "phaser";
 import { VIEW_WIDTH, STAGE_HEIGHT } from "../sim/constants";
+import { liveWidth } from "../render/viewport";
 import { loadRegistry } from "../render/characters";
 import type { StagesFile } from "../render/stage";
 import {
@@ -58,6 +59,15 @@ export class FlowScene extends Phaser.Scene {
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private busy = false; // true only during the CPU's think-and-reveal beat: swallow input
   private starting = false; // guards the queued scene.start against a second caller
+  /** Live game width — see render/viewport.ts. Written only by `layout()`. */
+  private viewW = VIEW_WIDTH;
+  /** Backdrop pieces that live OUTSIDE `this.layer`, so they survive every rebuild and must be
+   *  resized by hand when the viewport changes. */
+  private scrim!: Phaser.GameObjects.Rectangle;
+  private stripe!: Phaser.GameObjects.Rectangle;
+  /** The title screen's full-screen tap target, when the title step is up. */
+  private titleZone?: Phaser.GameObjects.Zone;
+  private onResize = (gameSize: Phaser.Structs.Size): void => this.layout(liveWidth(gameSize.width));
   /** The CPU pick's randomness. Seeded from the wall clock in normal play — the render layer may read
    *  a clock, `src/sim/` may not — and replaced wholesale by the DEV `__flow.seed` seam so an e2e can
    *  assert an exact opponent instead of a coin flip. */
@@ -89,7 +99,14 @@ export class FlowScene extends Phaser.Scene {
     // default 0 draws the entire menu UNDER the scrim and dims every card, portrait and label.
     this.layer = this.add.container(0, 0).setDepth(5);
     this.bindKeys();
+    // Before build(), so buildTitle's full-screen Zone is sized to the real viewport first time.
+    // Load-bearing: the scale is already reshaped to the device before any scene create() runs, and
+    // on a phone left alone no further RESIZE ever fires — so waiting for one would strand the menu
+    // at 1280. build() re-applies it for whatever it creates.
+    this.layout(liveWidth(this.scale.gameSize.width));
     this.build();
+
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.onResize);
 
     // A fresh stream per visit to the flow, so a rematch-then-menu-then-CPU-match does not replay the
     // previous pick. Safe to read a clock here: this is the render layer, not the sim.
@@ -108,7 +125,12 @@ export class FlowScene extends Phaser.Scene {
         modes: () => modeOptions(this.state.touch).map((m) => m.label),
         // Card geometry in GAME space, so a spec can tap the real thing at real coordinates instead
         // of calling the handler directly — a seam-driven tap cannot see a broken hit area.
-        cards: () => this.cards.map((c) => ({ x: c.root.x, y: c.root.y, w: c.w, h: c.h, alpha: c.root.alpha })),
+        // `+ layer.x`: the cards are children of the menu container, which is offset to centre the
+        // menu in a wider viewport. A spec taps a GAME-space coordinate, so the container-local x a
+        // card carries would land short by half the extra width on any phone.
+        cards: () => this.cards.map((c) => ({
+          x: c.root.x + this.layer.x, y: c.root.y, w: c.w, h: c.h, alpha: c.root.alpha,
+        })),
         // Pin the CPU's pick. A spec that asserts an exact opponent MUST call this — otherwise it is
         // right about half the time, which is an intermittently-red suite rather than a test.
         seed: (n: number) => { this.roll = makeRoll(n); },
@@ -120,11 +142,38 @@ export class FlowScene extends Phaser.Scene {
 
   /** The real stage layers under a scrim, so the menu sits in the game's world, not on a panel. */
   private backdrop(): void {
+    // The layer art is 1697px wide (the whole world) drawn at origin 0,0, so it already covers any
+    // width `viewport.ts` can hand us. The scrim and stripe are cut to the viewport and DO have to
+    // follow it — kept as fields because they live outside `this.layer` and survive every rebuild.
     for (const key of ["twilight-far", "twilight-medium"]) {
       if (this.textures.exists(key)) this.add.image(0, 0, key).setOrigin(0, 0).setScrollFactor(0).setDepth(0);
     }
-    this.add.rectangle(0, 0, VIEW_WIDTH, STAGE_HEIGHT, 0x120a1c, 0.72).setOrigin(0, 0).setDepth(1);
-    this.add.rectangle(0, STAGE_HEIGHT - 4, VIEW_WIDTH, 4, DUSK_ORANGE, 0.9).setOrigin(0, 0).setDepth(1);
+    this.scrim = this.add.rectangle(0, 0, VIEW_WIDTH, STAGE_HEIGHT, 0x120a1c, 0.72).setOrigin(0, 0).setDepth(1);
+    this.stripe = this.add.rectangle(0, STAGE_HEIGHT - 4, VIEW_WIDTH, 4, DUSK_ORANGE, 0.9).setOrigin(0, 0).setDepth(1);
+  }
+
+  /**
+   * Re-anchor the menu to a new game width.
+   *
+   * The menu content is NOT rebuilt, and that is the whole design. `build()` calls
+   * `layer.removeAll(true)`, and a lock-in `flash()` runs with `busy === false` while a
+   * `delayedCall` still closes over the card it is going to un-tint — so rebuilding on a resize
+   * would destroy that card and throw from the timer. Instead the entire menu is one Container, so
+   * centring it in the wider viewport is a single x write and every child keeps its identity,
+   * its tweens and its hit area.
+   *
+   * Card WIDTH deliberately stays keyed to the narrowest viewport (`characterCardWidth` budgets
+   * against VIEW_WIDTH), so the row fits everywhere by construction and only its centre moves.
+   */
+  private layout(width: number): void {
+    this.viewW = width;
+    const offset = Math.round((width - VIEW_WIDTH) / 2);
+    this.layer.setX(offset);
+    this.scrim.setSize(width, STAGE_HEIGHT);
+    this.stripe.setSize(width, 4);
+    // The title's tap target is the SCREEN, not the menu: it is sized and placed in screen space, so
+    // it has to undo the container offset or the outer ~140px of a phone's title screen is dead.
+    this.titleZone?.setSize(width, STAGE_HEIGHT).setPosition(-offset, 0);
   }
 
   private text(
@@ -271,6 +320,7 @@ export class FlowScene extends Phaser.Scene {
     this.layer.removeAll(true); // destroys the previous step's objects, tags included
     this.cards = [];
     this.tags = [];
+    this.titleZone = undefined; // owned by the layer, so removeAll just destroyed it
 
     const touch = this.state.touch;
     if (this.state.step === "title") this.buildTitle();
@@ -291,6 +341,8 @@ export class FlowScene extends Phaser.Scene {
       this.layer.add(backBtn);
     }
 
+    // Whatever this step just created is laid out for VIEW_WIDTH; re-anchor it to the real one.
+    this.layout(this.viewW);
     this.paint();
   }
 
@@ -341,7 +393,8 @@ export class FlowScene extends Phaser.Scene {
       // A full-screen Zone rather than a button: the first tap is also the only user gesture we are
       // guaranteed, and it is the one chance to ask for fullscreen. Mobile browsers keep a URL bar in
       // landscape that eats ~15% of a screen this game has no spare pixels on.
-      const zone = this.add.zone(0, 0, VIEW_WIDTH, STAGE_HEIGHT).setOrigin(0, 0).setInteractive();
+      const zone = this.add.zone(0, 0, this.viewW, STAGE_HEIGHT).setOrigin(0, 0).setInteractive();
+      this.titleZone = zone;
       // pointerUP, not down: a fullscreen request from pointerdown is refused on touch devices.
       zone.on("pointerup", () => {
         this.requestFullscreen();
@@ -581,6 +634,9 @@ export class FlowScene extends Phaser.Scene {
     this.cards = [];
     this.tags = [];
     this.input.keyboard?.removeAllListeners();
+    // The ScaleManager outlives the scene, so this listener has to go with it — the flow is
+    // re-entered from a finished match, and a leaked one would lay out a destroyed container.
+    this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize);
     // Drop the DEV hook with the scene: a window global still answering `state()` after the flow has
     // shut down reads as "the menu is still up" to anything inspecting it.
     if (import.meta.env.DEV) delete (window as unknown as { __flow?: unknown }).__flow;

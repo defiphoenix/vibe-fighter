@@ -19,8 +19,10 @@ interface Binding {
 // Block is a dedicated key (not hold-back). Left/Right Shift can't be split (Phaser dispatches by
 // keyCode; both are 16), so P1=Q, P2=/ — reachable from each hand's cluster.
 // The meter special is its own key too: P1=E (above the WASD cluster, next to the block key Q),
-// P2=M (left of P2's , / . attack pair). Both were free — B, 1-4, ENTER, ESC and R are taken by the
-// scenes' own debug/menu bindings.
+// P2=M (left of P2's , / . attack pair). Both were free — ENTER, ESC and R are taken by the scenes'
+// own menu bindings, and B / 1-4 are taken by the box overlay in DEV only (MatchScene binds them
+// behind `import.meta.env.DEV`, so in a production build they are free again — do not reuse them
+// anyway, or the same key would mean two things depending on the build).
 const P1: Binding = { left: KC.A, right: KC.D, up: KC.W, down: KC.S, light: KC.F, heavy: KC.G, block: KC.Q, special: KC.E };
 const P2: Binding = { left: KC.LEFT, right: KC.RIGHT, up: KC.UP, down: KC.DOWN, light: KC.COMMA, heavy: KC.PERIOD, block: KC.FORWARD_SLASH, special: KC.M };
 
