@@ -67,6 +67,39 @@ frame of his own `crouch` clip (`concepts/characters/sprites/jiujitsu/crouch/03.
 credits, and the two animations now agree pixel-for-pixel at the moment the player presses the button.
 Only generate a fresh still (as the monk needed) when no existing clip reaches the pose.
 
+## Audio (Phase 20)
+
+Same CLI, same provenance discipline (`X.prompt.txt` + `X.job.json` beside the master), different
+models and one trap of its own.
+
+```bash
+higgsfield generate create seed_audio  --prompt "$(cat X.prompt.txt)" --format mp3 --sample_rate 44100 --wait --json > X.job.json
+higgsfield generate create sonilo_music --prompt "$(cat X.prompt.txt)" --duration 60 --wait --json > X.job.json
+```
+
+Driver: `bash scripts/gen-audio.sh` (regenerates only missing masters; **reuses a committed job record
+for free** rather than re-billing, because `generate get <id>` restores a result URL at no cost). Then
+`npm run build:audio && npm run check:audio`.
+
+- **`seed_audio` for everything percussive, `sonilo_music` for music.** The model whose name promises
+  otherwise, `mirelo_text_to_audio`, was measured on the same punch prompt and returned a **flat
+  −29 dBFS noise floor with a 12.9 dB crest** — no transient at all — against seed_audio's −4.3 dBFS
+  and 21.1 dB. It is also 2.5× the price. Probe one cue before committing a batch.
+- **`generate cost` UNDER-reports audio by ~6×.** It quoted 0.2 credits per `seed_audio` job; 17 jobs
+  billed 25.35, i.e. ~1.5 each. Do not budget an audio phase from the preflight.
+- **`seed_audio` has no `duration` parameter** and returns 1.3–30 s at its own discretion; `sonilo_music`
+  requires one. `build-audio.py` trims cues to their first event, so the variance only matters for beds.
+- **The models return several takes of one sound** — a "single punch" prompt came back as three punches
+  separated by silence. Keeping the first is both the shortest file and the only one that sounds like
+  one hit. A cue with a WIND-UP (`super`) needs the trim to reach back BEFORE the loudest moment, or
+  the charge is thrown away: its release was at 10.77 s of a 13.53 s file with the charge running from
+  9.0 s.
+- **The masters are HOT** — one measures +2.00 dBFS. Measure with a float decode (`f32le`); `s16le`
+  clamps and silently reports any hot file as exactly 0.0.
+- **Ask for what you want to hear, not for a category.** The one cue that came back as silence
+  (−37.9 dBFS) was prompted "very short and clean"; the retake that worked said "sharp percussive
+  attack … clearly audible and punchy". Same lesson as the sprite prompts: name the physical event.
+
 ## Higgsfield CLI gotchas that cost credits
 
 - The CLI name **`nano_banana_2` resolves to Nano Banana PRO** — the real "Nano Banana 2" job type is

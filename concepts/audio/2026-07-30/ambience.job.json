@@ -1,0 +1,19 @@
+[
+  {
+    "created_at": "2026-07-30T14:08:08.719578Z",
+    "display_name": "Seed Audio 1.0",
+    "id": "3eb77a67-11fd-4fbd-b9d4-dbf815135b8a",
+    "job_type": "seed_audio",
+    "min_result_url": null,
+    "params": {
+      "format": "mp3",
+      "loudness_rate": 0,
+      "pitch_rate": 0,
+      "prompt": "Continuous city rooftop ambience at dusk. Steady wind moving over concrete and around ductwork, a distant low traffic hum far below, a faint air-conditioning drone nearby, a soft far-off city rumble. Even and unchanging throughout with no sudden events, no music, no voices, no footsteps. Suitable for seamless looping.",
+      "sample_rate": 44100,
+      "speech_rate": 0
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260730_140808_3eb77a67-11fd-4fbd-b9d4-dbf815135b8a.mp3",
+    "status": "completed"
+  }
+]

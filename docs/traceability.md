@@ -50,6 +50,21 @@ Parity list from [GitHub README](https://github.com/chongdashu/vibe-fighter).
 | Audio | — | **Non-goal** | n/a (out of scope) |
 | Mobile + tablet play, on-screen touch controls | 18 | **Present** — touch-primary classification (touch AND no fine pointer), 8-button vector pad feeding the same `InputSnapshot`, CPU-only mode screen on touch, tappable menus, rotate gate that also disables Phaser input | `touch.test.ts` (24) + `flow-state.test.ts` (touch mode + `setChar`) + `e2e/mobile-touch.spec.ts` (**11 cases on a real `devices["Pixel 5 landscape"]` profile, including a whole-journey run from the title screen to damage in a live match using only touch events**) |
 
+## Phase 20 — audio
+
+| Requirement | Where it lives | Acceptance test |
+|---|---|---|
+| Sound cues for hit/block/whiff/jump/land/KO/super/round/menu | `src/render/audio-cues.ts` | `src/render/audio-cues.test.ts`, `e2e/phase20-audio.spec.ts` |
+| Ambience + menu music beds | `src/render/audio-view.ts` (`startBed`) | `e2e/phase20-audio.spec.ts` ("takes its bed with it") |
+| Audio triggered from the RENDER layer only, `src/sim/` stays pure | `MatchScene.update` → `GameAudio.fight` | `npm test` (sim suite is node-env, no Phaser) |
+| A failed/missing sound never throws into the game loop | `GameAudio.play` (both guards) | `e2e/phase20-audio.spec.ts` ("silent no-op") |
+| Unlock on the first gesture, incl. the touch pad | `GameAudio.startBed` / `armUnlock` | `e2e/phase20-audio.spec.ts` (`unlockAudio`) |
+| Mute reachable on desktop AND touch, and persistent | `GameAudio` button + `N` key | `e2e/phase20-audio.spec.ts` (mute, persistence, dead-storage, tap) |
+| A 404'd sound is a boot failure | `BootScene.create` audio branch | `e2e/phase20-audio.spec.ts` ("refuses to route") |
+| `media-src 'self'` in the production CSP | `vercel.json` (mirrored to `vite preview`) | `npm run preview` + the header read back |
+| Bundle weight stays bounded | `scripts/build-audio.py --check` | `npm run check:audio` (1.2 MB budget, hard gate) |
+| A KO must not clip | `CUE_VOLUME` in `audio-view.ts` | `npm run check:audio` (worst-case one-frame mix) |
+
 ## Delta legend
 
 **Present** = works in `src/sim/` today · **Extend** = partial, needs additions ·

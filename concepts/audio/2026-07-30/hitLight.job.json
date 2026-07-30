@@ -1,0 +1,19 @@
+[
+  {
+    "created_at": "2026-07-30T14:02:47.377736Z",
+    "display_name": "Seed Audio 1.0",
+    "id": "0fd298a7-f8e1-4039-b052-473478869af2",
+    "job_type": "seed_audio",
+    "min_result_url": null,
+    "params": {
+      "format": "mp3",
+      "loudness_rate": 0,
+      "pitch_rate": 0,
+      "prompt": "A short sharp punch impact on a body. Dry percussive smack of a fist hitting flesh, a quick leather-glove slap with a tight low thump underneath. Close-miked and dry, no reverb tail, one single hit. Arcade fighting game impact sound effect. No music, no voice.",
+      "sample_rate": 44100,
+      "speech_rate": 0
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260730_140247_0fd298a7-f8e1-4039-b052-473478869af2.mp3",
+    "status": "completed"
+  }
+]

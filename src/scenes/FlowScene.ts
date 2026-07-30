@@ -8,6 +8,7 @@ import {
   isCpu, lock, modeOptions, moveChar, moveMenu, setChar, toMatchConfig,
 } from "./flow-state";
 import type { FlowState, MatchConfig, Player } from "./flow-state";
+import { GameAudio } from "../render/audio-view";
 import { makeRoll } from "./roll";
 import { touchDiagnostics, touchMode } from "../render/touch";
 
@@ -51,6 +52,8 @@ interface Card {
  */
 export class FlowScene extends Phaser.Scene {
   private state!: FlowState;
+  /** Phase 20 audio: the menu bed, the menu cues, and the mute button. */
+  private audio!: GameAudio;
   private stageIds: string[] = [];
   private roster: string[] = [];
   private layer!: Phaser.GameObjects.Container; // everything belonging to the current step
@@ -109,6 +112,11 @@ export class FlowScene extends Phaser.Scene {
     // Load-bearing: the scale is already reshaped to the device before any scene create() runs, and
     // on a phone left alone no further RESIZE ever fires — so waiting for one would strand the menu
     // at 1280. build() re-applies it for whatever it creates.
+    // Before layout(), so the mute button is placed by the same first call as everything else. The
+    // menu bed defers itself past the autoplay lock — on a cold load the very first gesture is the
+    // tap or keypress that leaves the title screen, and that is what unlocks it.
+    this.audio = new GameAudio(this);
+    this.audio.startBed("menuMusic");
     this.layout(liveWidth(this.scale.gameSize.width));
     this.build();
 
@@ -180,6 +188,9 @@ export class FlowScene extends Phaser.Scene {
     // The title's tap target is the SCREEN, not the menu: it is sized and placed in screen space, so
     // it has to undo the container offset or the outer ~140px of a phone's title screen is dead.
     this.titleZone?.setSize(width, STAGE_HEIGHT).setPosition(-offset, 0);
+    // Screen-space, so it is placed against the raw width and NOT inside `layer` (which carries the
+    // centring offset above).
+    this.audio?.layout(width);
   }
 
   private text(
@@ -204,6 +215,7 @@ export class FlowScene extends Phaser.Scene {
       right: kb.addKey(KC.RIGHT),
       f: kb.addKey(KC.F),
       comma: kb.addKey(KC.COMMA),
+      n: kb.addKey(KC.N),   // mute, the same key the match uses
     };
     // DEV only: jump to the Fighter Playground from the title. Bound (and captured) only in DEV so a
     // prod build never preventDefaults P for a key with no action.
@@ -220,6 +232,9 @@ export class FlowScene extends Phaser.Scene {
 
   /** The one door every key goes through (real keyboard and the DEV e2e seam alike). */
   press(key: string): void {
+    // Mute is answered BEFORE the busy guard: it changes no flow state, and a control the player
+    // cannot reach during the lock-in beat is a control that ignores them at the worst moment.
+    if (key === "n") return this.audio.toggle();
     if (this.busy) return;
     const before = this.state;
     const s = this.state;
@@ -313,8 +328,17 @@ export class FlowScene extends Phaser.Scene {
   }
 
   /** Rebuild only when the step changed; otherwise just repaint cursors/locks. */
+  /**
+   * Redraw for a state change — and sound it.
+   *
+   * This is the ONE choke point for menu audio, which is why the cue hangs here rather than in
+   * `press()`. Every branch of `press()` returns through it, AND so does `tapCard()`, which assigns
+   * `this.state` directly on a first tap instead of routing through `press`. Hooking `press` alone
+   * would leave first-tap selection silent on exactly the touch devices Phase 18 exists for.
+   */
   private rebuildIf(before: FlowState): void {
     if (before === this.state) return;
+    this.audio.menu(before, this.state, this.time.now);
     if (before.step !== this.state.step) this.build();
     else this.paint();
   }
@@ -643,6 +667,9 @@ export class FlowScene extends Phaser.Scene {
     // The ScaleManager outlives the scene, so this listener has to go with it — the flow is
     // re-entered from a finished match, and a leaked one would lay out a destroyed container.
     this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize);
+    // The SoundManager is game-global: without this the menu bed keeps playing under the match, and
+    // a still-pending unlock callback would start it later even if it had never begun.
+    this.audio.destroy();
     // Drop the DEV hook with the scene: a window global still answering `state()` after the flow has
     // shut down reads as "the menu is still up" to anything inspecting it.
     if (import.meta.env.DEV) delete (window as unknown as { __flow?: unknown }).__flow;

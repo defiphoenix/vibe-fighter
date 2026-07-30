@@ -488,6 +488,72 @@ on a real screen even though it looked thin in a screenshot. Worth recording as 
 metric: this phase's four defects were all found by a person playing the game, and the last word on
 whether they are fixed belonged to the same person, not to the suite.
 
+## Phase 20 — game audio
+
+Nineteen phases in, the game was silent: every hit, block, KO and super landed with camera shake, a
+white flash and no sound. Phase 20 added twelve cues plus a rooftop ambience bed and a menu music bed,
+**all generated** — no royalty-free pack anywhere in the project — wired into the render layer off the
+existing `SimEvent` channel, with a mute control reachable on a phone and a desktop, and a boot gate
+that treats a 404'd sound exactly like a 404'd sprite. Full log:
+[`phases/20-audio.md`](phases/20-audio.md).
+
+**The shape of the work is now familiar and worth naming: almost every defect was found by a gate or a
+mutation, not by writing the code carefully.**
+
+**A 0.5-credit probe saved a 20-credit batch.** The approved plan named `mirelo_text_to_audio` — the
+model literally called "Mirelo Text to Audio". One probe measured what it returned for a punch: a
+**flat −29 dBFS noise floor, 12.9 dB crest**, no transient anywhere. `seed_audio` on the identical
+prompt gave −4.3 dBFS and 21.1 dB crest with real silence between takes. Generating one cue before the
+batch is the whole lesson; the plan's model choice was wrong and only measurement could say so.
+
+**The gate's first run failed, and the bug was in the gate.** Every shipped file measured 0.0 dBFS
+instead of the −2 it was normalised to. The obvious suspect was MP3 encoder overshoot; a target sweep
+disproved it (±0.25 dB). The real cause: the measuring decode used `s16le`, which **clamps**, and the
+Higgsfield masters are hot — one measures **+2.00 dBFS**. Read through a clamping decode, a hot file
+reports 0.0, so the normaliser under-corrected by exactly the amount it was over. **An instrument that
+saturates cannot see the thing it is calibrating.**
+
+**A KO clipped, and nobody would have heard why.** A KO fires `hitHeavy` + `ko` + `roundEnd` on one
+frame; the three shipped files summed to **+3.9 dBFS**, distorting on the most important moment in a
+match. Found by the Codex diff review, reproduced independently, fixed by halving cue playback volume
+(−1.8 dBFS), and — the part that matters — turned into a **hard gate** that recomputes the worst-case
+one-frame mix from the shipped files and the volume it parses out of the TypeScript.
+
+**A whole attack can fit inside one render frame.** `World.advance` clamps a stalled frame to 15 sim
+ticks and the brawler's light attack is exactly 15 ticks, so a slow frame starts it, runs it and
+returns the fighter to idle — and a director comparing only end-of-frame state sees idle → idle and
+plays nothing. Fixed by reading `World.consumedInputs`, the sim's own record of what it acted on,
+which is correct at any batch length and needed no new event.
+
+**Six tests were green when they should have been red, and the tests were fixed, not the table.** A
+bed-leak case that never started a bed (no gesture, so the context stayed locked); a lifecycle case
+that called the *global* `scene.start`, which never stops the outgoing scene, so the teardown it named
+never ran; a "scene change" case that only reloaded; a "still playing" assertion satisfied by the
+looping bed regardless of the cue; a clipping gate holding its **own copy** of the volume constant —
+R-14's shape inside the gate written to prevent that class; and a `localStorage` fallback with no test
+until one was written that actually breaks storage.
+
+**And one guard was deleted for being unfalsifiable, then restored.** `play()`'s cache check would not
+go red — probes said playing an uncached key was a complete no-op — so it went, per Phase 19's rule
+about unfalsifiable insurance. One more mutation put it back: removing the `try/catch` *as well* turned
+the spec red with `Audio key "ko" not found in cache`. Phaser throws; every earlier probe had run with
+the catch in place and swallowed it. **Measuring a guard from behind the guard tells you nothing** —
+the sharper form of Phase 19's lesson, which was about trusting a green mutation in the first place.
+
+**Two independent QA passes found no product defect, and the second one is why that sentence is worth
+anything.** Both were agent-written from the acceptance criteria alone — no plan, no diff — and the
+second was re-run purely because the first had worked in a context window already ~70% consumed, which
+is a reason to distrust a verdict rather than a reason to ship on it. Between them: the shipped files
+were proved to *decode and carry signal* rather than merely exist at a non-zero byte count; sim
+determinism with audio on vs off was **measured** at four checkpoints instead of inferred from "nothing
+threw"; and the no-audio-hardware branch of the boot gate was forced by a real fixture for the first
+time, which is the one branch whose inversion bricks a device with nothing going red. Their two findings
+were both real mechanisms and neither was a Phase 20 defect — one-shot cue cleanup is reconciled by the
+render loop rather than the audio clock (bounded, self-healing), and a hanging asset hangs boot forever
+because `loader.timeout` is unset — **for every asset class since Phase 02**, not for audio. That second
+one is the reusable half: a reviewer can be entirely right about a mechanism and wrong about whose
+phase owns it, so re-derive the blast radius before accepting the framing.
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git

@@ -1,0 +1,19 @@
+[
+  {
+    "created_at": "2026-07-30T14:04:42.034227Z",
+    "display_name": "Seed Audio 1.0",
+    "id": "c25f0d63-b213-49bc-932e-13f66d46a758",
+    "job_type": "seed_audio",
+    "min_result_url": null,
+    "params": {
+      "format": "mp3",
+      "loudness_rate": 0,
+      "pitch_rate": 0,
+      "prompt": "A quick light push-off from a gritty concrete rooftop. Short shoe scuff on grit with a soft cloth rustle as a body launches upward. One single short sound, dry, no reverb tail. No music, no voice.",
+      "sample_rate": 44100,
+      "speech_rate": 0
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260730_140442_c25f0d63-b213-49bc-932e-13f66d46a758.mp3",
+    "status": "completed"
+  }
+]

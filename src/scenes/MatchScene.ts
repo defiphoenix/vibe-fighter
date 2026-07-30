@@ -18,6 +18,7 @@ import type { StagesFile } from "../render/stage";
 import { loadRegistry, buildConfig } from "../render/characters";
 import { FighterSprite } from "../render/fighter-sprite";
 import type { InputSnapshot, SimEvent } from "../sim/types";
+import { GameAudio } from "../render/audio-view";
 
 // What a match looks like with nobody having chosen anything. FlowScene normally supplies all of it
 // through scene.start("Match", cfg); this keeps `?scene=match` (DEV) and any direct start bootable.
@@ -82,6 +83,8 @@ export class MatchScene extends Phaser.Scene {
   private cutIn!: CutInView;
   /** Phase 18: the on-screen pad, built only on a touch-primary device. */
   private pad?: TouchPad;
+  /** Phase 20 audio + its mute button. Owns the only `this.sound` access in the project. */
+  private audio!: GameAudio;
   private menuBtn?: Phaser.GameObjects.Text;
   /** Consecutive hits each fighter has TAKEN without leaving hitstun. Index = the one being hit. */
   private combo: [number, number] = [0, 0];
@@ -94,6 +97,10 @@ export class MatchScene extends Phaser.Scene {
   private debugKey?: Phaser.Input.Keyboard.Key;
   private restartKey!: Phaser.Input.Keyboard.Key;
   private menuKey!: Phaser.Input.Keyboard.Key;
+  /** Mute toggle. `N` because `M` is P2's super and Q/E/F/G/,/./ / Enter/Esc/R are all taken; B and
+   *  1-4 are DEV-only and stay off-limits so one key cannot mean two things depending on the build. */
+  private muteKey!: Phaser.Input.Keyboard.Key;
+  private prevMuteDown = false;
   private boundKeys: Phaser.Input.Keyboard.Key[] = [];
   private prevDebugDown = false;
   private prevRestartDown = false;
@@ -236,6 +243,7 @@ export class MatchScene extends Phaser.Scene {
     const KC = Phaser.Input.Keyboard.KeyCodes;
     this.restartKey = kb.addKey(KC.ENTER);
     this.menuKey = kb.addKey(KC.ESC);
+    this.muteKey = kb.addKey(KC.N);
     if (import.meta.env.DEV) {
       this.debugKey = kb.addKey(KC.B);
       // 1-4 pick which bound kinds the overlay draws, same order as BOUND_KINDS (hurt/hit/push/guard);
@@ -290,6 +298,12 @@ export class MatchScene extends Phaser.Scene {
 
     this.buildEndMenu();
 
+    // Phase 20: audio + its mute button. Same rule as the pad — built BEFORE the camera block so its
+    // objects can go into the ignore list, and it starts the rooftop ambience bed (deferred past the
+    // browser's autoplay lock inside GameAudio).
+    this.audio = new GameAudio(this);
+    this.audio.startBed("ambience");
+
     // Phase 18: the on-screen pad and the one control Esc has no touch equivalent for. Built here,
     // BEFORE the camera block, so their objects can go into the ignore list below.
     if (touchMode()) {
@@ -330,6 +344,7 @@ export class MatchScene extends Phaser.Scene {
       ...(this.debugG ? [this.debugG] : []),
     ]);
     this.cameras.main.ignore([
+      ...this.audio.objects,
       ...this.hud.objects,
       ...this.cutIn.objects,
       ...(this.pad?.objects ?? []),
@@ -350,6 +365,9 @@ export class MatchScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, this.onResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize);
+      // Not tidiness: the SoundManager is game-global, so a pending unlock callback and a looping bed
+      // both outlive this scene unless something takes them down.
+      this.audio.destroy();
     });
     this.layout(liveWidth(this.scale.gameSize.width));
   }
@@ -370,6 +388,7 @@ export class MatchScene extends Phaser.Scene {
     this.uiCam.setSize(width, STAGE_HEIGHT);
     this.hud.layout(width);
     this.cutIn.layout(width);
+    this.audio.layout(width);
     this.pad?.layout(width);
     this.legend.setX(width / 2);
     this.quitPrompt.setX(width / 2);
@@ -546,6 +565,12 @@ export class MatchScene extends Phaser.Scene {
     }
     this.prevMenuDown = mDown;
 
+    // Mute. Edge-detected the same way as every other non-sim key here rather than through
+    // `JustDown`, whose flag is not frame-scoped (see the end-menu note below).
+    const nDown = this.muteKey.isDown;
+    if (nDown && !this.prevMuteDown) this.audio.toggle();
+    this.prevMuteDown = nDown;
+
     // The pad is drained exactly ONCE per update, and its held flags are OR'd into P1's keys inside
     // InputReader — before the edge computation, so a tap becomes a rising edge through the same
     // single implementation the keyboard uses. No second route into the sim.
@@ -567,7 +592,20 @@ export class MatchScene extends Phaser.Scene {
       if (this.quitArmed) this.disarmQuit();
       this.prevPhase = this.world.match.phase;
     }
-    this.applyHitFeedback(this.world.drainEvents());
+    const events = this.world.drainEvents();
+    this.applyHitFeedback(events);
+    // Same batch, not a second drain: `drainEvents()` empties the world, so calling it again here
+    // would hand the camera the events and the audio an empty array.
+    const [af, bf] = this.world.fighters;
+    this.audio.fight(
+      events,
+      [{ state: af.state, grounded: af.grounded }, { state: bf.state, grounded: bf.grounded }],
+      // Read BEFORE the latch consumes them below? No — `consumedInputs` is the sim's own record of
+      // what it acted on this advance, reset per advance and untouched by the latch.
+      this.world.consumedInputs,
+      this.world.match.phase,
+      time,
+    );
 
     // Match-end menu: visibility tracks the phase, so a rematch and a directly-set phase both work.
     const atEnd = this.world.match.phase === "matchEnd";

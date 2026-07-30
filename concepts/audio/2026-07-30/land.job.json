@@ -1,0 +1,19 @@
+[
+  {
+    "created_at": "2026-07-30T14:04:58.289589Z",
+    "display_name": "Seed Audio 1.0",
+    "id": "70465b88-d3c2-41e5-ab6f-91d0d796ddbe",
+    "job_type": "seed_audio",
+    "min_result_url": null,
+    "params": {
+      "format": "mp3",
+      "loudness_rate": 0,
+      "pitch_rate": 0,
+      "prompt": "A human body landing feet-first on a gravel-strewn concrete rooftop. Dull heavy thud with a short gritty crunch of small stones underneath. One single impact, dry, no reverb tail. No music, no voice.",
+      "sample_rate": 44100,
+      "speech_rate": 0
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260730_140458_70465b88-d3c2-41e5-ab6f-91d0d796ddbe.mp3",
+    "status": "completed"
+  }
+]

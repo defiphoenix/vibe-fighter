@@ -17,7 +17,9 @@ defect pass ([`docs/phases/17-meter-lie-and-cpu-pick.md`](docs/phases/17-meter-l
 and Phase 18's mobile/touch support
 ([`docs/phases/18-mobile-touch.md`](docs/phases/18-mobile-touch.md)), and Phase 19's mobile viewport +
 pad art pass
-([`docs/phases/19-mobile-viewport-and-pad-art.md`](docs/phases/19-mobile-viewport-and-pad-art.md)).**
+([`docs/phases/19-mobile-viewport-and-pad-art.md`](docs/phases/19-mobile-viewport-and-pad-art.md)),
+and Phase 20's game audio
+([`docs/phases/20-audio.md`](docs/phases/20-audio.md)).**
 Specs and gate
 results in [`docs/phases/`](docs/phases/); the narrative of what shipped when, including the fix passes
 between phases, is in [`docs/history.md`](docs/history.md). `prompts.pdf` holds the original spec.
@@ -50,6 +52,9 @@ npm run typecheck  # tsc --noEmit only
 npm test           # vitest run — `include` is src/**/*.test.ts ONLY, sim unit tests, node env
 npm run test:e2e   # Playwright browser acceptance for the render layer (e2e/, headed)
 npm run preview    # serve the BUILT bundle — the only place the production CSP is testable
+npm run build:audio  # masters -> public/audio/*.mp3 (needs the gitignored concepts/ masters)
+npm run check:audio  # HARD gate: per-cue duration/peak/crest/bytes, the 1.2 MB budget, and the
+                     # worst-case ONE-FRAME mix (a KO fires 3 cues at once and used to clip at +3.9 dBFS)
 ```
 
 Run one test file: `npx vitest run src/sim/combat.test.ts`
@@ -90,6 +95,9 @@ python scripts/build-atlases.py --pad  # ONLY the Phase 19 touch-pad atlas: proc
                          # `concepts/` input, so unlike the default path it runs on a fresh clone
 npm run check:characters # validate the Phase 05 character refs
 npm run check:portraits  # validate the Phase 06 select portraits
+bash scripts/gen-audio.sh                   # regenerate audio masters (SPENDS CREDITS; reuses a job
+                         # record for free where one exists — `generate get <id>` restores its URL)
+python scripts/build-audio.py --selftest    # the audio gate's own fixtures
 python scripts/art_gate.py                  # the shared art gate's own fixtures, standalone
 python scripts/build-atlases.py --selftest  # the atlas gate's fixtures, without needing the art
 ```
@@ -346,7 +354,9 @@ bridge. What follows is only what you cannot learn by opening the file.
 - **A Container's own depth is what sorts it against the scene**; its children's depths are only relative
   to each other. A menu container left at depth 0 renders *under* a depth-1 scrim — which looks like a
   colour choice, not a bug. Depth bands: layers 0–2, props 3–8, fighters 9–11, debug 50, **touch pad
-  96–97**, end scrim 99, HUD 100–101, Esc quit prompt 102, match-end menu 103, super cut-in 104–106.
+  96–97**, end scrim 99, HUD 100–101, Esc quit prompt 102, match-end menu 103, super cut-in 104–106,
+  **mute button 107**. The mute button is deliberately the topmost thing on screen: a control that
+  disappears during a super freeze or behind the end-menu scrim is not a mute control.
   The pad is deliberately BELOW the cut-in (which owns the screen during a freeze) and below the end
   menu; it never collides with the HUD because it lives at the bottom and the HUD at the top.
   Fighter depth (`11`/`9`) follows the most recent MOVER, and must key off walk
@@ -358,6 +368,11 @@ bridge. What follows is only what you cannot learn by opening the file.
   `portrait-<id>` → `this.load.start()` → on COMPLETE refuse routing if `failed>0` OR any expected
   texture is missing (blocks a 404 AND a corrupt-200). Portraits can't be queued in `preload()` because
   their ids come from the registry, which is only cached after preload.
+  **`loader.timeout` is unset, so a request that never resolves hangs boot forever** — for the registry
+  JSON, both atlases, the stage layers, every sheet, every portrait and (since Phase 20) every sound
+  alike. Measured, not fixed: it satisfies "refuse to route" and the failure direction is the safe one
+  (the title screen waits rather than the game starting broken). Raised by a QA pass as an audio gap;
+  it predates audio by eighteen phases. Re-derive a finding's blast radius before accepting its framing.
 - **`installFocusGuard` needs `disableGlobalCapture()`, not just `keyboard.enabled = false`**:
   `InputReader` builds keys with `addKey()` (capture defaults **true**) and Phaser's `KeyboardManager`
   listens on `window` and `preventDefault()`s any captured keyCode **regardless of event target**, so
@@ -388,6 +403,7 @@ bridge. What follows is only what you cannot learn by opening the file.
   meter**, now named in the on-screen legend: a training feature nobody can find is not one.
 - **Block can't use Left/Right Shift** — Phaser 4.2.1 dispatches by keyCode and both shifts are 16.
   Bindings: P1 WASD + F/G, block `Q`, super `E`; P2 arrows + `,`/`.`, block `/`, super `M`.
+  **Mute is `N`** (Phase 20), bound in both MatchScene and FlowScene — `M` was already P2's super.
 - **Touch (Phase 18) is ONE extra argument, not a second input route.** `InputReader.read(touchHeld?)`
   ORs the pad's held flags into P1's **before** the existing `prev`/`now` comparison, so there is still
   exactly one implementation of `*Pressed` and touch inherits the 1-frame rising edge instead of
@@ -430,6 +446,37 @@ bridge. What follows is only what you cannot learn by opening the file.
   would set the class and never pause. `screen.orientation.lock()` is deliberately NOT called (needs
   fullscreen on Android, unsupported on iOS Safari); Phaser's `scale.lockOrientation()` is dead code —
   it calls the removed `screen.lockOrientation` and always returns `false`.
+- **Audio (Phase 20) is the same split as everything else**: the DECISION is Phaser-free in
+  [`render/audio-cues.ts`](src/render/audio-cues.ts) (which sim event becomes which cue, cooldowns,
+  priority, a 3-per-frame cap), and [`render/audio-view.ts`](src/render/audio-view.ts) `GameAudio` is
+  the **only thing in the project that touches `this.sound`**. It owns the mute button too, so a scene
+  wires one object: one `objects` array for the camera lists, one `layout(width)`, one `destroy()`.
+  Six things are load-bearing:
+  - **`CueKey` is derived from the `CUE_KEYS` tuple**, never written twice — a TS union does not exist
+    at runtime, so "a test proves the union and the file list agree" is unwritable.
+  - **`whiff` and `jump` come from `World.consumedInputs`, NOT from a state comparison.** A render
+    frame can drain 15 sim ticks (`advance` clamps a stall to 0.25 s) and the brawler's light attack is
+    exactly 15 ticks — so a slow frame starts it, runs it and returns to idle, and a state comparison
+    sees idle→idle and plays nothing. `land` stays a transition because being grounded persists.
+  - **Movement cues are gated on `phase === "fight"`**, and the trackers keep updating outside it. That
+    one predicate kills a phantom `land` at the top of round 2 (a fighter KO'd in the AIR leaves
+    `grounded: false` behind), the `settleBodies` thud during the round-end pause, and any noise from
+    the intro pose-set. Keying it off the `roundStart` EVENT does not work: that is pushed when the
+    intro ENDS (`world.ts`), ~90 ticks after `resetRound()` actually moves the fighters.
+  - **`sound.mute` is a MECHANISM, not a source of truth.** On WebAudio the setter schedules
+    `masterMuteNode.gain.setValueAtTime` and the getter reads that gain back — and a **suspended**
+    context (before the first gesture) silently discards the write and reads back wrong. `GameAudio`
+    keeps its own `mutedFlag`, with a module-level in-memory fallback *written before* the
+    `localStorage` attempt, because storage throws in private-mode Safari and the setting has to
+    survive one scene's `GameAudio` being destroyed and the next being built.
+  - **`destroy()` must `off()` the exact unlock handler and `manager.remove()` the bed.** The
+    SoundManager is game-global: a deferred `once(UNLOCKED)` armed by FlowScene outlives it and would
+    start the MENU bed on top of the match ambience, and `stop()` alone leaves the instance in
+    `sound.sounds` to accumulate on every Esc → Flow → match round trip.
+  - **Cues play at `CUE_VOLUME` (0.5), which is a clipping fix.** A KO fires `hitHeavy` + `ko` +
+    `roundEnd` on one frame; at full volume the shipped files sum to **+3.9 dBFS**. `check:audio`
+    recomputes that worst case from the files and parses the volume out of `audio-view.ts` — do not
+    re-copy the constant into the script, which is exactly the drift it caught once already.
 - **The super cut-in is derived arithmetic, not a tween** (`render/super-cutin.ts`, Phaser-free +
   unit-tested; `render/cutin-view.ts` is the shared scene-side owner, used by BOTH MatchScene and
   PlaygroundScene because the dummy is where you try the move). It reads `World.hitstop` counting
@@ -541,6 +588,12 @@ that fixed the art — are in [`docs/lessons.md`](docs/lessons.md). The rules th
   Name the TARGET in the prompt, and check the VISIBLE gap at max connect range, not the raw overshoot.
 - **When you fix a defect class, sweep the WHOLE class.** The attack-timing derivation skipped the
   other 15 sheets for two phases, and a fighter stood bolt upright through his entire knockdown.
+- **Measuring a guard from behind the guard tells you nothing** (Phase 20). `play()`'s cache check
+  would not go red, so it was deleted as unfalsifiable insurance — correct instinct, wrong conclusion.
+  Every probe had run with the `try/catch` still in place, swallowing the exception Phaser actually
+  throws (`Audio key "x" not found in cache`). Remove the OTHER guard too before concluding one is
+  redundant. Same shape as an instrument that saturates: `s16le` decoding reports a +2 dBFS master as
+  0.0, so a normaliser calibrated through it under-corrects by exactly the amount it is over.
 - **Whenever a metric cannot fail, it is decoration** — check what would turn it red before trusting
   it. The audit's own length column was 1.00 by construction: code checked against code, inside the
   tool built to stop exactly that.

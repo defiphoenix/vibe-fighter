@@ -17,6 +17,11 @@ playwright-report/
 # (*.prompt.txt, *.job.json, README.md); drop the raw pixels/video.
 concepts/**/*.png
 concepts/**/*.gif
+# Phase 20 audio masters: ~15 MB of raw model output, re-generatable at credit cost.
+# The .prompt.txt and .job.json records ARE committed, same policy as the image masters.
+concepts/**/*.wav
+concepts/**/*.mp3
+concepts/**/*.flac
 
 .vercel
 

@@ -1,0 +1,19 @@
+[
+  {
+    "created_at": "2026-07-30T14:09:30.55044Z",
+    "display_name": "Seed Audio 1.0",
+    "id": "3535e887-7c06-4bd0-8ee6-27e87bb083f4",
+    "job_type": "seed_audio",
+    "min_result_url": null,
+    "params": {
+      "format": "mp3",
+      "loudness_rate": 0,
+      "pitch_rate": 0,
+      "prompt": "A single crisp menu-cursor click. Short bright digital blip with a sharp percussive attack and a quick clean decay, like a synthesizer tick in an arcade game menu. Clearly audible and punchy, one single click. No music, no voice.",
+      "sample_rate": 44100,
+      "speech_rate": 0
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260730_140930_3535e887-7c06-4bd0-8ee6-27e87bb083f4.mp3",
+    "status": "completed"
+  }
+]

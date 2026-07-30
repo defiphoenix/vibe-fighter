@@ -18,6 +18,8 @@
     "check:portraits": "python scripts/check-portraits.py",
     "build:atlases": "python scripts/build-atlases.py",
     "build:sprites": "python scripts/build-sprites.py",
+    "build:audio": "python scripts/build-audio.py",
+    "check:audio": "python scripts/build-audio.py --check",
     "audit:anim": "python scripts/audit-animations.py",
     "check:sprites": "python scripts/check-sprites.py",
     "check:sync": "python scripts/check-attack-sync.py",

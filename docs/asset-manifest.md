@@ -69,6 +69,58 @@ Per fighter (×3), one sheet per animation state. Frame size / fps / anchor foll
 > Specials (charge + execution sheets) are required by Phase 15 — verify they exist in your chosen
 > provenance before starting that phase.
 
-## Audio
+## Audio (Phase 20)
 
-**Non-goal** for this guide (see [PRD.md](PRD.md#vision--scope)). No audio assets tracked.
+Was a **non-goal** for the original guide (see [PRD.md](PRD.md#vision--scope)); shipped in Phase 20.
+Every file is **generated** — no royalty-free pack, no third-party audio anywhere in the project.
+
+**Provenance:** Higgsfield **CLI**, `seed_audio` (Seed Audio 1.0) for all twelve cues and the ambience
+bed, `sonilo_music` for the menu bed. License **project-owned/proprietary**, same as every other asset
+here. The exact prompt (`<key>.prompt.txt`) and job record (`<key>.job.json` — model, params, job id,
+result URL) are committed beside each master in
+[`concepts/audio/2026-07-30/`](../concepts/audio/2026-07-30/); the raw `<key>-raw.mp3` masters are
+gitignored (~15 MB, re-generatable at credit cost) exactly like the image masters.
+
+**Why not `mirelo_text_to_audio`**, the model whose name says "text to audio": measured. The same
+prompt gave mirelo a **flat −29 dBFS noise floor with a 12.9 dB crest factor** — no transient at all —
+against seed_audio's −4.3 dBFS peak and 21.1 dB crest with real silence between takes. It was also
+2.5× the price. One 0.5-credit probe settled it before the batch ran.
+
+**Runtime processing** — `npm run build:audio` ([`scripts/build-audio.py`](../scripts/build-audio.py)):
+each SFX is trimmed to its **first** transient (the models return several takes of the same sound —
+`hitLight` came back as three punches, and `super`'s event began at **10.80 s** of a 13.53 s file),
+peak-normalised to −2 dBFS pre-encode, and encoded mono at 64 kbps. Beds keep their full length;
+ambience mono 64 kbps, menu music stereo 96 kbps with a 1.5 s loop crossfade (its head and tail
+measured 6.9 dB apart, an audible step on every loop). `npm run check:audio` re-measures the shipped
+files and is a hard gate.
+
+| Asset | Model | Job id | Shipped | Peak | Destination |
+|---|---|---|---|---|---|
+| `hitLight` | `seed_audio` | `0fd298a7-f8e1-4039-b052-473478869af2` | 0.50 s, 5 KB | −2.5 dBFS | `public/audio/hitLight.mp3` |
+| `hitHeavy` | `seed_audio` | `00256c76-f189-4cdc-9cc7-88e8ae4f606c` | 0.60 s, 5 KB | −2.2 dBFS | `public/audio/hitHeavy.mp3` |
+| `block` | `seed_audio` | `ad8618d2-e2ef-4e26-90e1-54d4717f31b5` | 0.50 s, 5 KB | −2.6 dBFS | `public/audio/block.mp3` |
+| `whiff` | `seed_audio` | `90174627-fa39-4316-aa7c-7720d7df2062` | 0.50 s, 5 KB | −2.4 dBFS | `public/audio/whiff.mp3` |
+| `jump` | `seed_audio` | `c25f0d63-b213-49bc-932e-13f66d46a758` | 0.60 s, 5 KB | −2.6 dBFS | `public/audio/jump.mp3` |
+| `land` | `seed_audio` | `70465b88-d3c2-41e5-ab6f-91d0d796ddbe` | 0.80 s, 7 KB | −2.4 dBFS | `public/audio/land.mp3` |
+| `ko` | `seed_audio` | `37170353-3e96-4dc9-b88f-bc10376cf236` | 2.20 s, 18 KB | −2.3 dBFS | `public/audio/ko.mp3` |
+| `super` | `seed_audio` | `9a138ea2-721f-4a07-b5ec-38631cd43b9f` | 2.20 s, 18 KB | −1.8 dBFS | `public/audio/super.mp3` |
+| `roundStart` | `seed_audio` | `3e5f6515-670d-4a14-a3c6-9df5ba9ba568` | 0.73 s, 6 KB | −2.1 dBFS | `public/audio/roundStart.mp3` |
+| `roundEnd` | `seed_audio` | `e69c5735-4c5c-41c2-bb33-021df790c824` | 1.48 s, 12 KB | −2.3 dBFS | `public/audio/roundEnd.mp3` |
+| `menuMove` | `seed_audio` | `3535e887-7c06-4bd0-8ee6-27e87bb083f4` | 0.35 s, 3 KB | −2.4 dBFS | `public/audio/menuMove.mp3` |
+| `menuConfirm` | `seed_audio` | `50932fe1-7e7f-4c33-b148-048c7855f763` | 0.80 s, 7 KB | −2.4 dBFS | `public/audio/menuConfirm.mp3` |
+| `ambience` (bed) | `seed_audio` | `3eb77a67-11fd-4fbd-b9d4-dbf815135b8a` | 30.04 s, 235 KB | −2.4 dBFS | `public/audio/ambience.mp3` |
+| `menuMusic` (bed) | `sonilo_music` | `501131f1-bd5f-4d64-89a1-53f7281c2fa2` | 60.02 s, 704 KB | −1.9 dBFS | `public/audio/menuMusic.mp3` |
+
+**Total shipped: 1034 KB**, against a 1.2 MB budget the gate enforces. `public/` was 19 MB before this,
+so audio is about +5% of the download rather than the tripling it usually is.
+
+A **rejected first take** is kept as a record rather than deleted:
+`menuMove.rejected-take-1.job.json`. That generation measured **−37.9 dBFS peak, 15.0 dB crest** —
+effectively silence, and unrecoverable by normalisation, which would only have lifted its noise floor.
+The prompt was rewritten ("crisp menu-cursor click … sharp percussive attack … clearly audible and
+punchy") and the retake measured −6.6 dBFS / 21.5 dB. The measurement is what caught it; nobody
+listened.
+
+**One thing measurement cannot cover, stated plainly:** whether each cue *sounds like the thing it is
+named after* is unverified. Duration, peak, crest factor and transient count are all in range, and
+none of them can tell a punch from a door slam.

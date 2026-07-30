@@ -687,4 +687,38 @@ describe("per-frame guard boxes in a live match", () => {
     }
     expect(start - w.fighters[1].health).toBe(DAMAGE);
   });
+
+  // --- Phase 20: the attack key rides the event ---------------------------------------------------
+  //
+  // The render layer needs to know WHICH attack landed to pick a light or a heavy impact sound, and
+  // it cannot recover that itself: a 15-tick `advance` batch is drained a frame later, by which time
+  // the attacker has left the state. Reading `attacker.state` during resolution is unsafe too — an
+  // earlier half of a trade can already have flipped that fighter to hitstun.
+  describe("hit/block events name the attack (Phase 20)", () => {
+    it("tags a hit with the attack key that produced it", () => {
+      const w = fightWorld(70);
+      for (let i = 0; i < 30; i++) w.tick([i === 0 ? lightPress : mk(), mk()]);
+      const hit = w.drainEvents().find((e) => e.type === "hit");
+      expect(hit?.data?.attack).toBe("light");
+    });
+
+    it("tags a crouch normal with its OWN key, not the ground one", () => {
+      const w = fightWorld(70);
+      const press = mk({ light: true, lightPressed: true, down: true });
+      for (let i = 0; i < 30; i++) w.tick([i === 0 ? press : mk({ down: true }), mk()]);
+      const hit = w.drainEvents().find((e) => e.type === "hit");
+      expect(hit?.data?.attack).toBe("crouchLight");
+    });
+
+    it("tags a BLOCK too — a blocked heavy still has to sound like a heavy", () => {
+      const w = fightWorld(70);
+      const heavy = mk({ heavy: true, heavyPressed: true });
+      // CROUCH-blocking, deliberately: `config.ts`'s fixture authors its heavy LOW on purpose (it is
+      // the fixture that exercises the low path), so a standing guard does not stop it — it lands.
+      const guard = mk({ block: true, down: true });
+      for (let i = 0; i < 30; i++) w.tick([i === 0 ? heavy : mk(), guard]);
+      const ev = w.drainEvents().find((e) => e.type === "block");
+      expect(ev?.data?.attack).toBe("heavy");
+    });
+  });
 });

@@ -1,0 +1,19 @@
+[
+  {
+    "created_at": "2026-07-30T14:03:38.003085Z",
+    "display_name": "Seed Audio 1.0",
+    "id": "00256c76-f189-4cdc-9cc7-88e8ae4f606c",
+    "job_type": "seed_audio",
+    "min_result_url": null,
+    "params": {
+      "format": "mp3",
+      "loudness_rate": 0,
+      "pitch_rate": 0,
+      "prompt": "A heavy bone-crunching punch impact. Deep meaty thud with a low bass punch and a short bone crack on top, one single powerful blow. Close, dry and weighty, no reverb tail. Arcade fighting game heavy impact sound effect. No music, no voice.",
+      "sample_rate": 44100,
+      "speech_rate": 0
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260730_140338_00256c76-f189-4cdc-9cc7-88e8ae4f606c.mp3",
+    "status": "completed"
+  }
+]

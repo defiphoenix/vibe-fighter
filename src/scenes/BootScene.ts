@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
 import { loadRegistry, eachSheet, textureKey } from "../render/characters";
 import { PAD_ATLAS } from "../render/touch";
+import { AUDIO_KEYS, audioAssetsRequired, audioPath } from "../render/audio-cues";
 
 const STAGES = ["twilight", "sunset"];
 const LAYERS = ["far", "medium", "main", "near"];
@@ -29,6 +30,16 @@ export class BootScene extends Phaser.Scene {
         this.load.image(`${stage}-${layer}`, `backgrounds/${stage}/${layer}.png`);
       }
     }
+    // Phase 20 audio. Queued in preload() rather than create(), and that is the STRONGER choice
+    // rather than the convenient one: the FILE_LOAD_ERROR listener below is only attached in
+    // create(), after this pass has finished, so even a plain 404 here never reaches `failed[]`. The
+    // cache check in create() is therefore the ONLY net — which is what makes deleting that check
+    // turn the boot-refusal spec red. Queued in create() instead, `failed[]` would catch a 404 too,
+    // the mutation would leave the spec green, and the spec would be decoration.
+    //
+    // `load.audio` is a silent no-op on a device with no audio at all (AudioFile.js returns before
+    // queuing), which is exactly what `audioAssetsRequired` below accounts for.
+    for (const key of AUDIO_KEYS) this.load.audio(key, audioPath(key));
   }
 
   create(): void {
@@ -72,8 +83,23 @@ export class BootScene extends Phaser.Scene {
       // corrupt/undecodable (a process error, no FILE_LOAD_ERROR). Refuse to route a broken match on
       // either — check the transport failures AND that every expected texture actually registered.
       const missing = keys.filter((k) => !this.textures.exists(k));
-      if (failed.length || missing.length) {
-        throw new Error(`boot: assets failed to load (sheets, atlases or portraits) — load errors: [${failed.join(", ")}]; missing textures: [${missing.join(", ")}]`);
+      // Audio rides the SAME gate, but through `cache.audio` rather than the texture manager — and
+      // only when the device could have loaded it at all. On a machine with no audio hardware Phaser
+      // never queues the files, so the keys legitimately are not there and an unconditional assert
+      // would refuse to boot the whole GAME over a missing sound card.
+      //
+      // Known limit, stated rather than hidden: on a LOCKED HTML5-audio fallback this check can pass
+      // for a 404, because HTML5AudioFile sets the element's `src` and reports success without
+      // calling `load()` — the real fetch is deferred to unlock. The guarantee is therefore
+      // WebAudio-and-unlocked-HTML5 shaped. The failure direction there is the safe one: the game
+      // boots and is quiet rather than refusing to start.
+      const dev = this.game.device.audio;
+      const needAudio = audioAssetsRequired({
+        noAudio: !!this.game.config.audio?.noAudio, webAudio: dev.webAudio, audioData: dev.audioData,
+      });
+      const missingAudio = needAudio ? AUDIO_KEYS.filter((k) => !this.cache.audio.exists(k)) : [];
+      if (failed.length || missing.length || missingAudio.length) {
+        throw new Error(`boot: assets failed to load (sheets, atlases, portraits or audio) — load errors: [${failed.join(", ")}]; missing textures: [${missing.join(", ")}]; missing audio: [${missingAudio.join(", ")}]`);
       }
       const scene = import.meta.env.DEV ? new URLSearchParams(location.search).get("scene") : null;
       // `match` is in here so DEV can skip the menus (the acceptance specs do); prod always starts

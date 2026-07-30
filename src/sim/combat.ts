@@ -1,7 +1,7 @@
 import { Fighter, METER_MAX } from "./fighter";
 import { toWorld, overlaps } from "./geometry";
 import { ATTACK_STATE_TO_KEY, isAttackState } from "./types";
-import type { AttackSpec, SimEvent } from "./types";
+import type { AttackKey, AttackSpec, SimEvent } from "./types";
 
 interface PendingResult {
   attacker: Fighter;
@@ -12,10 +12,24 @@ interface PendingResult {
   /** The hit window that produced this connect — what the attacker records so the SAME window can't
    *  land twice, while the NEXT window of a multi-hit special still can. */
   hitId: number;
+  /** WHICH attack landed, carried into the event so the render layer can tell a light from a heavy.
+   *
+   *  Captured HERE, beside `spec`, and deliberately not re-read during resolution: an earlier half of
+   *  a trade can already have called `applyHit()` on this same fighter, flipping it to `hitstun` or
+   *  `ko`, so `attacker.state` in the resolve loop is not reliably an attack state any more.
+   *
+   *  The render layer cannot recover this itself either — a 15-tick `advance` batch is drained one
+   *  frame later, by which time the attacker has moved on. */
+  attack: AttackKey;
 }
 
-function attackSpecOf(f: Fighter): AttackSpec | null {
-  return isAttackState(f.state) ? f.cfg.attacks[ATTACK_STATE_TO_KEY[f.state]] : null;
+/** The attack the fighter is currently in, and WHICH one it is. Returning the key alongside the spec
+ *  means the two can never disagree, and it type-narrows `state` so nothing downstream has to cast. */
+function attackOf(f: Fighter): { spec: AttackSpec; key: AttackKey } | null {
+  if (!isAttackState(f.state)) return null;
+  const key = ATTACK_STATE_TO_KEY[f.state];
+  const spec = f.cfg.attacks[key];
+  return spec ? { spec, key } : null;
 }
 
 /** Meter is earned by DOING something right, never by being hit: the attacker banks what a clean hit
@@ -61,8 +75,9 @@ export function resolveCombat(a: Fighter, b: Fighter): { events: SimEvent[]; hit
   const pending: PendingResult[] = [];
 
   for (const attacker of [a, b]) {
-    const spec = attackSpecOf(attacker);
-    if (!spec) continue;
+    const current = attackOf(attacker);
+    if (!current) continue;
+    const { spec, key: attack } = current;
     const atkBoxes = snapshot.find((s) => s.self === attacker)!.boxes;
     if (atkBoxes.hit.length === 0) continue;
     // Dedup is per hit WINDOW, not per attack: a normal has one window so it still lands once, while
@@ -100,7 +115,7 @@ export function resolveCombat(a: Fighter, b: Fighter): { events: SimEvent[]; hit
     );
 
     const awayDir: 1 | -1 = defender.x >= attacker.x ? 1 : -1;
-    pending.push({ attacker, defender, spec, blocked, awayDir, hitId });
+    pending.push({ attacker, defender, spec, blocked, awayDir, hitId, attack });
   }
 
   let hitstop = 0;
@@ -123,7 +138,7 @@ export function resolveCombat(a: Fighter, b: Fighter): { events: SimEvent[]; hit
       const chip = Math.max(0, Math.round(r.spec.chip * scale));
       r.defender.applyHit(chip, r.spec.blockstun, kbx, 0, true);
       gainMeter(r.defender, Math.floor(damage * BLOCK_METER_SHARE));
-      events.push({ type: "block", player: r.defender.index, x: r.defender.x, y: r.defender.y });
+      events.push({ type: "block", player: r.defender.index, x: r.defender.x, y: r.defender.y, data: { attack: r.attack } });
       // Chip can KO through a block. world.checkRoundOver ends the round either way, but without
       // this the render layer never sees a `ko` event and the KO flash silently doesn't fire.
       if (r.defender.isKO) events.push({ type: "ko", player: r.defender.index });
@@ -133,7 +148,7 @@ export function resolveCombat(a: Fighter, b: Fighter): { events: SimEvent[]; hit
       gainMeter(r.attacker, damage);
       // The SCALED number goes in the payload: MatchScene reads it for hit-feedback intensity.
       // hitId lets the render layer tell one window of a multi-hit special from the next.
-      events.push({ type: "hit", player: r.defender.index, x: r.defender.x, y: r.defender.y, data: { damage, hitId: r.hitId } });
+      events.push({ type: "hit", player: r.defender.index, x: r.defender.x, y: r.defender.y, data: { damage, hitId: r.hitId, attack: r.attack } });
       if (r.defender.isKO) events.push({ type: "ko", player: r.defender.index });
     }
   }

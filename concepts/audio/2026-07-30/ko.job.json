@@ -1,0 +1,19 @@
+[
+  {
+    "created_at": "2026-07-30T14:05:24.151746Z",
+    "display_name": "Seed Audio 1.0",
+    "id": "37170353-3e96-4dc9-b88f-bc10376cf236",
+    "job_type": "seed_audio",
+    "min_result_url": null,
+    "params": {
+      "format": "mp3",
+      "loudness_rate": 0,
+      "pitch_rate": 0,
+      "prompt": "A dramatic knockout finish for a fighting game. Deep impact boom with a low descending sub-bass drop and a brief dark metallic shimmer, heavy and final. One single cinematic event, no music bed, no voice.",
+      "sample_rate": 44100,
+      "speech_rate": 0
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260730_140524_37170353-3e96-4dc9-b88f-bc10376cf236.mp3",
+    "status": "completed"
+  }
+]
