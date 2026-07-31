@@ -51,6 +51,29 @@ const GUARD_RANGE = 175; // start respecting an opponent's attack from here in
 const BLOCK_HOLD = 18; // ticks of guard per committed block decision
 
 /**
+ * Ticks of walking — or of standing still — per committed approach decision.
+ *
+ * `approachBias` used to be rolled fresh on EVERY eligible tick, which made it a per-tick coin flip
+ * rather than the hesitation its comment claims. At `normal` (0.45) the conditional expected run of
+ * `walkF` is `1/(1-0.45) = 1.8` ticks, ~30ms. The shipped walk sheets are 8 frames at 12fps, i.e.
+ * 83ms per frame and ~667ms for a cycle, and `FighterSprite` restarts a looping animation whenever
+ * the state changes — so the CPU's walk cycle never got past frame 0 and P2 visibly did not walk on
+ * any character. Measured on the shipped roster before the fix: the LONGEST walk run in a whole
+ * match averaged 5.4-8.2 ticks across all three difficulties. `vx` is zeroed on every dropped tick
+ * too, so the movement shuffled as much as the animation did.
+ *
+ * 20 ticks is a third of a second — 4 drawn frames of the cycle, enough to read as walking. Both
+ * sides of the decision are held for the same count, so the marginal probability of walking on an
+ * uninterrupted eligible tick is still `approachBias`. That is NOT the same as unchanged difficulty:
+ * the variance per 20-tick window goes from Binomial(20, 0.45)'s 4.95 to ~99, so the CPU closes in
+ * committed bursts instead of drifting. Time-to-range and corner pressure were re-measured against
+ * the pre-change baseline rather than assumed — see docs/phases/21-*.md.
+ *
+ * Exported so the e2e cannot hardcode a second copy of the number.
+ */
+export const WALK_HOLD = 20;
+
+/**
  * One fighter's own attack reaches, plus the two aggregates the range logic needs.
  *
  * `min`/`max` exist rather than "light and heavy" because NEITHER is reliably the longer one, and
@@ -98,6 +121,12 @@ export class CpuController implements CpuSeam {
   private reacted = false;
   /** consecutive ACTIONABLE ticks with the opponent in reach — the reaction timer */
   private inReachTicks = 0;
+  /** ticks left on the committed approach decision; 0 means "roll a fresh one". ONE counter plus a
+   *  flag, not two counters: two would admit the state "walking AND hesitating", which is not a
+   *  thing, and would need an invariant nobody checks. See WALK_HOLD. */
+  private episodeTicks = 0;
+  /** what the live episode committed to. Only meaningful while `episodeTicks > 0`. */
+  private episodeWalking = false;
   private readonly knobs: Knobs;
   /** This fighter's own reaches, measured once. The controller is constructed before it knows WHICH
    *  fighter it drives, so this fills in on the first tick; the boxes are static after assembly. */
@@ -116,6 +145,9 @@ export class CpuController implements CpuSeam {
     this.blockTicks = 0;
     this.reacted = false;
     this.inReachTicks = 0;
+    // Without this a committed walk episode survives the round reset and the Enter rematch, and the
+    // CPU opens the next round already mid-decision — the same reason `blockTicks` is cleared here.
+    this.cancelEpisode();
   }
 
   /** This fighter's own reaches, measured on first use and cached — the boxes are static once the
@@ -136,6 +168,21 @@ export class CpuController implements CpuSeam {
       };
     }
     return this.reach;
+  }
+
+  /**
+   * Abandon the live approach decision so the next eligible tick rolls a fresh one.
+   *
+   * Called from EVERY site that ends an approach: arriving inside `myReach.min`, committing to a
+   * guard, and committing to a swing. The last two matter and were missed at first — both branches
+   * `return` before step 4 is reached, so a half-spent episode simply waited for them and then
+   * resumed with whatever remained. A 3-tick remainder resuming after a block is exactly the
+   * sub-animation-frame walk this phase exists to remove, so "pause" is never the right verb here:
+   * a decision taken at one distance must not survive an exchange that changed it.
+   */
+  private cancelEpisode(): void {
+    this.episodeTicks = 0;
+    this.episodeWalking = false;
   }
 
   /** xorshift32 — deterministic, no Math.random, uniform enough for "should I block this". */
@@ -188,6 +235,8 @@ export class CpuController implements CpuSeam {
       // ground normals land high, and air normals are overheads, so guarding low against either is
       // exactly the wrong answer.
       input.down = opp.state === "crouchLight" || opp.state === "crouchHeavy";
+      // Guarding ENDS the approach decision — see cancelEpisode.
+      this.cancelEpisode();
       return input;
     }
 
@@ -199,6 +248,10 @@ export class CpuController implements CpuSeam {
       // applies to EVERY commitment, not just the first time you walked into range.
       this.cooldown = this.knobs.attackCooldown + Math.floor(this.rand() * this.knobs.cooldownJitter);
       this.inReachTicks = 0;
+      // ...and so does committing to a swing. Both early returns below leave the function without
+      // reaching step 4, so without this the remainder of an approach decided before the swing
+      // resumes afterwards — see cancelEpisode.
+      this.cancelEpisode();
       // Spend a full bar first when the roll says so. The special is grounded-only and lands HIGH, so
       // it needs no stance bit — but it DOES need its own range check: since Phase 19's reach trim the
       // special is SHORTER than the heavy on all three fighters, so riding the heavy's range threw a
@@ -229,13 +282,32 @@ export class CpuController implements CpuSeam {
     // `min`, not `light`: walk until BOTH normals are live. Stopping at the longer one left the
     // jiujitsu parked between its heavy (110) and its light (113) -- too close to approach, too far to
     // arm the reaction timer -- so it stood still and dealt zero damage for a whole round.
-    if (dist > myReach.min && this.rand() < this.knobs.approachBias) {
-      if (towardRight) input.right = true;
-      else input.left = true;
-      if (me.grounded && dist < GUARD_RANGE * 2 && this.rand() < this.knobs.jumpChance) {
-        input.up = true;
-        input.upPressed = true;
-      }
+    //
+    // The decision is per EPISODE, not per tick (see WALK_HOLD). Arriving in range cancels it, as do
+    // the guard and attack branches above — all three are `cancelEpisode()`, never a pause.
+    if (dist <= myReach.min) {
+      this.cancelEpisode();
+      return input;
+    }
+    // Only spend the episode on ticks the fighter can actually walk on. `next()` is still called
+    // while attacking, stunned, knocked down or airborne (world.ts drives the seam every fight tick),
+    // and `Fighter.think` discards movement in all of them — an episode burning there would be spent
+    // on nothing, and a 20-tick walk could emerge from a knockdown with 3 ticks left. Same rule the
+    // reaction timer above already follows, for the same reason.
+    if (!canAct || !me.grounded) return input;
+
+    if (this.episodeTicks === 0) {
+      this.episodeWalking = this.rand() < this.knobs.approachBias;
+      this.episodeTicks = WALK_HOLD;
+    }
+    this.episodeTicks--;
+    if (!this.episodeWalking) return input;
+
+    if (towardRight) input.right = true;
+    else input.left = true;
+    if (dist < GUARD_RANGE * 2 && this.rand() < this.knobs.jumpChance) {
+      input.up = true;
+      input.upPressed = true;
     }
     return input;
   }

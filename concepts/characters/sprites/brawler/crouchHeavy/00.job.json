@@ -1,8 +1,8 @@
 [
   {
-    "created_at": "2026-07-18T17:23:16.799857Z",
+    "created_at": "2026-07-31T09:54:15.885454Z",
     "display_name": "Seedance 2.0",
-    "id": "69422167-bfc4-46fb-85fe-99da56457664",
+    "id": "5197da11-c2c4-4b6b-9f17-8010731cc81b",
     "job_type": "seedance_2_0",
     "min_result_url": null,
     "params": {
@@ -15,9 +15,9 @@
       "medias": [
         {
           "data": {
-            "id": "b9a76f90-4b7e-45fd-af3b-8691c9cb45a7",
+            "id": "a4234d76-e6be-458c-849f-e823622251a0",
             "type": "media_input",
-            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/b9a76f90-4b7e-45fd-af3b-8691c9cb45a7.png"
+            "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/a4234d76-e6be-458c-849f-e823622251a0_resize.jpg"
           },
           "role": "start_image"
         }
@@ -27,15 +27,15 @@
       "multi_prompt": [],
       "multi_shot_mode": "custom",
       "multi_shots": false,
-      "prompt": "The SAME single brawler fighter from the start image stays in a deep low crouch near the floor the entire time, knees fully bent, and swings one heavy low sweeping attack along the ground, never standing up, side view facing RIGHT, centered in place. Keep his exact appearance every frame: red open jacket over a white tank top, blue jeans, red high-top sneakers, black fingerless gloves, spiky brown hair. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
+      "prompt": "The SAME single brawler fighter from the start image stays in exactly the low crouched position of the start image without raising his hips or head at all, and sweeps one heavy low attack forward ALONG THE GROUND at an opponent standing just in front of him to the RIGHT: his striking leg skims the floor and extends fully sideways until it reaches well past where his own toes are, far enough to sweep that opponent's ankles, and HOLDS at that full extension before pulling back. His other leg stays folded underneath him bearing his weight. He has EXACTLY TWO legs and TWO arms in every single frame and grows no extra limb: one leg sweeps, one leg supports, and nothing else touches the floor. The leg never rises as high as his own knees and his hips stay down the whole time. The single biggest movement in the clip is the leg travelling FORWARD, not up. Perform this single motion slowly and steadily so that it fills the ENTIRE clip from the very first moment to the very last: extending through the first half and returning through the second half. Never hold still, and never repeat the motion twice — at every instant the body is at a different position from every other instant., side view facing RIGHT, centered in place. Keep his exact appearance every frame: red open jacket over a white tank top, blue jeans, red high-top sneakers, black fingerless gloves, spiky brown hair. Flat solid #FF00FF magenta background, uniform and unchanged. Locked static camera, no zoom, no pan. Exactly ONE character, no other people, no weapons.",
       "prompt_language": "en",
       "reference_elements": [],
       "resolution": "720p",
       "speedramp": "auto",
       "width": 720
     },
-    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_172316_69422167-bfc4-46fb-85fe-99da56457664.mp4",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260731_095415_5197da11-c2c4-4b6b-9f17-8010731cc81b.mp4",
     "status": "completed",
-    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260718_172316_69422167-bfc4-46fb-85fe-99da56457664_thumbnail.webp"
+    "thumbnail_url": "https://cdn.higgsfield.ai/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260731_095415_5197da11-c2c4-4b6b-9f17-8010731cc81b_thumbnail.webp"
   }
 ]

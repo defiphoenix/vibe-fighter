@@ -203,3 +203,73 @@ test, because a build without that function cannot draw the line. That is the at
   `mobile-touch.spec.ts` now asserts the emulator reports `any-pointer: fine === false` *with a comment
   explaining that this is precisely why emulation could not settle the question* — so the next reader
   cannot re-derive the broken discriminator from a passing test.
+
+## Nothing counted limbs, and nothing timed a state against its own animation (Phase 21)
+
+Two player-reported defects, invisible to the 383 unit tests and 175 browser passes that existed at the
+time — the pre-change counts, since the post-change 390/181 include the cases written to catch these —
+and they fail in the
+same shape: **every gate here compares code to other code, or art to its own silhouette.**
+
+**The brawler's crouch heavy drew a third leg.** Not a chroma-key speck — `drop_specks` had nothing to
+drop, because every cell was exactly ONE connected component. The extra limb was fused to the body and
+came out of the generator: given a STANDING start image and asked for both a crouch and a sweep, the
+model kept both legs planted in a kneel and grew a new leg to sweep with. Counting red shoe blobs in
+the source clip's ground band puts the boundary at source frame **43** — two shoes at 0–42, three from
+43 onward, which is the exact frame the kick begins.
+
+- **A contact sheet is not a measurement.** An eyeball pass over ten sampled frames read 42–52 as
+  "clean" and the whole first plan was built on that; the colour count showed the clean window ends at
+  42 and therefore that the clean window and the kick were **mutually exclusive**. No re-sample of that
+  clip could have worked, and the plan said it could.
+- **Every existing art metric is silhouette-shaped, so anatomy is invisible to all of them.**
+  `audit:anim` scored this sheet amp 0.93 with no dead pairs; `check:sprites` passed it; `audit:boxes`
+  passed it. A third leg changes the silhouette *favourably* on every one of those axes.
+- **The measurement stayed a measurement.** It is written into the phase log, not shipped as a gate:
+  `monk/crouchHeavy` already scores `[2, 4, 4, 2]` on the same metric and is perfectly fine (robe hem
+  and sash), so a threshold tuned to catch the brawler would have to be loose enough to be decoration.
+  Prefer an honest recorded number to a gate that cannot fail.
+- The fix was the lever this file already named twice: **the reference dominates**. A dedicated
+  start image — the same crouch with ONE thing changed, the lead leg stretched along the floor —
+  fixed the anatomy AND the reach, where the prompt clause alone fixed only the anatomy and left the
+  sweep 16px short.
+
+**Player 2 never finished a step**, on every character. Nothing in the render layer is asymmetric; P2
+is the CPU, and the CPU re-rolled its approach decision every tick. At `normal` that is a 1.8-tick
+expected run against an 83 ms animation frame, and `FighterSprite` restarts a looping animation on
+every state change — so `walkF ↔ idle` flickered at 60 Hz and the 8-frame cycle never left frame 0.
+
+- **A probability per tick is not a behaviour.** `approachBias`'s own comment called it "hesitate,
+  which is what makes easy feel easy". Hesitation at 60 Hz granularity is noise, not hesitation, and
+  the sim tests could not see it because they assert positions and damage, never *how long a state
+  lasted*. The number that exposes it — longest walk run per match — was 5.4–8.2 ticks against a cycle
+  that needs 40.
+- **Equal duty cycle is not equal difficulty.** Committing the decision for 20 ticks keeps the marginal
+  probability identical and takes the per-window variance from 4.95 to ~99. Re-measure time-to-KO on
+  the SHIPPED roster; do not reason about it. (`probe/koprobe.test.ts` cannot help — it builds from the
+  `config.ts` fixture, which this file already records as blind to shipped-roster defects.)
+- **A regression test can also pass for the wrong reason.** The P1/P2 parity spec was green the day it
+  was written, which is correct — the render layer was never the bug. The plan had claimed it would be
+  "red today". A test whose pass you misattribute to your fix misleads exactly as much as one that
+  cannot fail; write down which of your new tests is a reproduction and which is a guard.
+- **Mutation testing earned its keep three times, on guards written in good faith.** "The CPU does not
+  walk while already in range" passed with the cancellation it was named after deleted, because that
+  branch returns before pressing anything either way. Rewritten to measure whether the next episode is
+  a WHOLE one or the leftover remainder of a decision taken at a distance that no longer exists. Then
+  a review found that two of the three exits — guarding, and committing to a swing — never cancelled
+  at all despite a comment saying they did, because both `return` before the cancelling branch is
+  reached. **A comment describing a mechanism that does not exist turns nothing red**, and that is the
+  same failure the e2e header in this repo carried for four phases about tweens.
+- **Two more ways a cancellation test passes for the wrong reason**, both hit while fixing the above.
+  (a) Asserting "the next N ticks are uniform" is a coin flip: a cancelled decision re-rolls and lands
+  on the same choice about half the time. Assert the run LENGTH is a whole multiple of the episode
+  instead. (b) The fixture swung at a distance where a DIFFERENT cancellation had already fired, so
+  the site under test was never reached — **a cancellation test must run where the other cancellation
+  cannot**. Neither is visible from a green run; both were found by deleting the code and watching
+  nothing happen.
+- **Prose is not reproducibility.** The chosen source frames were written into the phase log and a
+  `00.frames.txt`, and the generator still sampled evenly — so the advertised regeneration command
+  would have rebuilt the known-bad sheet. The frame picks now live in the tracked generator, verified
+  by rebuilding to a byte-identical PNG. Related: a *declared but missing* start-image override used
+  to fall back silently to the standing idle — which IS the setup that produced the third leg, and is
+  the default on any machine, since `concepts/**/*.png` is gitignored. Silence was the bug.

@@ -19,7 +19,8 @@ and Phase 18's mobile/touch support
 pad art pass
 ([`docs/phases/19-mobile-viewport-and-pad-art.md`](docs/phases/19-mobile-viewport-and-pad-art.md)),
 and Phase 20's game audio
-([`docs/phases/20-audio.md`](docs/phases/20-audio.md)).**
+([`docs/phases/20-audio.md`](docs/phases/20-audio.md)), and Phase 21's third-leg + CPU-walk defect
+pass ([`docs/phases/21-third-leg-and-cpu-walk.md`](docs/phases/21-third-leg-and-cpu-walk.md)).**
 Specs and gate
 results in [`docs/phases/`](docs/phases/); the narrative of what shipped when, including the fix passes
 between phases, is in [`docs/history.md`](docs/history.md). `prompts.pdf` holds the original spec.
@@ -84,7 +85,10 @@ npm run audit:boxes      # roster-wide BOX-vs-ART report: hurt height vs the fig
                          # measured strike, and the HORIZONTAL reach gap — limb tip vs box far edge
                          # and the visible air at max connect range. HARD GATE since Phase 19: exits 1
                          # on any flag, budget AIR_GAP_MAX=30. `--advisory` restores exit 0 for an art
-                         # regeneration session. All 21 sheets pass.
+                         # regeneration session. All 21 sheets pass — but `brawler/crouchHeavy` sits
+                         # at air 28 of 30 since Phase 21 (box reach kept at 113 for fighter parity,
+                         # art limb 71), so that ONE sheet has ~2px of room: re-sampling it is very
+                         # likely to red this gate, and a regeneration is the honest starting point.
 npm run gen:placeholder  # regenerate 19 states x 3 fighters of placeholder sheets
                          # (`-- --state <name>` limits it — without it this OVERWRITES the real art)
 npm run key:layers       # re-key + validate the Phase 04 parallax layers
@@ -277,6 +281,20 @@ bridge. What follows is only what you cannot learn by opening the file.
   "approach on light" left that fighter parked in the 3px gap dealing ZERO damage for a whole round; and
   **`cpu.test.ts` must build from the shipped registry**, because `config.ts`'s `TEST_DUMMY` was never
   trimmed and cannot express the inverted case at all.
+- **`cpu.ts`'s approach decision is committed for `WALK_HOLD` (20) ticks, not re-rolled per tick**
+  (Phase 21). `approachBias` used to be a per-tick coin flip, which at `normal` gives a 1.8-tick
+  expected `walkF` run against an 83 ms animation frame — and since `FighterSprite` restarts a loop on
+  every state change, the CPU's 8-frame walk cycle **never left frame 0**. That is what "player 2
+  isn't animating correctly" was. Measured before the fix: the LONGEST walk run in a whole match was
+  5.4–8.2 ticks across all three difficulties, against a cycle needing 40. Three rules the episode
+  must keep: it ticks down **only on grounded + `ACTIONABLE`** ticks (`next()` is still called while
+  attacking/stunned/airborne, where movement is discarded, so an episode would burn on nothing);
+  arriving inside `myReach.min` **cancels** it rather than pausing it; and `reset()` clears it, or it
+  survives the round transition and the Enter rematch. It is ONE `episodeTicks` counter plus an
+  `episodeWalking` flag — two counters would admit "walking AND hesitating". **Equal duty cycle is NOT
+  equal difficulty** (per-window variance goes 4.95 → ~99), so re-measure ticks-to-KO on the SHIPPED
+  roster after any change here; `probe/koprobe.test.ts` builds from the `config.ts` fixture and is
+  blind to it.
 - **`cpu.ts` is sampled once per TICK, inside the fixed-timestep loop** (`CpuSeam` on `World.advance`).
   A CPU sampled once per render frame acts at the display's rate and is not reproducible. It skips
   `EdgeLatch` deliberately (it re-derives its edges every tick). **`reactionTicks` is what makes a
@@ -597,6 +615,16 @@ that fixed the art — are in [`docs/lessons.md`](docs/lessons.md). The rules th
 - **Whenever a metric cannot fail, it is decoration** — check what would turn it red before trusting
   it. The audit's own length column was 1.00 by construction: code checked against code, inside the
   tool built to stop exactly that.
+- **Every art metric here is SILHOUETTE-shaped, so anatomy is invisible to all of them** (Phase 21).
+  The brawler's `crouchHeavy` shipped with a literal THIRD LEG and passed `check:sprites`,
+  `audit:boxes` and `audit:anim` (amp 0.93, no dead pairs) — an extra limb changes the silhouette
+  *favourably* on every axis they measure. It was found by counting shoe-coloured blobs in the source
+  clip's ground band, which dates the extra leg to the exact frame the kick starts. That count is
+  recorded in the phase log and deliberately **not** shipped as a gate: `monk/crouchHeavy` scores
+  `[2, 4, 4, 2]` on it and is perfectly fine (robe hem and sash), so any threshold catching the
+  brawler is loose enough to be decoration. **A contact sheet is not a measurement either** — an
+  eyeball pass over ten sampled frames put the clean/dirty boundary ten frames off and produced a plan
+  built on a re-sample that could not have worked.
 - **A held state must not loop if any frame leaves the pose**; `blockCrouch` loops precisely because
   every frame stays in the low guard. Do not reintroduce a bob — a LOOP of near-identical held frames
   already is a steady guard.

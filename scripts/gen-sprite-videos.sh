@@ -43,6 +43,33 @@ declare -A START_OVERRIDE=(
   # at the right scale. Starting a crouch ATTACK from the crouch state's own final frame also means
   # the two animations agree pixel-for-pixel at the moment the player presses the button.
   [jiujitsu/crouchLight]="concepts/characters/sprites/jiujitsu/crouch/03.png"
+  # brawler/crouchHeavy, added 2026-07-31 after a player reported "a third leg when you kick" — and
+  # there literally was one. Started from the STANDING idle, this state had to invent the crouch AND
+  # the sweep, which is the exact failure the monk block above documents; the model's answer was to
+  # keep both legs planted in a kneel and grow a THIRD leg to sweep with. Measured, not inferred: the
+  # ground band holds two red shoe blobs on source frames 0-42 and three from frame 43 — the frame the
+  # kick starts — through to the end of the clip. So the clean window and the kick were mutually
+  # exclusive and NO re-sample of that clip could fix it (the clean frames reach 48px against the 69px
+  # the shipped hit box needs).
+  #
+  # First fix attempt started from this fighter's own `crouch/03.png` final frame (the jiujitsu trick
+  # one line up). It DID kill the third leg — two legs in every frame of the new clip, measured — but
+  # the sweep only reached 53px against the 69px the shipped hit box needs, so audit:boxes flagged
+  # 46px of visible air against its 30px budget. Cause is the one monk/crouchHeavy already documents
+  # below: that crouch reference plants him low AND TUCKED, toes under his hips, so "sweep past your
+  # own toes" barely leaves his body. Trimming the box to the art instead would have dropped his
+  # crouch-heavy effective reach to 67 against 88 for both other fighters — a per-fighter reach cut,
+  # which is exactly what docs/lessons.md forbids.
+  #
+  # So: the monk's remedy, applied verbatim. A dedicated reference that is that same deep crouch with
+  # ONE thing changed — the lead leg stretched out along the floor — built with nano_banana_pro from
+  # crouch/03.png and measured against its own raw output: height 1251px, width 1343px and area
+  # 706273px IDENTICAL before and after, because the only edit is a 380px LEFT translation. That shift
+  # is needed for the same reason the monk's was: the generated foot landed at x=1791 of 1792, hard
+  # against the right edge, leaving the sweep nowhere to travel. Scale must NOT change — build-sprites
+  # applies one idle-derived scale to every sheet, so a smaller figure here would ship a smaller
+  # brawler on this state alone.
+  [brawler/crouchHeavy]="concepts/characters/crouch-refs/brawler-crouchHeavy.png"
   # block / blockCrouch must OPEN already braced (frame 0 = the guard pose), so re-entering guard after
   # a blockstun doesn't replay a raise-guard wind-up (worst on a crouch, which flashed a stand-up). Each
   # starts from its OWN validated guard frame — the last frame of the first-pass clip, kept in
@@ -176,6 +203,16 @@ declare -A MOTION_FROM_START=(
   # loses to measuring them; do not "fix" this back into something tidier.
   [monk/crouchHeavy]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and sweeps one heavy low attack forward ALONG THE GROUND at an opponent standing just in front of him to the RIGHT: his striking leg skims the floor and extends fully sideways until it reaches well past where his own toes are, far enough to sweep that opponent's ankles, and HOLDS at that full extension before pulling back. The leg never rises as high as his own knees and his hips stay down the whole time. The single biggest movement in the clip is the leg travelling FORWARD, not up. ${SPAN_CLIP}"
   [jiujitsu/crouchLight]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and punches: his lead arm shoots straight forward until the elbow is completely straight and the fist is far out in front of him, then pulls back to his chest. ONLY the arm moves. ${SPAN_CLIP}"
+  # The monk/crouchHeavy text above, VERBATIM apart from one added clause — because that wording is the
+  # one that MEASURED best over five generations, and CLAUDE.md's rule is to prefer the prompt that
+  # measured best over the one that reads best. The added clause is the anatomy constraint the old
+  # generic [crouchHeavy] prompt never had: it said "Exactly ONE character", which the model honoured —
+  # one character, three legs. Naming the sweeping leg as one of the two he already has, and saying the
+  # other stays planted, is what makes "two legs" checkable by the model rather than implied.
+  # Two things changed at once here (reference AND prompt), against the usual one-clause-at-a-time rule.
+  # Deliberate: the reference change is the documented dominant lever and the prompt is a proven text
+  # being adopted wholesale, not a reworded guess. If this needs another pass, change ONE and measure.
+  [brawler/crouchHeavy]="stays in exactly the low crouched position of the start image without raising his hips or head at all, and sweeps one heavy low attack forward ALONG THE GROUND at an opponent standing just in front of him to the RIGHT: his striking leg skims the floor and extends fully sideways until it reaches well past where his own toes are, far enough to sweep that opponent's ankles, and HOLDS at that full extension before pulling back. His other leg stays folded underneath him bearing his weight. He has EXACTLY TWO legs and TWO arms in every single frame and grows no extra limb: one leg sweeps, one leg supports, and nothing else touches the floor. The leg never rises as high as his own knees and his hips stay down the whole time. The single biggest movement in the clip is the leg travelling FORWARD, not up. ${SPAN_CLIP}"
   # block / blockCrouch start FROM the guard pose, so the prompt just holds it — no wind-up, the guard
   # is up from frame 0. Only a slight, steady weight shift; the pose itself never changes.
   [brawler/block]="holds exactly the high guard pose of the start image, both forearms up covering the head and chest, bracing steadily on his feet with only a slight weight shift. The guard never lowers and the pose never changes"
@@ -238,6 +275,29 @@ declare -A MOTION_FROM_START=(
   # If this needs another pass, change ONE clause and measure.
   [monk/blockCrouch]="holds the deep crouching two-armed guard of the start image for the whole clip — hips dropped low near his heels, knees bent well past ninety degrees, torso upright, both forearms up together in front of his face and chest with the elbows tucked in — and stays visibly alive in it: he shifts his weight from his back foot to his front foot and back again TWICE, slowly and evenly across the clip, his shoulders and guard hands moving with it. He never stands up, never straightens his legs, and never lowers the guard. Perfectly flat uniform magenta background, no texture or speckle"
 )
+# Hand-picked SOURCE FRAME numbers, in cell order, for the sheets where the default even sampling
+# (`fps=N/4` -> frames 0, N/4·24, ...) picks the wrong ones. Without this table the generator cannot
+# reproduce the sheets that ship, which makes the shipped art unregeneratable — a review caught
+# exactly that. Frame numbers are 0-based into the 97-frame, 24fps, 4s clip.
+#
+# These are NOT tidy: both entries put a chronologically EARLIER frame last, because a kick's recovery
+# is its extension reversed and `check-attack-sync.py` refuses a peak that lands on the final cell
+# (there is no recovery art to spend the active+recovery budget on, so `--write` deletes `hit`).
+declare -A FRAME_PICKS=(
+  # Regenerated 2026-07-31 after "there's a third leg when you kick" — there was. The even sample put
+  # cells 2 and 3 on source frames 48 and 72 of the OLD clip, both inside the region where the model
+  # had grown an extra leg (2 shoe blobs on frames 0-42, 3 from frame 43 on). This is the new clip.
+  # 32 opens gathered; the even sample would have opened on the reference's already-extended lunge and
+  # telegraphed the strike through the move's 8-tick startup. Measured: reach [-, 63, 71, 67],
+  # contact 2, and audit:boxes limb 71 / air 28 against a 30 budget.
+  [brawler/crouchHeavy]="32,40,52,64"
+  # This clip spends three of its four seconds crouched and only lunges in the last ~20 frames, so the
+  # even sample gave it a STANDING pose in cell 0, two identical crouched guards in cells 1-2, and the
+  # only striking frame in cell 3 — which is why it was the one attack sheet on the roster with no
+  # measured `hit`. Measured after: reach [-, 54, 87, 86], contact 2, and `hit: 2` now in the registry.
+  [jiujitsu/crouchHeavy]="60,74,78,82"
+)
+
 STATES=("$@"); [ ${#STATES[@]} -eq 0 ] && STATES=(walkF walkB crouch block blockCrouch jumpRise jumpFall attackLight attackHeavy airLight airHeavy crouchLight crouchHeavy special hitstun blockstun knockdown ko)
 
 for ST in "${STATES[@]}"; do
@@ -246,7 +306,16 @@ for ST in "${STATES[@]}"; do
   have=$(ls "$DIR"/[0-9][0-9].png 2>/dev/null | wc -l)
   if [ "$have" -ge "$N" ]; then echo "skip $FID/$ST (have $have/$N)"; continue; fi
   mkdir -p "$DIR" "concepts/characters/video/$FID"
-  SI="$START"; [ -n "${START_OVERRIDE[$FID/$ST]:-}" ] && [ -f "${START_OVERRIDE[$FID/$ST]}" ] && SI="${START_OVERRIDE[$FID/$ST]}"
+  # A DECLARED start override that is MISSING must fail loudly, never fall back to the standing idle.
+  # `concepts/**/*.png` is gitignored, so on any other machine — or after a clean — the reference is
+  # simply absent, and the old silent `&& [ -f ... ]` fallback would regenerate from the idle with the
+  # generic prompt: exactly the setup that produced the brawler's THREE-LEGGED crouch heavy, and it
+  # would do it without a word of warning.
+  SI="$START"
+  if [ -n "${START_OVERRIDE[$FID/$ST]:-}" ]; then
+    if [ -f "${START_OVERRIDE[$FID/$ST]}" ]; then SI="${START_OVERRIDE[$FID/$ST]}"
+    else echo "FAIL $FID/$ST: declared start image ${START_OVERRIDE[$FID/$ST]} is missing (gitignored — regenerate it first)"; continue; fi
+  fi
   # A motion may be keyed per-fighter (<fid>/<state>) when the move itself differs between fighters —
   # the specials do, since each has its own super. Fall back to the shared per-state text.
   MOT="${MOTION[$FID/$ST]:-${MOTION[$ST]:-}}"
@@ -263,10 +332,21 @@ for ST in "${STATES[@]}"; do
       if [ -n "$URL" ]; then
         node -e "const https=require('https'),fs=require('fs');https.get('$URL',r=>{const w=fs.createWriteStream('$MP4');r.pipe(w);w.on('finish',()=>process.exit(0))}).on('error',()=>process.exit(1))" || { echo "dl fail $FID/$ST"; continue; }
         rm -f "$DIR"/[0-9][0-9].png
-        ffmpeg -y -i "$MP4" -vf "fps=$N/4" -frames:v "$N" "$DIR/%02d.png" 2>/dev/null
-        # rename 01..N -> 00..N-1
-        idx=0; for f in $(ls "$DIR"/[0-9][0-9].png | sort); do mv "$f" "$DIR/t_$(printf %02d $idx).png"; idx=$((idx+1)); done
-        for f in "$DIR"/t_*.png; do mv "$f" "${f/t_/}"; done
+        if [ -n "${FRAME_PICKS[$FID/$ST]:-}" ]; then
+          # Hand-picked source frames — see FRAME_PICKS. Extracted one at a time by absolute frame
+          # number so the mapping is exact; `select=` in a single pass is order-dependent and silently
+          # renumbers when a pick is out of order, which two of these deliberately are.
+          idx=0
+          for FR in ${FRAME_PICKS[$FID/$ST]//,/ }; do
+            ffmpeg -y -v error -i "$MP4" -vf "select=eq(n\,$FR)" -vframes 1 "$DIR/$(printf %02d $idx).png" || true
+            idx=$((idx+1))
+          done
+        else
+          ffmpeg -y -i "$MP4" -vf "fps=$N/4" -frames:v "$N" "$DIR/%02d.png" 2>/dev/null
+          # rename 01..N -> 00..N-1
+          idx=0; for f in $(ls "$DIR"/[0-9][0-9].png | sort); do mv "$f" "$DIR/t_$(printf %02d $idx).png"; idx=$((idx+1)); done
+          for f in "$DIR"/t_*.png; do mv "$f" "${f/t_/}"; done
+        fi
         cnt=$(ls "$DIR"/[0-9][0-9].png 2>/dev/null | wc -l)
         [ "$cnt" -ge "$N" ] && ok=1 && echo "done $FID/$ST ($cnt frames)" && break
       fi

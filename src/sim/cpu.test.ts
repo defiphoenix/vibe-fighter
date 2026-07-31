@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { World } from "./world";
 import type { CpuSeam } from "./world";
-import { CpuController, DAMAGE_SCALE, reachOf } from "./cpu";
+import { CpuController, DAMAGE_SCALE, WALK_HOLD, reachOf } from "./cpu";
 import type { Difficulty } from "./cpu";
 import { FIGHTER_A, FIGHTER_B } from "./config";
 import { ACTIONABLE, Fighter, METER_MAX } from "./fighter";
@@ -419,5 +419,292 @@ describe("CPU ranges are measured from the fighter's own boxes, not mirrored", (
       }
       expect(sawSpecial, `${id}: fired a super at ${gap}px, which its own box cannot reach`).toBe(false);
     }
+  });
+});
+
+// The approach decision is committed for WALK_HOLD ticks instead of re-rolled every tick. The defect
+// that forced it was visual and player-reported: P2 "doesn't look like he's walking" on every
+// character. `approachBias` was a per-tick coin flip, so at `normal` the expected run of `walkF` was
+// 1/(1-0.45) = 1.8 ticks against an 83ms animation frame, the sim state flickered walkF<->idle at
+// 60Hz, and FighterSprite restarts a looping animation on every state change — so the walk cycle
+// never left frame 0. Measured on the shipped roster before the change, the LONGEST walk run in a
+// whole match averaged 5.4-8.2 ticks across all three difficulties; after, ~30.
+//
+// These pin the EXACT episode semantics, not just "longer than before". An `at least N` assertion
+// would stay green against an off-by-one, and 19/20/21 are all reachable from a sloppy reading of
+// "set it, then decrement it".
+describe("the CPU commits to an approach decision for a whole episode", () => {
+  const ids = Object.keys(SHIPPED).filter((k) => SHIPPED[k]?.data?.attacks != null);
+
+  /** Walk the controller by hand at a fixed distance, pinning the pair each tick so pushback cannot
+   *  drift them out of the window under test. Returns the per-tick "did it press a direction" trace. */
+  function approachTrace(id: string, ticks: number, gap: number, seed = 7): boolean[] {
+    const cfg = assembleCharacter(id, SHIPPED[id].data);
+    const w = new World(cfg, cfg);
+    w.match.phase = "fight";
+    w.match.introTicks = 0;
+    const cpu = new CpuController(1, "normal", seed);
+    const out: boolean[] = [];
+    for (let i = 0; i < ticks; i++) {
+      w.fighters[0].reset(848 - gap / 2, 1);
+      w.fighters[1].reset(848 + gap / 2, -1);
+      const d = cpu.next(w);
+      out.push(d.left || d.right);
+      w.advance(DT, NONE);
+    }
+    return out;
+  }
+
+  /**
+   * After an interruption, assert the FIRST run of the resumed approach is a whole number of
+   * episodes.
+   *
+   * Deliberately NOT "the next WALK_HOLD ticks are uniform": a cancelled episode rolls afresh, and
+   * that fresh roll lands on the same decision about half the time, so the uniform assertion passed
+   * against a live mutation roughly every other run. Run LENGTH is the property that actually
+   * differs — 20 or 40 when the episode was cancelled, 10 (the remainder) when it merely paused.
+   */
+  function expectWholeEpisodes(cpu: CpuController, w: World, pin: () => void, msg: string): void {
+    const trace: boolean[] = [];
+    for (let i = 0; i < WALK_HOLD * 6; i++) {
+      pin();
+      const me = w.fighters[1];
+      const eligible = ACTIONABLE.has(me.state) && me.grounded;
+      const d = cpu.next(w);
+      // Record ONLY the ticks the episode actually spends. A tick where the fighter is recovering, or
+      // where the block hold is still running, consumes no episode and emits no direction — counting
+      // it merges into the leading run and makes every length meaningless. (Measured: including them
+      // reported a "37-tick" first run made of blockstun plus a hesitation.)
+      if (eligible && !d.block) trace.push(dirOf(d));
+      w.advance(DT, NONE);
+    }
+    expect(trace.length, "not enough eligible ticks to measure an episode").toBeGreaterThan(WALK_HOLD * 2);
+    const first = runs(trace)[0];
+    expect(first % WALK_HOLD, `${msg} (first run was ${first} eligible ticks)`).toBe(0);
+  }
+
+  /** Did this decision ask for a direction at all? */
+  const dirOf = (d: InputSnapshot): boolean => d.left || d.right;
+
+  /** Lengths of the maximal runs of equal values — the thing WALK_HOLD is supposed to control. */
+  const runs = (xs: boolean[]): number[] =>
+    xs.reduce<number[]>((acc, v, i) => (i > 0 && v === xs[i - 1] ? (acc[acc.length - 1]++, acc) : (acc.push(1), acc)), []);
+
+  it("walks, and hesitates, in blocks of exactly WALK_HOLD ticks", () => {
+    for (const id of ids) {
+      // Far enough out that `dist > myReach.min` holds for every tick, so nothing cancels the episode.
+      const trace = approachTrace(id, WALK_HOLD * 10, 600);
+      // Drop the first and last runs: the trace starts mid-nothing and is cut off at the end, so only
+      // the interior runs are complete episodes.
+      const interior = runs(trace).slice(1, -1);
+      expect(interior.length, `${id}: not enough complete episodes to measure`).toBeGreaterThan(2);
+      for (const r of interior) {
+        expect(r % WALK_HOLD, `${id}: run of ${r} ticks is not a whole number of ${WALK_HOLD}-tick episodes`).toBe(0);
+      }
+      // Both decisions must actually occur, or "commits for 20 ticks" is vacuously true because it
+      // always walks. This is the assertion that fails if approachBias is ignored entirely.
+      expect(new Set(trace).size, `${id}: never hesitated in ${WALK_HOLD * 10} ticks`).toBe(2);
+    }
+  });
+
+  it("does not walk once it is already in range (the episode cancels, it does not resume)", () => {
+    for (const id of ids) {
+      const cfg = assembleCharacter(id, SHIPPED[id].data);
+      const probe = new Fighter(cfg, 0);
+      const min = Math.min(reachOf(probe, "attackLight"), reachOf(probe, "attackHeavy"));
+      // Strictly inside `myReach.min`, where step 4 must not press a direction at all.
+      const trace = approachTrace(id, WALK_HOLD * 3, Math.floor(min) - 10);
+      expect(trace.some(Boolean), `${id}: kept walking while already in range`).toBe(false);
+    }
+  });
+
+  it("arriving in range CANCELS the episode — it does not resume where it left off", () => {
+    // The assertion above is not enough on its own, and mutation testing is how that was found:
+    // deleting the `episodeTicks = 0` on the in-range branch left the whole suite green, because
+    // that branch returns before pressing anything either way. What the clear actually buys is this:
+    // a decision taken at 600px apart must not carry over to a fight that has since closed and
+    // re-opened. Without it the first episode after re-entering range is the leftover REMAINDER of
+    // the old one, which is both shorter than WALK_HOLD and not the roll the new distance deserves.
+    const cfg = assembleCharacter("brawler", SHIPPED.brawler.data);
+    const probe = new Fighter(cfg, 0);
+    const min = Math.min(reachOf(probe, "attackLight"), reachOf(probe, "attackHeavy"));
+    const inRange = Math.floor(min) - 10;
+
+    const w = new World(cfg, cfg);
+    w.match.phase = "fight";
+    w.match.introTicks = 0;
+    const cpu = new CpuController(1, "normal", 7);
+    const pin = (gap: number): void => {
+      w.fighters[0].reset(848 - gap / 2, 1);
+      w.fighters[1].reset(848 + gap / 2, -1);
+    };
+    const step = (gap: number): boolean => { pin(gap); const d = cpu.next(w); w.advance(DT, NONE); return d.left || d.right; };
+
+    // Spend PART of an episode out of range...
+    const partial = Math.floor(WALK_HOLD / 2);
+    for (let i = 0; i < partial; i++) step(600);
+    // ...walk into range, which must throw that decision away...
+    for (let i = 0; i < 3; i++) step(inRange);
+    // ...and back out: the run that follows must be a WHOLE episode, never `WALK_HOLD - partial`.
+    const after: boolean[] = [];
+    for (let i = 0; i < WALK_HOLD; i++) after.push(step(600));
+    expect(new Set(after).size, `the post-range episode split after ${WALK_HOLD - partial} ticks — the old decision resumed`).toBe(1);
+  });
+
+  it("reset() drops a committed episode so the next round does not start mid-decision", () => {
+    // The controller outlives both the automatic round transition and the Enter rematch. Without the
+    // clear in reset(), round 2 opens partway through a decision made in round 1 — the same reason
+    // `blockTicks` and the reaction timer are cleared there.
+    const cfg = assembleCharacter("brawler", SHIPPED.brawler.data);
+    const mk = (): World => {
+      const w = new World(cfg, cfg);
+      w.match.phase = "fight";
+      w.match.introTicks = 0;
+      w.fighters[0].reset(848 - 300, 1);
+      w.fighters[1].reset(848 + 300, -1);
+      return w;
+    };
+    const cpu = new CpuController(1, "normal", 7);
+    const fresh: boolean[] = [];
+    let w = mk();
+    for (let i = 0; i < WALK_HOLD; i++) { const d = cpu.next(w); fresh.push(d.left || d.right); w.advance(DT, NONE); }
+
+    // Half-spend an episode, then reset: the NEXT episode must be a full one, not the remainder.
+    const cpu2 = new CpuController(1, "normal", 7);
+    w = mk();
+    for (let i = 0; i < WALK_HOLD / 2; i++) { cpu2.next(w); w.advance(DT, NONE); }
+    cpu2.reset();
+    const after: boolean[] = [];
+    w = mk();
+    for (let i = 0; i < WALK_HOLD; i++) { const d = cpu2.next(w); after.push(d.left || d.right); w.advance(DT, NONE); }
+    // A full episode is uniform. Without the reset the first half carries the old decision's tail and
+    // the run splits, so this is exactly the assertion the missing clear turns red.
+    expect(new Set(after).size, "the episode after reset() was not a single whole decision").toBe(1);
+    // The control run matters, and only as a COMPARISON: `fresh.length === WALK_HOLD` on its own is
+    // tautological (it is the loop bound). What it is here to establish is that a controller on this
+    // seed produces a uniform first episode at all, so "uniform after reset" is not uniform for some
+    // unrelated reason — e.g. because this distance never walks.
+    expect(new Set(fresh).size, "the control episode was not uniform either, so the assertion above proves nothing").toBe(1);
+  });
+
+  it("guarding or swinging CANCELS the approach episode too, it does not park it", () => {
+    // Found by review, not by me: the in-range branch cleared the episode but the guard and attack
+    // branches above it `return` before ever reaching step 4, so a half-spent decision simply waited
+    // for the exchange to finish and then resumed with its remainder. A 3-tick remainder resuming
+    // after a block is precisely the sub-animation-frame walk this whole phase removes.
+    const cfg = assembleCharacter("brawler", SHIPPED.brawler.data);
+    const w = new World(cfg, cfg);
+    w.match.phase = "fight";
+    w.match.introTicks = 0;
+    const cpu = new CpuController(1, "hard", 11); // hard has the highest blockChance
+    const far = (): void => { w.fighters[0].reset(848 - 300, 1); w.fighters[1].reset(848 + 300, -1); };
+
+    // Spend part of an episode at a distance where it can only walk or hesitate.
+    const spent = Math.floor(WALK_HOLD / 2);
+    for (let i = 0; i < spent; i++) { far(); cpu.next(w); w.advance(DT, NONE); }
+
+    // Force a guard episode: hold P0 swinging at close range until the CPU commits to a block.
+    // Positions are NOT re-`reset()` inside this loop — that would drop P0 back to idle every tick,
+    // so it would never stay in an attack state and the CPU would have nothing to react to. (That is
+    // exactly how the first version of this fixture failed, which is why it is spelled out.)
+    w.fighters[0].reset(848 - 45, 1);
+    w.fighters[1].reset(848 + 45, -1);
+    const swing: [InputSnapshot, InputSnapshot] = [{ ...emptyInput(), heavy: true, heavyPressed: true }, emptyInput()];
+    let guarded = false;
+    for (let i = 0; i < 400 && !guarded; i++) {
+      w.fighters[1].health = 9999; // it has to survive long enough to be seen guarding
+      if (cpu.next(w).block) guarded = true;
+      w.advance(DT, swing);
+    }
+    expect(guarded, "fixture never got the CPU to guard, so it proves nothing").toBe(true);
+
+    // Back out to walking range: the next run must be a WHOLE episode, not the pre-guard remainder.
+    expectWholeEpisodes(cpu, w, far, `the pre-guard episode resumed with its ${WALK_HOLD - spent}-tick remainder`);
+  });
+
+  it("...and the same for committing to a SWING, which is a separate early return", () => {
+    // Two distinct `return`s bypass step 4, and covering only one of them is how the first version of
+    // this pair let the attack site regress silently: the guard test above stayed green with the
+    // attack-site cancel removed. One test per exit.
+    const cfg = assembleCharacter("brawler", SHIPPED.brawler.data);
+    const w = new World(cfg, cfg);
+    w.match.phase = "fight";
+    w.match.introTicks = 0;
+    const cpu = new CpuController(1, "hard", 5); // hard has the shortest reaction + cooldown
+    const far = (): void => { w.fighters[0].reset(848 - 300, 1); w.fighters[1].reset(848 + 300, -1); };
+
+    const spent = Math.floor(WALK_HOLD / 2);
+    for (let i = 0; i < spent; i++) { far(); cpu.next(w); w.advance(DT, NONE); }
+
+    // The swing has to happen at a distance where step 4 WOULD otherwise have run, or the in-range
+    // cancellation fires first and this test passes for the wrong reason — which is exactly what the
+    // first version did, at 45px, where `dist <= myReach.min` cancelled the episode before the CPU
+    // ever swung. The window that isolates the attack site is `min < dist <= heavy`: the heavy
+    // reaches, the shorter normal does not, so the approach branch is still live.
+    const probe = new Fighter(cfg, 0);
+    const light = reachOf(probe, "attackLight"), heavy = reachOf(probe, "attackHeavy");
+    const min = Math.min(light, heavy);
+    expect(heavy, "fixture needs a heavy that out-reaches the shorter normal").toBeGreaterThan(min);
+    const gap = Math.floor((min + heavy) / 2);
+    expect(gap).toBeGreaterThan(min);
+    expect(gap).toBeLessThanOrEqual(heavy);
+
+    let swung = false;
+    for (let i = 0; i < 600 && !swung; i++) {
+      w.fighters[0].reset(848 - gap / 2, 1);
+      w.fighters[1].reset(848 + gap / 2, -1);
+      w.fighters[0].health = 9999;
+      const d = cpu.next(w);
+      if (d.heavyPressed || d.specialPressed) swung = true;
+      w.advance(DT, NONE);
+    }
+    expect(swung, "fixture never got the CPU to swing outside its shorter normal, so it proves nothing").toBe(true);
+
+    expectWholeEpisodes(cpu, w, far, `the pre-swing episode resumed with its ${WALK_HOLD - spent}-tick remainder`);
+  });
+
+  it("does not burn episode ticks while the fighter cannot walk anyway", () => {
+    // next() is still called while attacking/stunned/airborne — world.ts drives the seam on every
+    // fight tick — and Fighter.think discards movement in all of them. An episode spent there would
+    // emerge from a knockdown with a few ticks left and stutter exactly as before.
+    //
+    // The obvious version of this test — lock the fighter, assert it never presses a direction —
+    // does NOT measure that, and a review caught it: it locks the fighter before any episode exists,
+    // so it passes against a mutation that decrements a live counter while still suppressing the
+    // press. What it has to do is spend part of an episode, lock, unlock, and count what is LEFT.
+    const cfg = assembleCharacter("brawler", SHIPPED.brawler.data);
+    const w = new World(cfg, cfg);
+    w.match.phase = "fight";
+    w.match.introTicks = 0;
+    const cpu = new CpuController(1, "normal", 7);
+    const pin = (): void => { w.fighters[0].reset(848 - 300, 1); w.fighters[1].reset(848 + 300, -1); };
+
+    // Spend a few ticks of a live episode while ACTIONABLE...
+    const spent = 4;
+    const before: boolean[] = [];
+    for (let i = 0; i < spent; i++) { pin(); before.push(dirOf(cpu.next(w))); w.advance(DT, NONE); }
+
+    // ...lock the fighter for longer than a whole episode. These ticks must cost the episode nothing.
+    let pressedWhileLocked = 0;
+    for (let i = 0; i < WALK_HOLD * 2; i++) {
+      pin();
+      w.fighters[1].applyHit(0, 30, 0, 0, false);
+      expect(ACTIONABLE.has(w.fighters[1].state)).toBe(false);
+      if (dirOf(cpu.next(w))) pressedWhileLocked++;
+      w.advance(DT, NONE);
+    }
+    expect(pressedWhileLocked, "asked to walk while locked in a non-actionable state").toBe(0);
+
+    // ...and on release the episode must have EXACTLY its remainder left, unchanged by the lock.
+    const after: boolean[] = [];
+    for (let i = 0; i < WALK_HOLD - spent; i++) { pin(); after.push(dirOf(cpu.next(w))); w.advance(DT, NONE); }
+    expect(
+      new Set([...before, ...after]).size,
+      `the episode changed decision across the lock — ${WALK_HOLD - spent} ticks should have survived it`,
+    ).toBe(1);
+    // And the tick after that is a NEW roll, so the run really was WALK_HOLD long and not longer.
+    pin();
+    const total = [...before, ...after];
+    expect(total.length).toBe(WALK_HOLD);
   });
 });

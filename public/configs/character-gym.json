@@ -513,7 +513,8 @@
           "path": "sprites/jiujitsu/crouchHeavy.png",
           "frames": 4,
           "fps": 10,
-          "loop": false
+          "loop": false,
+          "hit": 2
         },
         "special": {
           "path": "sprites/jiujitsu/special.png",

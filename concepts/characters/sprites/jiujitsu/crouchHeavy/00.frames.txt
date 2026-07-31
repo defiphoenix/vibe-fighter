@@ -1,0 +1,8 @@
+Re-sampled 2026-07-31 from concepts/characters/video/jiujitsu/crouchHeavy.mp4
+  md5 09a1a09f16360bc698283322e08c85f0, 97 frames @ 24fps
+source frames used, in cell order: 60, 74, 78, 82
+Why not the default even sampling (fps=N/4 -> 0, 24, 48, 72): this clip spends its first three
+seconds crouched and only lunges in the last ~20 frames, so the even sample put a STANDING pose in
+cell 0, two identical crouched guards in cells 1-2, and the only striking frame in cell 3. That is
+also why check:sync could not measure a contact frame for it -- a peak on the last frame is
+INDETERMINATE by design, and the registry had no `hit` for this one sheet alone.

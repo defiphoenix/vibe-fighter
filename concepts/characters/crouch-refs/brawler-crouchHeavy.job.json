@@ -1,0 +1,29 @@
+[
+  {
+    "created_at": "2026-07-31T09:51:33.025401Z",
+    "display_name": "Nano Banana Pro",
+    "id": "b37e4841-0629-423d-9da2-1d22f5ec403a",
+    "job_type": "nano_banana_pro",
+    "min_result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260731_095133_b37e4841-0629-423d-9da2-1d22f5ec403a_min.webp",
+    "params": {
+      "application": null,
+      "aspect_ratio": "3:4",
+      "batch_size": 1,
+      "height": 2400,
+      "input_image": null,
+      "input_images": [
+        {
+          "id": "e40c2ce8-06a7-46ac-8383-df8a2b2e9973",
+          "type": "media_input",
+          "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/e40c2ce8-06a7-46ac-8383-df8a2b2e9973.png"
+        }
+      ],
+      "prompt": "The SAME single brawler fighter from the reference image, in the SAME deep fighting crouch, seen from the side facing RIGHT, full body, both legs fully visible.\n\nKeep the crouch EXACTLY as low as the reference: hips dropped near his heels, back straight, torso upright, the top of his spiky brown hair at the SAME height as in the reference image. He does not stand up, does not lean forward, does not kneel, and does not lie down.\n\nChange ONE thing only: his LEADING leg — the one on the RIGHT side of the frame, the side he faces — is stretched out straight ahead of him along the floor in a long low sweeping lunge, knee almost straight and the sole of that sneaker skimming the ground far out in front of his body. His trailing leg stays folded underneath him bearing his weight, exactly as in the reference. His leading foot ends up a long way forward — roughly a full leg's length ahead of his hips, much further forward than any part of his body. Both fists stay up in a guard near his chin.\n\nKeep his exact appearance: red open jacket over a white tank top, blue jeans, red high-top sneakers, black fingerless gloves, spiky brown hair.\n\nFlat solid #FF00FF magenta background, completely uniform, nothing else in the frame. Locked static camera at his eye level. Exactly ONE character, no other people, no weapons, no props, no text, no logos. Full-bleed, no border, no vignette.",
+      "resolution": "2k",
+      "surface": null,
+      "width": 1792
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_39NQA67VSedtQ5uBFzAEQOzmzBh/hf_20260731_095133_b37e4841-0629-423d-9da2-1d22f5ec403a.png",
+    "status": "completed"
+  }
+]

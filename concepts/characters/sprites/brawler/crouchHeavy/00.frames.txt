@@ -1,0 +1,9 @@
+Regenerated + hand-sampled 2026-07-31.
+  clip: concepts/characters/video/brawler/crouchHeavy.mp4 (97 frames @ 24fps)
+  start image: concepts/characters/crouch-refs/brawler-crouchHeavy.png
+  source frames used, in cell order: 32, 40, 52, 64
+Not the default even sampling (fps=N/4 -> 0, 24, 48, 72): that lands cell 0 on the reference's
+already-extended lunge, which telegraphs the strike during the move's 8-tick startup. 32/40/52/64
+opens gathered and peaks on cell 2, which is what `hit: 2` declares.
+Measured on this arrangement: check:sync reach [-, 63, 71, 67] contact=2 spread 8px;
+audit:boxes limb 71 / air 28 (budget 30) OK.

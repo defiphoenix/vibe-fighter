@@ -554,6 +554,46 @@ because `loader.timeout` is unset — **for every asset class since Phase 02**, 
 one is the reusable half: a reviewer can be entirely right about a mechanism and wrong about whose
 phase owns it, so re-derive the blast radius before accepting the framing.
 
+## Phase 21 — the third leg, and a CPU that never finished a step (2026-07-31)
+
+Two defects found by PLAYING, not by any gate, and both invisible to the suite as it stood: **383
+unit tests and 175 browser passes**. (Those are the PRE-change numbers, deliberately — the post-change
+390/181 include the very cases written to catch these, so quoting them here would be circular.)
+
+**The brawler's crouch heavy literally drew a third leg.** Not a packing artifact — every cell was one
+connected component, so `drop_specks` had nothing to drop. The model was handed a STANDING start image
+and asked for a crouch AND a sweep, and answered by keeping both legs planted in a kneel and growing a
+new one to sweep with. Counting red shoe blobs in the source clip's ground band dates it exactly: two
+shoes on frames 0-42, three from frame 43 — the frame the kick starts — onward. That makes the clean
+window and the kick mutually exclusive, so **no re-sample of that clip could have fixed it**, which is
+the opposite of what the plan assumed after an eyeball pass over a contact sheet. Fixed by the lever
+`docs/lessons.md` already names twice: a dedicated start reference (the same crouch with the lead leg
+stretched along the floor). One prompt clause alone fixed the anatomy and still left the sweep 16px
+short of the box; the reference fixed both. The sweep sweep now measures limb 71 / air 28 against a 30
+budget. 2 video + 1 image generation spent.
+
+The roster-wide sweep that followed found a SECOND defect in the same state: `jiujitsu/crouchHeavy`
+spent three of its four cells not attacking (a standing pose in cell 0, two identical crouched guards
+in cells 1-2), and was the one attack sheet with no measured `hit` in the registry — because its only
+striking frame was the last one, which `check:sync` refuses by design. Re-sampled for free from its
+own clip; it now measures a contact frame. `monk/crouchHeavy` flagged on the same metric and is fine
+(robe hem, not a limb) — recorded as a false positive rather than "fixed".
+
+**Player 2 never finished a step, on every character.** Nothing in the render layer is asymmetric — P2
+is the CPU, and `cpu.ts` re-rolled `approachBias` every tick, giving a 1.8-tick expected walk run
+against an 83ms animation frame. `FighterSprite` restarts a loop on every state change, so `walkF`
+flickered against `idle` at 60Hz and the 8-frame cycle never left frame 0. The number nobody had ever
+measured: the LONGEST walk run in a whole match was 5.4-8.2 ticks against a cycle needing 40. The
+decision is now committed for `WALK_HOLD = 20` ticks; longest run is ~30 and an in-game capture walks
+cells 0 through 7. Difficulty was re-measured on the shipped roster rather than argued from the
+unchanged duty cycle — equal marginal probability is not equal difficulty, since per-window variance
+goes 4.95 -> ~99 — and held within seed noise with easy > normal > hard intact.
+
+**Nothing automated catches a third leg, and the phase log says so** rather than shipping a colour
+threshold that `monk/crouchHeavy` already false-positives. The P1/P2 parity spec added here was GREEN
+the day it was written, which is correct and is written down as such: the plan had claimed it would be
+red, and a test whose pass you misattribute to your fix misleads as much as one that cannot fail.
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git
