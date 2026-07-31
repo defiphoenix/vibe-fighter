@@ -569,7 +569,7 @@ window and the kick mutually exclusive, so **no re-sample of that clip could hav
 the opposite of what the plan assumed after an eyeball pass over a contact sheet. Fixed by the lever
 `docs/lessons.md` already names twice: a dedicated start reference (the same crouch with the lead leg
 stretched along the floor). One prompt clause alone fixed the anatomy and still left the sweep 16px
-short of the box; the reference fixed both. The sweep sweep now measures limb 71 / air 28 against a 30
+short of the box; the reference fixed both. The sweep now measures limb 71 / air 28 against a 30
 budget. 2 video + 1 image generation spent.
 
 The roster-wide sweep that followed found a SECOND defect in the same state: `jiujitsu/crouchHeavy`
@@ -593,6 +593,15 @@ goes 4.95 -> ~99 — and held within seed noise with easy > normal > hard intact
 threshold that `monk/crouchHeavy` already false-positives. The P1/P2 parity spec added here was GREEN
 the day it was written, which is correct and is written down as such: the plan had claimed it would be
 red, and a test whose pass you misattribute to your fix misleads as much as one that cannot fail.
+
+**Shipped to production 2026-07-31** (`1b7c7d8`), after a full adversarial QA pass that re-derived
+both headline claims instead of reading them off the phase log — leg count screenshotted at every
+cell, and the CPU walk measured across all **9** character x difficulty pairings rather than the 3 the
+committed spec covers. Its only substantive finding was a margin, not a defect: `brawler/crouchHeavy`
+now sits at air 28 of the 30 budget, the thinnest of the 21 sheets, so that one sheet has ~2px of room
+before `audit:boxes` reds. It also named two blind spots it could not close, which is why the pass was
+worth running: a black-box browser trace cannot distinguish a leaked CPU episode from a legitimate
+`cancelEpisode()`, and the 19x3 visual sweep was substituted with `audit:anim`'s coarser report.
 
 ## Deployment history
 
