@@ -83,6 +83,17 @@ export class Fighter {
    *  was pressed during the light. Reset every tick in world.tick(), set here on consumption. */
   consumed = { up: false, light: false, heavy: false, special: false };
 
+  /** Was this fighter knocked OUT of a special this tick? Set by `applyHit` when the hit arrives while
+   *  the fighter is still in `special`; reset every tick in world.tick() and OR-accumulated per advance
+   *  into `World.interruptedSpecials`, exactly like `consumed` above.
+   *
+   *  It is a SIM field rather than a render-side state comparison for one reason: a render frame can
+   *  drain 15 ticks, so from outside, "the special finished and its owner was hit two ticks later" and
+   *  "the special was interrupted" are the same observation — `special` at the start of the frame,
+   *  `hitstun` at the end, with the `idle` in between never sampled. Only the tick that applies the hit
+   *  can tell them apart, because only it can see the state the hit actually landed on. */
+  interruptedSpecial = false;
+
   /** Multiplier on the damage this fighter DEALS. 1 = the authored numbers; the render layer lowers
    *  it for a CPU opponent (see cpu.ts DAMAGE_SCALE). Deliberately NOT touched by reset(): it is a
    *  match-long handicap, not per-round state. */
@@ -320,6 +331,10 @@ export class Fighter {
   applyHit(damage: number, stun: number, kbx: number, kby: number, blocked: boolean): void {
     // Bumped FIRST so the KO branch below, which returns early, still counts as an episode.
     this.stunEpoch++;
+    // Same reason, same place: read the state BEFORE either branch overwrites it, so being KO'd out of
+    // a super still reports as the interruption it is. Keyed off the state, never off `blocked` —
+    // what makes this an interruption is the move it landed on, not how it was received.
+    if (this.state === "special") this.interruptedSpecial = true;
     this.health = Math.max(0, this.health - damage);
     this.vx = kbx; // world-space knockback (already signed by combat)
     if (!blocked && kby !== 0) {

@@ -603,6 +603,62 @@ before `audit:boxes` reds. It also named two blind spots it could not close, whi
 worth running: a black-box browser trace cannot distinguish a leaked CPU episode from a legitimate
 `cancelEpisode()`, and the 19x3 visual sweep was substituted with `audit:anim`'s coarser report.
 
+### Audio fix pass — bed level + the interrupted super (2026-08-01)
+
+Two defects left by Phase 20, both reported from play.
+
+**The beds were inaudible** at a normal device volume. Not a taste change and not free: `check:audio`
+hard-gates the worst-case one-frame mix (`hitHeavy` + `ko` + `roundEnd` over the ambience bed) at
+**-1.0 dBFS**. Measured against the shipped files, ambience at 0.6 puts that stack at **-1.15**, and
+0.65 lands on the ceiling exactly — so 0.6 is the top of the usable range, not a preference. Both beds
+went 0.35/0.4 → 0.6 (+4.7 dB and +3.5 dB). The doc comment in `audio-view.ts` was already stale by
+0.3 dB before the change, which is its own small lesson: a measured number in prose rots, and the
+reason the gate re-derives it from the files on every run.
+
+**The super sting outlived an interrupted super.** `sound.play(key)` returns a *boolean* — the instance
+is unreachable — so a 3.6 s sting rang on over a ~1.5 s special that had been stuffed. `super` now gets
+the one retained handle in the project, built eagerly so it sits inside every leak baseline and removed
+in `destroy()` like the bed. `stopByKey` is the tempting one-liner and is wrong: `stop()` tears down the
+buffer source so `COMPLETE` never fires, `pendingRemove` stays false, and every cut would leak a dead
+Sound — measured in the spec rather than asserted.
+
+**The interruption is a SIM signal, not a render-side inference**, and that is the part worth keeping.
+The first plan read it off a `special` → `hitstun` state transition; a Codex review proved that cannot
+work, because one frame drains up to 15 ticks and "the move ended and its owner was hit two ticks
+later" leaves the identical trail. `Fighter.interruptedSpecial` → `World.interruptedSpecials` mirrors
+`consumedInputs` exactly and is set in `applyHit` before the KO early return. The `src/sim/` lock was
+lifted for that, and nothing else: 29 inserted lines, no new event, no change to tick order, R-9
+untouched.
+
+**Mutation testing paid for itself five times.** Two "verified" mutations had silently no-op'd —
+`world.ts` and `audio-cues.ts` are CRLF, `fighter.ts` is LF, and a perl pattern ending in `\n` matches
+nothing and reports green. Chasing a mutation that stayed green found a real ordering bug (a super
+activated *and* interrupted inside one advance armed its watch after the resolve pass, so the
+per-advance flag was gone by the next frame); chasing another found that the director emitted both
+`play` and `stop` for that frame, and since the adapter stops before it plays, the sting started anyway
+for a move that never came out.
+
+**The Codex diff review then found three more**, after an independent QA agent had passed all eight of
+its own checks — worth recording, because the two reviews disagreed and the adversarial one was right.
+A timeout freezes its owner in `special` permanently (non-fight phases stop advancing fighter timers),
+so a match-deciding timeout rang the whole tail over the match-end menu with no `intro` ever coming;
+the phase cut is now `intro || matchEnd`, with `roundEnd` still excluded so a KO-scoring super keeps its
+payoff. The post-filter that dropped a cut super from `play` ran *after* `admit()` had stamped its
+cooldown, spending the 800 ms gap on a sound nobody heard — the exact defect `admit()` already documents
+one layer down. And no test covered the OR-accumulation: `||=` → `=` passed every sim test, because they
+all advanced one tick at a time.
+
+**The suspended-context trap resurfaced on `volume`.** The bed spec went intermittent reading `1.0`
+instead of `0.6`: Phaser's `volume` setter is `gain.setValueAtTime(v, 0)` and its getter reads
+`gain.value`, so on a context that has not resumed the write is merely pending — the same shape already
+written down for `sound.mute`. Neither getter is assertable; the seam reads `currentConfig.volume`.
+
+Three pre-existing leak specs had to change: all counted raw `sounds.length`, which the retained super
+legitimately shifts by one per live `GameAudio`. Rewritten to count what they actually claim. That
+surfaced a harness artifact worth knowing — `toFlow()` calls `game.scene.start("Flow")`, which starts
+Flow *without stopping* MatchScene, so SHUTDOWN never fires and the match ambience keeps playing under
+the menu music in any spec using it. The product Esc path stops the scene properly.
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git

@@ -36,6 +36,14 @@ export class World {
     { up: false, light: false, heavy: false, special: false },
     { up: false, light: false, heavy: false, special: false },
   ];
+  /** Was each fighter knocked OUT of a special during the LAST advance() call (OR-accumulated across
+   *  its ticks, same shape and same lifetime as `consumedInputs` above)?
+   *
+   *  Read by the render layer's audio to cut the super sting when the move it announced stops
+   *  happening. It has to be accumulated here rather than derived from state at the render edge: a
+   *  frame can drain 15 ticks, and a frame that contains the special's last tick AND a hit landing
+   *  afterwards looks exactly like an interruption from outside. See `Fighter.interruptedSpecial`. */
+  readonly interruptedSpecials: [boolean, boolean] = [false, false];
 
   private accumulator = 0;
   /** last seam handed to advance(), so a round reset can clear it. */
@@ -64,6 +72,7 @@ export class World {
     if (cpu) this.cpuSeam = cpu;
     let actionable = 0;
     for (const ci of this.consumedInputs) { ci.up = false; ci.light = false; ci.heavy = false; ci.special = false; }
+    this.interruptedSpecials[0] = this.interruptedSpecials[1] = false;
     // Working copy of the human snapshots so an edge consumed on one tick is masked out for the REST
     // of this batch. Without it a multi-tick advance replays the SAME physical press: e.g. an air
     // normal that lands mid-batch recovers to idle, and the still-set lightPressed fires a second,
@@ -95,6 +104,10 @@ export class World {
         this.consumedInputs[i].light ||= c.light;
         this.consumedInputs[i].heavy ||= c.heavy;
         this.consumedInputs[i].special ||= c.special;
+        // OR'd here, immediately after tick() returns, which is what makes it survive the freeze: the
+        // interrupting tick may itself end in KO or a fresh hitstop, and the NEXT tick clears the
+        // per-fighter flag before its early return. By then this aggregate already holds it.
+        this.interruptedSpecials[i] ||= this.fighters[i].interruptedSpecial;
         if (c.up || c.light || c.heavy || c.special) {
           cur[i] = {
             ...cur[i],
@@ -129,6 +142,7 @@ export class World {
     // reports nothing consumed and the render latch keeps buffering the edge.
     a.consumed.up = a.consumed.light = a.consumed.heavy = a.consumed.special = false;
     b.consumed.up = b.consumed.light = b.consumed.heavy = b.consumed.special = false;
+    a.interruptedSpecial = b.interruptedSpecial = false;
 
     // --- Phase management (non-fight phases don't simulate combat, don't consume input) ---
     if (this.match.phase === "intro") {

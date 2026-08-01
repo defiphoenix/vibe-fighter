@@ -605,6 +605,9 @@ export class MatchScene extends Phaser.Scene {
       this.world.consumedInputs,
       this.world.match.phase,
       time,
+      // Same lifetime and the same reason as consumedInputs above: OR-accumulated over the advance
+      // just run, so a stalled multi-tick frame cannot hide the moment the super was stuffed.
+      this.world.interruptedSpecials,
     );
 
     // Match-end menu: visibility tracks the phase, so a rematch and a directly-set phase both work.

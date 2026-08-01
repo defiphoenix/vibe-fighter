@@ -119,9 +119,29 @@ interface Tracked {
   grounded: boolean;
 }
 
+/**
+ * What a frame's audio should do: cues to START, and cues to CUT.
+ *
+ * `stop` exists for exactly one cue today — the ~3.6 s `super` sting, whose move is 1.5 s long, so it
+ * outlives even a super that COMPLETES. Every other cue is a short impact meant to overlap and layer,
+ * and none of them is ever cut; see `audio-view.ts` for why only the super is given a retained handle.
+ */
+export interface CueDecision {
+  play: CueKey[];
+  stop: CueKey[];
+}
+
 export class CueDirector {
   private prev: [Tracked, Tracked] | null = null;
   private lastAt = new Map<CueKey, number>();
+  /**
+   * Which fighters have a super sting still owed an ending, PER FIGHTER rather than one owner.
+   *
+   * `world.ts`'s freeze loop runs over BOTH fighters and can push a `special` event for each on the
+   * same tick. A single "who fired it" slot keeps only the last, so interrupting that one would cut
+   * the single shared sound instance while the other player's super is still going.
+   */
+  private superWatch: [boolean, boolean] = [false, false];
 
   /**
    * Decide what this frame should play.
@@ -135,8 +155,10 @@ export class CueDirector {
     consumed: readonly [ConsumedView, ConsumedView],
     phase: MatchPhase,
     nowMs: number,
-  ): CueKey[] {
+    interrupted: readonly [boolean, boolean] = [false, false],
+  ): CueDecision {
     const want = new Set<CueKey>();
+    const firedSuper: Array<0 | 1> = [];
 
     for (const e of events) {
       switch (e.type) {
@@ -145,12 +167,83 @@ export class CueDirector {
           break;
         case "block": want.add("block"); break;
         case "ko": want.add("ko"); break;
-        case "special": want.add("super"); break;
+        case "special":
+          want.add("super");
+          if (e.player !== undefined) firedSuper.push(e.player);
+          break;
         case "roundStart": want.add("roundStart"); break;
         case "roundEnd": want.add("roundEnd"); break;
         default: break; // matchEnd rides roundEnd's cue; it needs no second sound
       }
     }
+
+    // --- cut a super sting whose move stopped happening ------------------------------------------
+    //
+    // This frame's own `special` events arm their watches FIRST, and that order is load-bearing: one
+    // advance can carry both the activation and the interruption (a special whose `freeze` is short
+    // enough leaves live ticks in the same batch), and `interruptedSpecials` is per-advance, so that
+    // frame is the ONLY one that ever reports it. Arming afterwards would let the watch outlive the
+    // report, and the next frame — flag already reset, fighter in `hitstun` — reads as a clean
+    // completion. The sting would play out over a super that never came out.
+    //
+    // Resolving after arming stays correct for the two-super frame, because the loop below keys off
+    // `interrupted[i]` per fighter rather than off anything the arming changed.
+    //
+    // It also means a watch armed on THIS frame would be cut immediately by the `intro` branch below.
+    // That is unreachable rather than handled, and the reason is worth writing down because it is
+    // incidental: `world.ts` only pushes a `special` event while the phase is `fight`, and the phase
+    // cannot reach `intro` until ROUND_END_TICKS (~120) have counted down — far more than the 15 ticks
+    // `MAX_FRAME` lets one advance carry. So a `special` event and a `phase === "intro"` reading can
+    // never arrive in the same call. If either of those two numbers ever moves, this stops being true
+    // and the arming needs to skip the intro branch explicitly.
+    for (const p of firedSuper) this.superWatch[p] = true;
+    const stop: CueKey[] = [];
+    let cut = false;
+    if ((phase === "intro" || phase === "matchEnd") && (this.superWatch[0] || this.superWatch[1])) {
+      // The match moved on without the sim ever reporting an interruption. Two ways that happens, and
+      // neither routes through `applyHit`: a fresh round (the round timer expired, or Enter called
+      // `World.restart()`), and a match that is simply over.
+      //
+      // Checked BEFORE the per-fighter pass below, and that order is load-bearing: a new round stands
+      // both fighters up in `idle`, so the "no longer in the move => it finished" test would disarm
+      // the watch as a clean completion and this branch would never see it.
+      //
+      // `roundEnd` is deliberately EXCLUDED, which is the whole reason this is a phase list and not
+      // `phase !== "fight"`: a super that scores the KO drives the phase to `roundEnd` while its owner
+      // is still in `special`, and cutting there would silence the sting on the one moment it exists
+      // for. `matchEnd` is included because it is the terminal phase — a timeout landing mid-super
+      // freezes its owner in `special` forever (non-fight phases stop advancing fighter timers), and
+      // without this the tail rings over the match-end menu with no `intro` ever coming to clear it.
+      cut = true;
+      this.superWatch[0] = this.superWatch[1] = false;
+    }
+    for (let i = 0; i < 2; i++) {
+      if (!this.superWatch[i]) continue;
+      if (interrupted[i]) {
+        // The SIM said so. Never inferred from `state`: a frame can drain 15 ticks, and "the special
+        // ended and its owner was hit two ticks later" leaves exactly the same `special` -> `hitstun`
+        // trail as a real interruption. Only the tick that applied the hit could tell them apart.
+        cut = true;
+        this.superWatch[i] = false;
+      } else if (fighters[i].state !== "special") {
+        // Not interrupted and out of the move => it finished. Disarm, so a hit landing later cannot
+        // be read as interrupting a super that is already over.
+        this.superWatch[i] = false;
+      }
+    }
+    // ONE shared sound instance, so a still-running super vetoes the cut.
+    if (cut && !this.superWatch[0] && !this.superWatch[1]) stop.push("super");
+    // A super both STARTED and CUT on one frame never comes out at all, so it must not be played.
+    // The adapter stops before it plays (so a super re-fired as another is stuffed is not killed by
+    // its own frame), which means leaving it in would stop a sound that has not started — a no-op —
+    // and then start the sting for a move that was already over. Same call `world.ts` makes when it
+    // refuses to emit `special` for a super stuffed on its first frame (R-9).
+    //
+    // Dropped from `want` HERE rather than filtered out of `admit`'s result, and that matters:
+    // `admit` stamps the cooldown for every cue it returns, so filtering afterwards would burn the
+    // super's 800 ms gap on a sound nobody heard and silence the next real one. That is the exact
+    // defect `admit` already documents for the per-frame cap.
+    if (stop.includes("super")) want.delete("super");
 
     // --- movement + swing, derived from state transitions rather than events -----------------------
     //
@@ -191,7 +284,7 @@ export class CueDirector {
       { state: fighters[1].state, grounded: fighters[1].grounded },
     ];
 
-    return this.admit(want, nowMs);
+    return { play: this.admit(want, nowMs), stop };
   }
 
   /** A menu cue is stateless — the caller already holds both sides of the transition. Routed through

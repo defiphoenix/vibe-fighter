@@ -51,11 +51,33 @@ const STORE_KEY = "vf.muted";
  * ends). Summed at full volume those three peak at **+3.9 dBFS**: past the destination ceiling, which
  * is audible distortion on exactly the moment the game most wants to sound good.
  *
- * At 0.5 the same stack peaks at -2.1 dBFS with the ambience bed underneath it.
- * `scripts/build-audio.py --check` re-computes that worst case from the shipped files on every run, so
- * this number cannot silently stop being enough.
+ * At 0.5, with the ambience bed at its current 0.6 underneath, that stack peaks at **-1.15 dBFS**
+ * (the gate prints it rounded, as -1.1) — inside the -1.0 ceiling `scripts/build-audio.py` gates on,
+ * with 0.15 dB to spare.
+ * `scripts/build-audio.py --check` re-computes the worst case from the shipped files on every run and
+ * PARSES both this constant and the bed level out of this file, so neither number can silently stop
+ * being enough. That headroom is why the beds cannot simply be turned up further: 0.65 on the
+ * ambience lands exactly on the ceiling, and past it a KO clips.
  */
 const CUE_VOLUME = 0.5;
+
+/**
+ * Playback volume for the two looping beds.
+ *
+ * Raised from 0.35/0.4 after both were reported inaudible on desktop and on a phone without maxing the
+ * device volume. **The ternary below must stay literal and inline**: `scripts/build-audio.py` parses
+ * the ambience value straight out of this file's source with
+ * `volume: key === "menuMusic" \? [0-9.]+ : ([0-9.]+)` and exits if it does not match. That is
+ * deliberate — holding a second copy of the number in the gate is the R-14 defect shape, and it was
+ * briefly real: with a hardcoded copy, raising the volume here left the clipping gate perfectly green
+ * because it was checking itself.
+ *
+ * Measured on the shipped files: ambience at 0.6 puts the worst-case KO stack at -1.15 dBFS, +3.5 dB
+ * louder than the old 0.4. 0.65 would land on exactly -1.00 — the ceiling itself, no margin — so 0.6
+ * is the top of the usable range, not a preference. menuMusic is not in the gated stack (menu cues and
+ * fight cues never coexist) and rises +4.7 dB from 0.35; its own pessimistic worst case, summed
+ * COHERENTLY with `menuConfirm` at CUE_VOLUME, is -1.31 dBFS.
+ */
 
 /** Labels are WORDS, not invented glyphs — the same call `touch.ts` made for the pad, and for the same
  *  reason: a musical-note glyph is a font gamble and a crossed-out one is worse. The label shows the
@@ -100,6 +122,27 @@ export class GameAudio {
   private bed?: Phaser.Sound.BaseSound;
   private bedKey?: BedKey;
   private pendingBed?: BedKey;
+  /**
+   * The ONE retained cue instance, and it is retained for one reason: nothing else in this class can
+   * stop a sound it started. `sound.play(key)` adds an instance, wires `once(COMPLETE, destroy)` and
+   * returns a BOOLEAN — the instance is unreachable, so a cue plays to its end no matter what happens
+   * to the move that asked for it. `super.mp3` is 3.6 s against a ~1.5 s special, so an interrupted
+   * super rang out over a move that had stopped.
+   *
+   * Only this cue. The impacts are meant to overlap and layer, and tracking them would mean managing
+   * a pool to no purpose.
+   *
+   * `sound.stopByKey("super")` looks like the cheaper answer and is not: `stop()` tears down the
+   * buffer source, so `onended` -> `hasEnded` -> `COMPLETE` never fires, `pendingRemove` stays false,
+   * and `BaseSoundManager.update()` never splices it. Every interrupted super would leak a dead Sound
+   * into the game-global array for the session.
+   *
+   * Built EAGERLY in the constructor rather than on first use, which is not an optimisation: a
+   * lazily-added instance is created after any baseline an e2e takes and never destroyed, which turns
+   * the existing "one-shot cues self-destruct" leak assertion red on a correct fix. One instance for
+   * this object's whole life, one `remove()` in `destroy()`, inside every baseline.
+   */
+  private superSound?: Phaser.Sound.BaseSound;
   /** Kept so `destroy()` can remove the EXACT listener. `off(event)` with no handler would also strip
    *  a listener some other scene armed on the same game-global manager. */
   private unlockHandler?: () => void;
@@ -129,12 +172,25 @@ export class GameAudio {
    *  -key guard, which is precisely the failure it exists to detect. */
   private log: CueKey[] = [];
   private plays = 0;
+  /** Counts SUCCESSFUL stops, for the same reason `plays` counts successful plays: a counter bumped on
+   *  intent would keep rising with no sound having changed. */
+  private stops = 0;
 
   constructor(private readonly scene: Phaser.Scene) {
     this.width = scene.scale.gameSize.width;
     this.mutedFlag = loadMuted();
     scene.sound.mute = this.mutedFlag;   // a no-op while the context is suspended; re-applied on unlock
     this.armUnlock();
+    // Behind the same two guards `play()` documents, and for the same reasons: `sound.add` on an
+    // uncached key THROWS, and a device with no audio at all boots with an empty audio cache by
+    // design (see `audioAssetsRequired`). On such a device this stays undefined and `play("super")`
+    // returns at its own `cache.audio.exists` check without reaching either path — there is no sound
+    // to start and none to stop.
+    if (scene.cache.audio.exists("super")) {
+      try {
+        this.superSound = scene.sound.add("super", { volume: CUE_VOLUME });
+      } catch { /* an un-addable cue is not worth a crash; the fallback path covers it */ }
+    }
 
     this.plate = scene.add.image(0, BTN_Y, PAD_ATLAS, "pad-action")
       .setDisplaySize(BTN_D, BTN_D)
@@ -159,10 +215,29 @@ export class GameAudio {
         gain: () => (this.scene.sound as unknown as { masterMuteNode?: GainNode }).masterMuteNode?.gain.value ?? null,
         bed: () => this.bedKey ?? null,
         bedPlaying: () => this.bed?.isPlaying ?? false,
+        /**
+         * The level the LIVE bed instance is carrying, so a value edited in source but never applied
+         * fails here.
+         *
+         * Reads `currentConfig.volume`, deliberately NOT the `volume` getter. That getter returns
+         * `volumeNode.gain.value` while its setter is `gain.setValueAtTime(v, 0)` — the exact trap
+         * `mutedFlag` documents for `sound.mute`: on a context that has not resumed yet the write is
+         * merely SCHEDULED and the read comes back as the pre-scheduled 1. Measured here — the bed
+         * spec read 1.0 instead of 0.6 whenever it won the race against the unlock.
+         */
+        bedVolume: () =>
+          (this.bed as Phaser.Sound.BaseSound & { currentConfig?: { volume?: number } } | undefined)
+            ?.currentConfig?.volume ?? null,
+        /** The seam that proves a cue was STOPPED. A play counter cannot — it only counts up. This is
+         *  Phaser's own flag on Phaser's own instance: it reports that the sound is not sounding, not
+         *  that our code called something. */
+        superPlaying: () => this.superSound?.isPlaying ?? false,
+        stops: () => this.stops,
         locked: () => this.scene.sound.locked,
         button: () => this.plate.getBounds(),
         play: (cue: CueKey) => this.play(cue),
-        clear: () => { this.log = []; this.plays = 0; },
+        stop: (cue: CueKey) => this.stopCue(cue),
+        clear: () => { this.log = []; this.plays = 0; this.stops = 0; },
         toggle: () => this.toggle(),
       };
     }
@@ -203,13 +278,39 @@ export class GameAudio {
    */
   play(cue: CueKey): void {
     if (!this.scene.cache.audio.exists(cue)) return;
+    // The tracked `super` instance replays rather than spawning a second one. Phaser allows it:
+    // `BaseSound.play()` does not refuse while already playing, and `WebAudioSound.play()` tears the
+    // old buffer source down and starts a new one.
+    //
+    // That replay is audible as a restart, not a layer: the sample is 3.6 s and the cooldown in
+    // `audio-cues.ts` is 800 ms, so a second super cuts ~2.8 s off the first one's tail. That is the
+    // deliberate trade for one instance — a super announcing itself over the previous super's tail is
+    // the wrong sound anyway, and layering would need a pool this cue does not justify.
+    const tracked = cue === "super" ? this.superSound : undefined;
     try {
-      if (!this.scene.sound.play(cue, { volume: CUE_VOLUME })) return;
+      if (tracked ? !tracked.play() : !this.scene.sound.play(cue, { volume: CUE_VOLUME })) return;
     } catch {
       return;
     }
     this.plays++;
     if (import.meta.env.DEV) this.log.push(cue);
+  }
+
+  /**
+   * Cut a cue whose move stopped happening. Only `super` has a handle to cut — every other cue is a
+   * short impact meant to ring out, and asking to stop one is a silent no-op rather than an error.
+   *
+   * Guarded like `play()`: `stop()` on a revoked or closed context can throw, and this is called from
+   * the same `update()` path, where an exception stops the MATCH rather than just the sound.
+   */
+  private stopCue(cue: CueKey): void {
+    if (cue !== "super" || !this.superSound) return;
+    try {
+      if (!this.superSound.stop()) return;   // false when it was not playing; nothing changed
+    } catch {
+      return;
+    }
+    this.stops++;
   }
 
   /** Decide and play this frame's fight cues. `events` must be the batch the scene ALREADY drained —
@@ -221,8 +322,14 @@ export class GameAudio {
     consumed: readonly [ConsumedView, ConsumedView],
     phase: MatchPhase,
     nowMs: number,
+    interrupted: readonly [boolean, boolean] = [false, false],
   ): void {
-    for (const c of this.director.fight(events, fighters, consumed, phase, nowMs)) this.play(c);
+    const { play, stop } = this.director.fight(events, fighters, consumed, phase, nowMs, interrupted);
+    // STOP before PLAY. Both can name `super` on one frame — one player's is stuffed as the other's
+    // begins — and they share a single instance, so playing first would start the new sting and then
+    // immediately cut it.
+    for (const c of stop) this.stopCue(c);
+    for (const c of play) this.play(c);
   }
 
   /** Decide and play a menu transition. Called from FlowScene's single state-commit helper, so it
@@ -255,7 +362,7 @@ export class GameAudio {
   private beginBed(key: BedKey): void {
     if (this.disposed || this.bed) return;
     try {
-      this.bed = this.scene.sound.add(key, { loop: true, volume: key === "menuMusic" ? 0.35 : 0.4 });
+      this.bed = this.scene.sound.add(key, { loop: true, volume: key === "menuMusic" ? 0.6 : 0.6 });
       this.bedKey = key;
       this.bed.play();
     } catch { /* a bed that will not start is not worth a crash */ }
@@ -313,8 +420,11 @@ export class GameAudio {
   }
 
   /** `sound.mute` is game-global (one SoundManager per game), so the MECHANISM survives every
-   *  `scene.start` with nothing to hand over; `localStorage` carries the intent across a reload, and
-   *  `armUnlock` re-applies it if the graph was asleep when this was called. */
+   *  `scene.start` with nothing to hand over, and `localStorage` carries the intent across a reload.
+   *  A write made while the graph was asleep still lands on its own — `setValueAtTime(v, 0)` on a
+   *  suspended context stays SCHEDULED and applies once it resumes, which is why `armUnlock`
+   *  deliberately does NOT re-apply the mute (see the note inside it). What a suspended context
+   *  breaks is the GETTER, and that is what `mutedFlag` is for. */
   setMuted(v: boolean): void {
     this.mutedFlag = v;
     this.scene.sound.mute = v;
@@ -345,6 +455,13 @@ export class GameAudio {
       this.unlockHandler = undefined;
     }
     this.stopBed();
+    // Same rule as the bed, and the same reason: the SoundManager is game-global, so `stop()` alone
+    // would leave this instance in `sound.sounds` to accumulate one more on every Esc -> Flow -> match
+    // round trip. `remove()` destroys it and splices it out.
+    if (this.superSound) {
+      try { this.scene.sound.remove(this.superSound); } catch { /* already gone */ }
+      this.superSound = undefined;
+    }
     if (import.meta.env.DEV) delete (window as unknown as { __audio?: unknown }).__audio;
   }
 }
