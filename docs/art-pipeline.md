@@ -196,3 +196,44 @@ for free** rather than re-billing, because `generate get <id>` restores a result
   proves. Some criteria ("no text", "no logos", "distinct") have no honest metric; the visual checklist
   in a phase log is load-bearing, not decoration.
 - **A visual check beats a green gate.** Phase 07's portrait black-band passed every metric.
+
+## The build and gate scripts
+
+Commands are listed in [`../CLAUDE.md`](../CLAUDE.md#commands). What follows is what the command list
+cannot tell you.
+
+**Sprite rebuild ORDER MATTERS.** `build-sprites.py` derives each fighter's ONE scale from `idle` frame 0
+(`scale = 185/figure`), so regenerating an IDLE silently rescales every other sheet for that fighter and
+moves its measured contact frames by a pixel — enough to flip a sheet between ALIGNED and INDETERMINATE.
+Always:
+
+1. regenerate `idle` first,
+2. `npm run build:sprites`,
+3. `npm run check:sync --write`.
+
+The build itself is deterministic (same md5).
+
+**`build-sprites.py` keeps ONLY the largest connected component for `SOLID_BLOB_STATES` (`block`,
+`blockCrouch`)** — a held guard is one connected piece, so this scrubs the stray green key debris a noisy
+generated background leaves floating in the void (measured up to 211px, above the 0.5% speck floor
+`drop_specks` uses for every other state). Do NOT add jump/air/attack states to that set: they extend a
+fist or foot that a chroma-key AA gap can legitimately split off, and keep-largest would eat it.
+
+**`npm run audit:boxes` is a HARD GATE since Phase 19** (budget `AIR_GAP_MAX=30`; `--advisory` restores
+exit 0 for an art regeneration session). All 21 sheets pass — but `brawler/crouchHeavy` sits at air 28 of
+30 since Phase 21 (box reach kept at 113 for fighter parity, art limb 71), so that ONE sheet has ~2px of
+room: re-sampling it is very likely to red this gate, and a regeneration is the honest starting point.
+
+**Python deps are declared in `requirements.txt`** (Pillow, numpy, scipy — scipy for `build-atlases.py`'s
+`ndimage.label` and for `build-sprites.py`). None ship in the bundle. The scripts chain by `importlib` (a
+hyphenated filename blocks a plain import) so they can't drift apart: **`art_gate.py` owns the provenance
+gate (`check_job`), the shared-block check (`check_blocks`) and the re-exported `key-layers` thresholds**,
+and `check-characters.py`, `check-portraits.py` and `build-atlases.py` all import from it. Editing
+`art_gate.py` therefore edits all three gates — `check_job` is parameterised by
+directory/aspect/resolution/job_type/refs for exactly that reason. `check:characters` + `check:portraits`
+passing proves a change stayed a no-op for Phases 05/06, but that is **necessary, not sufficient**: both
+callers pass the old `3:4`/`2k` defaults, so `art_gate.py`'s own fixtures are what exercise the parameters.
+
+**`python scripts/build-atlases.py --pad`** is the only art command that runs on a fresh clone: the Phase
+19 touch-pad atlas is procedural, with no model and no `concepts/` input. Everything else needs the
+gitignored masters.

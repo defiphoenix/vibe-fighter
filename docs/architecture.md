@@ -3,8 +3,8 @@
 The plan-first architecture affirmation for building the fighting game **on top of** the starter,
 not rewriting it. This note is deliberately thin: it states the one rule everything follows,
 draws the layering boundary, proves the first-pass constraints against real code, and names the
-accepted gap list. Module-by-module detail lives in [`CLAUDE.md`](../CLAUDE.md) — the
-authoritative architecture reference — and is **not** duplicated here.
+accepted gap list. Module-by-module detail lives in [`sim-invariants.md`](sim-invariants.md) and
+[`render-notes.md`](render-notes.md) — the authoritative references — and is **not** duplicated here.
 
 Produced for [Phase 01](phases/01-architecture-and-delta-plan.md); certified in
 [01-architecture-log.md](phases/01-architecture-log.md).
@@ -17,14 +17,14 @@ simulation:
 - No Phaser anywhere under `src/sim/` — [`types.ts:1`](../src/sim/types.ts#L1) states it, and
   Vitest runs the sim in the `node` environment precisely because it has no browser dependency.
   Determinism extends the rule: no `Date.now`, no `Math.random`, no DOM (see
-  [`CLAUDE.md`](../CLAUDE.md) Architecture section).
+  [`sim-invariants.md`](sim-invariants.md)).
 - **Timing is always in integer ticks @ 60 Hz**, never wall-clock seconds. Space is pixels.
 - Determinism is the whole point: identical inputs produce identical state, which is what makes
   the sim unit-testable (`combat.test.ts`, `regression.test.ts`) and, later, replay/netcode-ready.
 
 **No later phase (02–16) rewrites this sim** — build phases extend or render it, art phases produce
-standalone assets, gate phases QA it. See `CLAUDE.md` for the module-by-module breakdown and the
-authoritative `tick()` step order.
+standalone assets, gate phases QA it. See [`sim-invariants.md`](sim-invariants.md) for the
+module-by-module breakdown and the authoritative `tick()` step order.
 
 ## Layering boundary
 
@@ -82,7 +82,9 @@ phases:
 
 ## Related docs
 
-- [`CLAUDE.md`](../CLAUDE.md) — authoritative architecture reference (sim module map, `tick()` step order, conventions).
+- [`sim-invariants.md`](sim-invariants.md) — sim module map, `tick()` step order, invariants.
+- [`render-notes.md`](render-notes.md) — the Phaser adapter side of the boundary.
+- [`CLAUDE.md`](../CLAUDE.md) — commands, non-negotiable rules, and the doc map.
 - [`PRD.md`](PRD.md) — vision, scope, phase index, current baseline.
 - [`traceability.md`](traceability.md) — source-step→phase and README-parity→phase→acceptance-test tables.
 - [Phase 01 spec](phases/01-architecture-and-delta-plan.md) · [Phase 01 gate log](phases/01-architecture-log.md).

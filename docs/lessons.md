@@ -1,9 +1,9 @@
 # Lessons: measure the claim against the thing it claims about
 
-Worked cases behind the rules in [`CLAUDE.md`](../CLAUDE.md)'s section of the same name. Each of these
-shipped for one or more phases and was invisible to the whole test suite, because the tests only ever
-compared code to other code. Read this before touching hit/hurt boxes, animation timing, or an art
-prompt. Narrative of what shipped when is in [`history.md`](history.md).
+The worked cases, and — at the end — [the rules they distil](#the-rules-distilled) plus
+[Balance](#balance). Each of these shipped for one or more phases and was invisible to the whole test
+suite, because the tests only ever compared code to other code. Read this before touching hit/hurt boxes,
+animation timing, or an art prompt. Narrative of what shipped when is in [`history.md`](history.md).
 
 **The shape is not confined to art.** Phase 16's R-13 is the same bug in the sim: the 60s timeout
 compared ABSOLUTE health between fighters who do not share a pool, so two fighters who never touched
@@ -273,3 +273,100 @@ every state change — so `walkF ↔ idle` flickered at 60 Hz and the 8-frame cy
   by rebuilding to a byte-identical PNG. Related: a *declared but missing* start-image override used
   to fall back silently to the standing idle — which IS the setup that produced the third leg, and is
   the default on any machine, since `concepts/**/*.png` is gitignored. Silence was the bug.
+
+## The rules, distilled
+
+These are the short forms. Every one has a worked case above; [`CLAUDE.md`](../CLAUDE.md) links here
+rather than repeating them.
+
+- **A box is a claim about a sprite.** Measure the strike: difference each frame against frame 0 and take
+  the y band of the furthest-forward moved pixels. Never eyeball it, and never trust the move's NAME
+  (`crouchHeavy`'s prompt said "low sweeping attack" for two phases while he punched at chest height).
+  `npm run audit:boxes` reports all 21 attack sheets and is a HARD gate (Phase 19); `registry.test.ts`
+  sweeps every special × defender × spacing for which stance turns damage into chip. **A threshold set to
+  the worst observed value cannot fail** — `AIR_GAP_MAX` sat at exactly 60 while four shipped sheets sat on
+  60, so the REACH-GAP branch was unreachable and the whole roster connected through up to 60px of visible
+  air. It is 30 now, with fixtures on BOTH sides of the boundary.
+- **An animation is a claim about a move.** Measure its LENGTH (`fps` is DERIVED in
+  `src/render/anim-timing.ts`, never authored), its PHASE (contact frame vs active window, measured by
+  `check:sync`; budget the wind-up `startup - 1` ticks for `PLAY_LAG_TICKS`), and whether the wind-up gets
+  enough ticks to be SEEN — the only honest lever there is drawing FEWER poses
+  (`attackStartFrame`/`stunStartFrame`).
+- **Every one of those metrics is VERTICAL and direction-blind.** A big vertical swing scores exactly as
+  well as the forward one that actually crosses the gap — so does a body lying flat on its back. Name the
+  TARGET in the prompt, and check the VISIBLE gap at max connect range, not the raw overshoot.
+- **Every art metric here is SILHOUETTE-shaped, so anatomy is invisible to all of them** (Phase 21). The
+  brawler's `crouchHeavy` shipped with a literal THIRD LEG and passed `check:sprites`, `audit:boxes` and
+  `audit:anim` (amp 0.93, no dead pairs) — an extra limb changes the silhouette *favourably* on every axis
+  they measure. It was found by counting shoe-coloured blobs in the source clip's ground band. That count
+  is deliberately **not** shipped as a gate: `monk/crouchHeavy` scores `[2, 4, 4, 2]` on it and is perfectly
+  fine (robe hem and sash), so any threshold catching the brawler is loose enough to be decoration. **A
+  contact sheet is not a measurement either** — an eyeball pass over ten sampled frames put the
+  clean/dirty boundary ten frames off and produced a plan built on a re-sample that could not have worked.
+- **Any cross-fighter comparison of an ABSOLUTE stat is suspect** — `maxHealth`, `scale` and the pushboxes
+  all differ per fighter. Compare shares (R-13) and effective reach (see Balance below).
+- **A test built on `config.ts`'s `TEST_DUMMY` cannot see a defect that lives in the SHIPPED registry.**
+  The fixture is hand-authored and does not move when `public/configs/character-gym.json` does. When a
+  change edits the registry, at least one test must READ the registry.
+- **When you fix a defect class, sweep the WHOLE class.** The attack-timing derivation skipped the other 15
+  sheets for two phases, and a fighter stood bolt upright through his entire knockdown.
+- **Measuring a guard from behind the guard tells you nothing** (Phase 20). `play()`'s cache check would
+  not go red, so it was deleted as unfalsifiable insurance — correct instinct, wrong conclusion. Every
+  probe had run with the `try/catch` still in place, swallowing the exception Phaser actually throws
+  (`Audio key "x" not found in cache`). Remove the OTHER guard too before concluding one is redundant. Same
+  shape as an instrument that saturates: `s16le` decoding reports a +2 dBFS master as 0.0, so a normaliser
+  calibrated through it under-corrects by exactly the amount it is over.
+- **Whenever a metric cannot fail, it is decoration** — check what would turn it red before trusting it.
+  The audit's own length column was 1.00 by construction: code checked against code, inside the tool built
+  to stop exactly that.
+- **A mutation you have not confirmed APPLIED is a false green** (2026-08-01 audio pass). This repo has
+  mixed line endings — `world.ts` and `audio-cues.ts` are CRLF, `fighter.ts` is LF — so a `perl -0pi`
+  pattern ending in `\n` silently matches nothing and the suite reports PASS, which reads exactly like "the
+  test does not cover this". Two mutations were wrongly cleared that way. Grep for the mutated text before
+  trusting the result, or mutate through `python`'s `bytes.replace` with an `assert` that it changed.
+  Corollary, and the bigger prize: **when a mutation stays green, the bug is as likely to be in the CODE as
+  in the test.** Three real defects in that pass were found by asking why a mutation survived, not by the
+  test that was supposed to catch it.
+- **A frame-sampled observer cannot reconstruct a within-frame sequence** (2026-08-01). `advance()` drains
+  up to 15 ticks but the render layer reads state ONCE, so "the move ended and its owner was hit two ticks
+  later" and "the move was interrupted" leave an identical `special` → `hitstun` trail. No arrangement of
+  events, states or `consumedInputs` separates them. When the render layer needs to know WHICH of two
+  orderings happened inside one advance, the answer is a per-advance flag OR-accumulated in the sim
+  (`consumedInputs` is the pattern; `interruptedSpecials` is the second instance) — not a cleverer
+  comparison at the edge.
+- **A WebAudio getter is not a readback** (Phase 20, again in 2026-08-01). Both `sound.mute` and
+  `sound.volume` set via `gain.setValueAtTime(v, 0)` and read via `gain.value`, so on a context that has
+  not resumed the write is merely SCHEDULED and the read returns the old value. Measured twice, two phases
+  apart, on two different properties. Never assert on either getter — keep the intent (`mutedFlag`) or read
+  the config Phaser stored (`currentConfig.volume`).
+- **A number in prose rots; a number a script recomputes cannot.** The measured headroom comment in
+  `audio-view.ts` was already 0.3 dB stale before anyone touched it. `check:audio` PARSES the volumes out
+  of the TypeScript and re-derives the mix from the shipped files precisely so the two cannot drift — which
+  is why that ternary must stay literal and inline, and why a "tidy" extraction to a named constant breaks
+  the gate rather than the gate quietly accepting it.
+- **A held state must not loop if any frame leaves the pose**; `blockCrouch` loops precisely because every
+  frame stays in the low guard. Do not reintroduce a bob — a LOOP of near-identical held frames already is
+  a steady guard.
+- **The REFERENCE is the lever, not the wording**, and prefer the prompt that MEASURED best over the one
+  that reads best. `--start-image` dominates, so a bad reference cannot be argued out of the model; measure
+  a new reference against the one it replaces before spending a video credit. The model lands a strike
+  HIGHER than you ask — name the joint one lower. The forgotten prompt variable is the SAMPLING RATE: ask
+  for a HOLD at full extension, or name the cycle COUNT. Change ONE clause at a time and measure —
+  run-to-run variance is real (five samples of one sheet: sd ≈ 4.6px), so a single better sample is not a
+  better prompt. Detail in [`art-pipeline.md`](art-pipeline.md).
+
+## Balance
+
+**Compare fighters by EFFECTIVE reach (`hit.x + hit.w − own pushbox half`), never by raw hit-box reach.**
+The monk's art is a wide low stance, so his pushboxes are bigger (`pushStand 60` / `pushCrouch 76` vs 56 /
+60), which parks him further from the opponent and lands the same nominal hit box short — he played as if
+his moves "didn't reach" even though they executed and connected. A wide-bodied character needs
+correspondingly longer hit boxes just to break even. `reach-parity.test.ts` pins it. Only `w` was changed —
+**`y`/`h` decide high/low, so never touch them for a reach tweak**.
+
+**A roster-wide reach change must be a UNIFORM DELTA PER ATTACK, never a per-fighter target** (Phase 19,
+when all 21 boxes were trimmed to a 30px visible-air budget). Trimming each fighter to the same `air` sets
+`far = limb + 44`, which makes effective reach `limb + 44 − pushHalf` — i.e. it erases the monk's pushbox
+compensation by construction and reds `reach-parity.test.ts` (jiujitsu light 90 vs monk 85). Subtracting
+the SAME delta from all three moves every far edge equally, so the ordering and every pairwise difference
+survive untouched and the parity test is green by arithmetic rather than by luck.
