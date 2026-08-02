@@ -659,6 +659,82 @@ surfaced a harness artifact worth knowing — `toFlow()` calls `game.scene.start
 Flow *without stopping* MatchScene, so SHUTDOWN never fires and the match ambience keeps playing under
 the menu music in any spec using it. The product Esc path stops the scene properly.
 
+## CPU strength pass (2026-08-01) — NOT deployed
+
+The CPU was too easy: a competent human beat Hard comfortably. Diagnosed rather than guessed, and the
+arithmetic was the finding. Hard's cooldown decrements *through its own attack*, so the binding
+constraint was the cooldown alone — 48–65 ticks, mean 56.5, against a 15-tick brawler light. That is a
+**3.77:1 offence deficit**, and on top of it `DAMAGE_SCALE.hard = 0.85` left Hard landing **~22.6% of
+the player's damage throughput** at equal accuracy. It also had no branch that recognised a punish
+window, no anti-air, no wake-up option, and could only ever press *toward* you.
+
+Four behaviours added, all reading state the opponent has already committed to (a move already started,
+a jump already past its apex, a stun already applied) — no read-ahead, no input peeking. Detail and the
+four rules that hold them together: [`sim-invariants.md`](sim-invariants.md#the-cpu).
+
+**Measured on held-out seeds** (tuned on 1–48, gated on 101–148, which were never looked at while
+tuning): Hard takes **63.2%** of rounds against a scripted competent human, Normal 16.8%, Easy 0%;
+head-to-head Hard beats Normal 48/48 and Normal beats Easy 48/48; **117 of 117 rounds ended in a KO**,
+so it wins by fighting rather than by running the clock down. The tuning set read 67.3%, and the gap
+between the two sets is the evidence the table generalises instead of passing its own exam.
+
+`qa19-adversarial`'s "a full match is winnable on hard" — the beatability floor the earlier
+`cpu-difficulty` pass deliberately established — **still passes unchanged**. What did break there was a
+hardcoded `[0.55, 0.7, 0.85]`, a second copy of `DAMAGE_SCALE` that went stale the moment the CPU was
+re-tuned and failed on the scale assertion without ever reaching the winnability question. Both e2e
+specs now import the real table.
+
+**Two Codex reviews, and both earned their keep.** The plan review found 22 problems including one that
+would not have compiled (`attackSimTicks` takes `AttackData`, not the `AttackSpec` the plan passed it)
+and three that would have made the tuning gate lie — a direct-`world.tick()` harness resets no
+controllers and applies no `DAMAGE_SCALE`. The diff review found that "easy is byte-identical" was a
+false green: the guard-suppression applied to every tier, but the fixture's opponent never attacked, so
+that path never ran. The measurement lessons are in [`lessons.md`](lessons.md#a-fixture-can-switch-off-the-thing-it-is-testing-2026-08-01-cpu-strength-pass).
+
+**Known and deliberately not fixed:** `blockTicks` counts down while the CPU is knocked down, where
+`think()` discards the guard entirely — the hold is spent on nothing and the CPU emerges holding only
+its tail. A fifth behaviour change on top of four, perturbing guard timing Phase 13b was tuned against;
+recorded rather than rushed.
+
+**No independent QA agent was run against this pass.** Both reviews were Codex; the browser evidence is
+the existing e2e suite plus two new specs. That gap is deliberate and is the first item for the next
+session.
+
+## Phase 23 — the decisions the CPU spent while it could not act (2026-08-02, not deployed)
+
+The QA pass Phase 22 never had, plus the D11 fix. **The QA verdict was "do not deploy", and it was
+right.** Full write-up in [`phases/23-cpu-lock-discipline.md`](phases/23-cpu-lock-discipline.md).
+
+The two biggest findings were not about D11. **The "competent scripted human" every strength number was
+gated against could not block** — it entered `blockstun` 0 times in 48 matches while taking 1,169 hits,
+because its whiff-punish counted attack *startup* as punishable, so it answered the first frame of every
+CPU attack with a 33-tick heavy and was still locked in it when the active frames landed (96% of the
+hits it took). Fixed by extracting `oppHelpless` as an exported `isHelpless()` and having both use one
+definition; block rate 0.2% → 17%. And **a masher beats every tier 100%**, which no CPU knob can change
+— the brawler light is plus-on-hit at point blank, and frame data was out of scope. Pinned as a
+characterisation test rather than quietly dropped.
+
+D11 itself was three defects, and the phase doc had named the smallest: `knockdown` is 0.3% of the
+burned hold-ticks, the CPU's own attack is 46%, and `blockstun` — half the raw count — is **not waste at
+all**, because the fighter is genuinely guarding there. Both Codex and the QA agent found that exemption
+independently; without it the "fix" is a 14-point guard-length buff in exactly the Phase 13b timing D11
+was deferred to avoid. Two further sites had no `canAct` guard: the `punished`/`antiAired` latches, and
+`reacted` at 38.4%.
+
+Because the proxy was repaired, the re-tune went **up**, not down: against an opponent that can actually
+block, the unmodified Phase 22 controller scores 30.1%. Then Codex's diff review found the repaired proxy
+*still* could not whiff-punish — its guard branch returned through recovery and beat the punish branch by
+exactly one tick (6,971 guard returns against 92 punishes) — which forced a second round. Against an
+opponent that both blocks and punishes, cadence saturates, so round two moved the chance knobs instead:
+hard `punishChance` 0.54 → 0.97, `blockChance` 0.47 → 0.90, alongside `attackCooldown` 35 → 20. Hard now
+pools to **61.3% [57.5, 64.9]** over six never-swept 48-seed blocks plus a 200-seed block at 64.8% —
+inside the 60–70% target, against Phase 22's 53.0–65.8% spread on an opponent that guarded nothing. All
+four easy trace hashes hold, checked against the pre-Phase-22 build.
+
+Still not fixed and now measured rather than assumed: the masher sweep, and the anti-air branch, which is
+inert in match play (controlled descent-vs-ascent measurement gives normal a ratio of 0.78 — no
+detectable effect).
+
 ## Deployment history
 
 The repo went live and **private** at `roiizchak/vibe-fighter` on 2026-07-22, wired to Vercel by git

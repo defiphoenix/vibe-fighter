@@ -12,8 +12,14 @@ Rendering uses **default LINEAR antialiasing — no `pixelArt`** — because the
 Art direction is **rooftop-dusk**, locked in Phase 03. Roster is **brawler / jiujitsu / monk** — those ids
 are canonical from `concepts/characters/` through to `public/sprites/<id>/`.
 
-Built in phases. **Phases 00–21 are shipped**, including the fix passes between them; specs and gate
-results are in [`docs/phases/`](docs/phases/) and the narrative is [`docs/history.md`](docs/history.md).
+Built in phases. **Phases 00–21 are shipped**, including the fix passes between them. **Phases 22 (CPU
+strength) and 23 (CPU lock discipline + the Phase 22 QA remediation) are written and green but NOT
+deployed.** Phase 23 ran the independent QA Phase 22 never had; its verdict was "do not deploy" and it
+found two blockers, so read [`docs/phases/23-cpu-lock-discipline.md`](docs/phases/23-cpu-lock-discipline.md)
+before [`22-cpu-strength.md`](docs/phases/22-cpu-strength.md), which now carries inline corrections.
+Two known limitations are measured and deliberately unfixed there: a masher sweeps every tier (frame
+data, out of scope), and the anti-air branch is inert in match play. Specs and gate results are in
+[`docs/phases/`](docs/phases/) and the narrative is [`docs/history.md`](docs/history.md).
 `prompts.pdf` holds the original spec.
 
 ## Commands

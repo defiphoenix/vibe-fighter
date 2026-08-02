@@ -2,6 +2,8 @@ import { test, expect, devices, type Page } from "@playwright/test";
 import { MATCH, pump, ready as harnessReady } from "./harness";
 import { touchLayout, type TouchButton, TOUCH_BUTTONS } from "../src/render/touch";
 import { STAGE_HEIGHT, STAGE_WIDTH, VIEW_WIDTH } from "../src/sim/constants";
+import { DAMAGE_SCALE } from "../src/sim/cpu";
+import type { Difficulty } from "../src/sim/cpu";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -411,7 +413,12 @@ test.describe("reach and winnability", () => {
   /** Winnability, per difficulty, driven through the REAL `CpuController` on `World.advance` — the same
    *  seam MatchScene uses — inside one page.evaluate so a whole best-of-3 costs milliseconds instead of
    *  20 000 rendered frames. The player is a script: close the gap, then alternate heavy. */
-  for (const [difficulty, scale] of [["easy", 0.55], ["normal", 0.7], ["hard", 0.85]] as [string, number][]) {
+  // Read from the REAL table. These were hardcoded as [0.55, 0.7, 0.85] — a second copy that went stale
+  // the moment the CPU was re-tuned, and failed on the SCALE assertion below without ever reaching the
+  // winnability question it exists to ask. A spec that owns a duplicate of a balance number fails for
+  // the wrong reason and teaches you to edit the literal instead of asking why it moved.
+  for (const difficulty of ["easy", "normal", "hard"] as Difficulty[]) {
+    const scale = DAMAGE_SCALE[difficulty];
     test(`a full match is winnable on ${difficulty}`, async ({ page }) => {
       test.slow();
       await harnessReady(page, { route: MATCH, needs: ["__world", "__game"] });

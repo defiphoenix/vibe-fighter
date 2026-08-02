@@ -274,11 +274,111 @@ every state change — so `walkF ↔ idle` flickered at 60 Hz and the 8-frame cy
   to fall back silently to the standing idle — which IS the setup that produced the third leg, and is
   the default on any machine, since `concepts/**/*.png` is gitignored. Silence was the bug.
 
+## A fixture can switch off the thing it is testing (2026-08-01, CPU strength pass)
+
+Four new CPU behaviours, four tests written red-first, and the interesting failures were all in the
+MEASUREMENT rather than the code.
+
+**The seed set silently disabled the branch under test.** `cpu.ts` runs RAW xorshift32 with no warm-up,
+so on a tiny seed the first output is ~0.00006 — the trap `scenes/roll.ts` was written to document and
+which `cpu.ts` never adopted. Seeded `1..20`, the CPU therefore passed the *first* chance it happened to
+roll on all 20: it blocked every time, returned early, and the punish branch behind that return was
+never reached. 0/20 reads exactly like a dead feature. Production never sees it (the default seed is
+`0x2f6e2b1`), but **a test that picks its own seeds must Knuth-mix them**. The tell was that the
+stun fixture worked and the recovery fixture did not — the difference was an opponent whose state made
+an earlier branch fire.
+
+**A zero-probability roll is not a no-op.** Adding the punish branch consumed one `rand()` per eligible
+tick, and a draw taken for a chance of ZERO still advances the shared stream. Every later decision on
+`easy` moved, and easy started KO'ing the idle player its own survivability test pins as unbeatable —
+a tier with none of the new behaviour, broken by the new behaviour. Gating each roll on `knob > 0` fixes
+it and buys a much stronger property than "easy is about the same": **easy is byte-identical**, pinned by
+a trace hash. Generalises: when a parameter turns a behaviour off, check whether it also turns off the
+*draw*.
+
+**...and the hash that proves it can still be blind.** The first identity fixture ran against an IDLE
+opponent, so `isAttackState(opp.state)` was never true and the entire guard branch — including the
+recovery-suppression added to it — never executed. Easy's guard behaviour could have changed completely
+with that hash green. Found by a Codex diff review, not by the suite. **A characterisation hash is only
+as good as the code paths its fixture reaches**; the second fixture attacks on a cadence, and the fix was
+verified by running the OLD controller and the new one side by side on the same tree (`git show
+HEAD:src/sim/cpu.ts` into a scratch module) rather than by inspection.
+
+**Raising one knob silently gutted another behaviour.** Hard's `blockChance` 0.22 → 0.72 cut its
+conversion of a whiffed heavy from ~40/60 to 14/60 without a line of punish code changing: a recovering
+opponent is still an *attacking* one, so the guard roll fired first and returned before the punish. Two
+knobs that read as independent in the table were coupled through the step order. The fix (don't guard a
+move whose active frames are spent) is also just correct — there is nothing left to block.
+
+**A threshold derived from a knob outlives a tuning pass; a literal does not.** The behaviour floors were
+first written as literals against the pre-tuning knobs, and dialling hard down to hit the 60–70% target
+reddened three tests that were measuring nothing wrong. `chanceFloor(n, p)` reads the live knob. It needs
+its **ceiling** too — a floor alone passes an implementation that fires on every eligible trial, which is
+what dropping the one-roll-per-window latch would produce.
+
+**Tune on one seed set, gate on another.** Knobs were dialled against seeds 1–48 and the shipped gates
+run 101–148, never looked at while tuning. The two sets landing at 67.3% and 63.2% is the evidence that
+the table generalises; a single set would only have proved it passes its own exam. Same discipline the
+`aggression is monotonic` test already needed for a different reason — and when that test tied at 7-vs-7
+here, the fix was a LONGER measurement window, not a looser `<`.
+
+**A win rate alone cannot tell "stronger" from "more passive".** Blocking plants the fighter, the round
+still ends on the timer, and the timeout goes to whoever chipped more — so a turtle scores the same
+number as a threat. The ladder additionally asserts that ≥70% of hard's wins end in a KO (measured:
+117/117) and that it out-attacks its opponent **within the same pairing** — the first cut compared hard's
+attacks in hard-vs-normal against normal's in a *different* normal-vs-easy run, which can swing on match
+length or on who the opponent was.
+
+## The opponent is half of every measurement (2026-08-02, Phase 23 QA)
+
+Phase 22's whole gate table was a statement about the CPU *relative to a scripted opponent*, and nobody
+ever measured the opponent. It could not block. Not "blocked rarely" — it entered `blockstun` **0 times
+across 48 matches** while taking 1,169 hits, and hard's win rate was byte-identical at reaction delays
+6, 12, 18 and 30, because the branch never once decided anything.
+
+Three things generalise.
+
+**A parameter that changes nothing is a dead branch, and that is cheap to check.** Sweeping
+`reactionDelay` and getting the same number four times is a one-line experiment that would have found
+this immediately. Do it for any tuning knob whose effect you have not seen with your own eyes.
+
+**The obvious diagnosis was wrong, and only instrumentation said so.** "The 12-tick delay lands after
+every active frame" is true and sounds sufficient — but the block branch was *reached* on 79.8% of the
+ticks the CPU was attacking. The real cause was one predicate away: the whiff-punish counted attack
+STARTUP as punishable, so the opponent answered frame 1 of every attack with a 33-tick heavy and was
+still locked in it when the hit landed. **96% of the hits it took arrived while it was in its own
+`attackHeavy`.** Both the fix I first proposed and the one QA proposed were wrong; the census of
+"what state was it in when it got hit" was what settled it.
+
+**A second definition of a concept the codebase already has is where this comes from.** `oppHelpless`
+was correct in `cpu.ts` and re-written wrongly in the test harness thirty lines away. One exported
+`isHelpless()` now serves both. When a test needs the same judgement production makes, import it.
+
+The same session's corollary about controls: **easy is not always the null.** Counting the CPU's swings
+during an opponent's descent scores easy 27 — with `antiAirChance: 0` — because ordinary swings
+sometimes coincide. The pre-Phase-22 controller, which has no anti-air branch at all, scores on that
+counter too. The honest control was the *same tier's* rate during ASCENT: identical cadence, identical
+range, differing only in the condition the branch keys on. It showed the behaviour adds ~0.5pp on hard
+and nothing measurable on normal — so the test was deleted rather than shipped, because a signal that
+weak is a flake waiting to happen.
+
+**And a fix can be a buff wearing a bug's clothes.** D11 said the block hold burns on ticks that discard
+it. True — but `blockstun` was half those ticks and the fighter is genuinely guarding there
+(4063/4063 resolve `guarding === true`). Cancelling them *lengthens* guard. The un-exempted "fix"
+measured 94.6% against 80.7% for the correct one: 14 points of win rate that would have shipped as a bug
+fix. Before removing waste, check that it is waste.
+
 ## The rules, distilled
 
 These are the short forms. Every one has a worked case above; [`CLAUDE.md`](../CLAUDE.md) links here
 rather than repeating them.
 
+- **A benchmark is a claim about an OPPONENT as much as about the thing benchmarked.** Measure what the
+  opponent actually does, not what its docstring says: Phase 22's "competent human" blocked 0 of 1,169
+  hits. Sweep every tuning parameter once and confirm the number MOVES — a parameter with no effect is a
+  dead branch. And never let a test hand-roll a judgement production already makes (`isHelpless`).
+- **Check that waste is waste before you remove it.** Half of D11's "burned" block-hold ticks were
+  `blockstun`, where the fighter is guarding for real; cancelling them is a 14-point buff, not a fix.
 - **A box is a claim about a sprite.** Measure the strike: difference each frame against frame 0 and take
   the y band of the furthest-forward moved pixels. Never eyeball it, and never trust the move's NAME
   (`crouchHeavy`'s prompt said "low sweeping attack" for two phases while he punched at chest height).
@@ -319,6 +419,15 @@ rather than repeating them.
 - **Whenever a metric cannot fail, it is decoration** — check what would turn it red before trusting it.
   The audit's own length column was 1.00 by construction: code checked against code, inside the tool built
   to stop exactly that.
+- **A fixture can switch off the branch it is testing** (2026-08-01, CPU pass). Three shapes, all found by
+  asking why a number was 0 rather than by a green suite: a seed set that made an EARLIER branch fire every
+  time (raw xorshift32 emits ~0.00006 on a small seed — Knuth-mix any seed a test picks); a
+  characterisation hash whose fixture never reached the changed code path (idle opponent, so the guard
+  branch never ran); and a knob raised in one row silently gutting a behaviour in another through the step
+  order. **Derive a threshold from the live knob, never a literal** — and give it a CEILING as well as a
+  floor, or an implementation that fires on every eligible trial passes. **Tune on one seed set and gate on
+  another.** And **a win rate cannot separate "stronger" from "more passive"** — assert KOs and
+  attacks-within-the-same-pairing beside it.
 - **A mutation you have not confirmed APPLIED is a false green** (2026-08-01 audio pass). This repo has
   mixed line endings — `world.ts` and `audio-cues.ts` are CRLF, `fighter.ts` is LF — so a `perl -0pi`
   pattern ending in `\n` silently matches nothing and the suite reports PASS, which reads exactly like "the

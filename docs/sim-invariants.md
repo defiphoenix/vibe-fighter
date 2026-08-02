@@ -160,8 +160,22 @@ parked in the 3px gap dealing ZERO damage for a whole round; and **`cpu.test.ts`
 shipped registry**, because `config.ts`'s `TEST_DUMMY` was never trimmed and cannot express the inverted
 case at all.
 
+**Difficulty is ONE code path and three parameter rows**, and the rows are not monotone in the same
+direction: `attackCooldown`, `cooldownJitter` and `reactionTicks` fall as difficulty rises while every
+chance knob rises. `KNOB_DIRECTION` declares which, and the test asserts against it — a single blanket
+`easy <= normal <= hard` is exactly backwards for three knobs and goes green on a CPU tuned in reverse.
+**`DAMAGE_SCALE.hard` is 1.00** (was 0.85): hard deals the authored numbers, no handicap and no bonus,
+because a swing every ~56 ticks against a human's 15-tick light already left it landing ~22% of the
+damage throughput of the player it was meant to threaten. Easy and normal keep a real handicap.
+
 **`cpu.ts`'s approach decision is committed for `WALK_HOLD` (20) ticks, not re-rolled per tick** (Phase
-21). `approachBias` used to be a per-tick coin flip, which at `normal` gives a 1.8-tick expected `walkF`
+21), and since 2026-08-01 it commits to one of THREE outcomes — advance, hold, or **retreat**. Retreat is
+eligible only inside the opponent's reach and outside the CPU's own (the gap where they can hit you and
+you cannot answer); backing off from across the stage is just running away, and a CPU that does it never
+closes and times every round out. The composition is a CONDITIONAL, not a partition — `spacingBias` is
+rolled first and `approachBias` still decides advance-vs-hold on everything it does not claim, so the two
+are free to sum past 1. `episodeWalking: boolean` became `episodeMove: -1 | 0 | 1` so "retreating AND
+advancing" stays unrepresentable, which is the same reason it was one counter plus a flag before. `approachBias` used to be a per-tick coin flip, which at `normal` gives a 1.8-tick expected `walkF`
 run against an 83 ms animation frame — and since `FighterSprite` restarts a loop on every state change,
 the CPU's 8-frame walk cycle **never left frame 0**. That is what "player 2 isn't animating correctly"
 was. Measured before the fix: the LONGEST walk run in a whole match was 5.4–8.2 ticks across all three
@@ -173,6 +187,96 @@ ONE `episodeTicks` counter plus an `episodeWalking` flag — two counters would 
 hesitating". **Equal duty cycle is NOT equal difficulty** (per-window variance goes 4.95 → ~99), so
 re-measure ticks-to-KO on the SHIPPED roster after any change here; `probe/koprobe.test.ts` builds from the
 `config.ts` fixture and is blind to it.
+
+### The four free-swing behaviours (2026-08-01)
+
+`next()`'s numbered steps now carry a **punish** window (2026-08-01), an **anti-air**, a **wake-up**
+latch and a **three-way movement** episode. All four produce a `freeSwing`, which skips the cooldown and
+the reaction timer — and **nothing else**. Four rules hold them together; each one was a defect first.
+
+- **A free swing must still check `canAct`.** On the timed path it was implied (`inReachTicks >
+  reactionTicks` can only be true on an ACTIONABLE tick, because step 1 zeroes the counter otherwise). A
+  free swing carries no such implication, so without the explicit check the CPU burns its cooldown on a
+  press `think()` silently discards while stunned or mid-attack. Reach and `grounded` are never skipped
+  either — the CPU cannot hit you from outside its own measured boxes.
+
+  This bullet used to claim the check also protected the **one-shot window**. It did not: the `canAct`
+  test sits on the SWING, downstream of all three latches, so `punished`, `antiAired` and `reacted` were
+  each set on ticks that could never convert them. That is what Phase 23's `lockDiscipline` fixes — see
+  the next section. A doc that describes a protection the code does not have is worse than no doc.
+- **A knob of exactly 0 must not consume its RNG draw.** `this.knobs.x > 0 &&` guards every new roll. A
+  draw taken for a zero chance still advances the shared xorshift stream, so merely *adding* the punish
+  branch moved every later decision on `easy` — and easy, which has none of these behaviours, started
+  KO'ing the idle player that `difficulty is survivable` pins as exactly what it must never do. The
+  payoff is a real guarantee: **`easy` is byte-identical to the pre-2026-08-01 controller**, pinned by
+  two trace hashes in `cpu.test.ts` (one idle opponent, one ATTACKING).
+- **The same gate applies to behaviour, not just draws.** Guarding is suppressed during the opponent's
+  recovery (`isAttackState(opp.state) && !guardSuppressed`) so blocking cannot cannibalise the punish —
+  the CPU used to plant itself in a block against a move whose active frames were already spent, and the
+  guard branch's early return meant the punish never ran. That coupling is invisible until `blockChance`
+  rises: taking hard 0.22 → 0.72 cut its conversion of a whiffed heavy by two thirds without touching a
+  line of punish code. **The suppression is itself gated on `punishChance > 0`** — a tier with no punish
+  has nothing to protect and must keep the old guard behaviour exactly. Missing that gate is what made
+  the first "easy is unchanged" hash a false green: the fixture's opponent never attacked, so the whole
+  guard branch was never executed.
+- **The wake-up is a LATCH, not an edge, and it expires.** Step 2 (guard) returns before the swing, so a
+  CPU that wakes into a live block hold would lose the reversal outright — hence the latch. But it is
+  consumed on the first tick the fighter is actually free, **in range or not**: gating consumption on
+  range let it survive a walk across the stage and fire on arrival, a "wake-up reversal" seconds after
+  the wake-up. Out of range the opportunity simply passes; there was no meaty to reverse.
+
+### Lock discipline: a decision is only made on a tick that can act on it (2026-08-02)
+
+`Fighter.think()` early-returns on a STUN state, on an attack state and on an airborne tick, so a press
+issued on any of those is dropped. Steps 1, 2b, 3 and 4 already refused to spend anything there. Three
+sites did not, and all three were the same bug:
+
+| site | was | now gated on |
+|---|---|---|
+| the `blockTicks` countdown | burned through the CPU's own attack, hitstun, knockdown | `guardEligible`, and **cancelled** rather than paused |
+| the `reacted` guard roll | latched on a discarded tick **38.4%** of the time | `guardEligible` |
+| the `punished` / `antiAired` latches | spent by a fighter that could not convert | `canAct` |
+
+**`blockstun` is exempt, and this is the whole subtlety.** `think()` records `guardIntent` BEFORE its
+STUN return and `GUARDABLE` includes `blockstun`, so a fighter holding guard through blockstun really is
+guarding — measured **4063/4063** such ticks resolve `guarding === true`, against **0/3686** for the
+CPU's own attack. Spending the hold there is the hold doing its job across a block-string. Treating it
+as waste *lengthens* guard instead of stopping it, which is a balance change in exactly the Phase 13b
+timing D11 was deferred to avoid: worth 14 points of hard's win rate (94.6% un-exempted vs 80.7%).
+`ACTIONABLE` is therefore the wrong predicate here and `canAct || state === "blockstun"` is the right
+one — the two are NOT interchangeable, and only the latch sites take the bare `canAct`.
+
+**Cancel, not pause.** A guard decision must not survive the exchange that invalidated it — the same
+rule, and the same verb, that `cancelEpisode()` applies to a walk. Pausing would hand the CPU a full
+18-tick hold on wake-up and postpone its reversal by up to that long. Because the hold is cancelled,
+`wakeupArmed` needed no change: `blockTicks` is 0 on the wake-up tick, so step 2 no longer returns early.
+
+All of it is gated on a `lockDiscipline: 0 | 1` knob (easy 0) because `easy` is frozen byte-for-byte and
+the fix moves the RNG stream. **Easy therefore still carries the bug, deliberately.**
+
+`oppHelpless()` is now the exported module-level `isHelpless(f)`, because the tuning harness needs the
+same predicate and the copy it had counted attack STARTUP as punishable. It reads
+`cfg.states[state].frames.length - spec.recovery`, **not** `attackSimTicks()`:
+that helper takes an authored `AttackData` (with `body`/`hit`) while `CharacterConfig.attacks` holds the
+assembled `AttackSpec`, so the obvious call does not typecheck. The frame list already expanded the
+`repeat` arithmetic, so reading its length reuses the number instead of re-deriving it, and the boundary
+lands after the LAST repeated window — a multi-hit special is not punishable in the gaps between hits.
+
+**KNOWN, measured and deliberately not fixed (2026-08-02):** a **masher** — walk in, press light, never
+block — takes 100% of rounds off all three tiers. The cause is frame data: contact lands on the first
+active frame, so the attacker has `frames.length - startup` ticks left against the defender's `hitstun`
+— brawler 11 vs 12, jiujitsu +1, monk exactly NEUTRAL at 12 vs 12. Neutral already suffices, because the
+defender needs `reactionTicks + 1` free in-range ticks before the timed branch can answer.
+
+Not fixable from `cpu.ts` at any setting worth having: swept `attackCooldown` 18–35, `blockChance` to
+1.0, `reactionTicks` to 4 and `punishChance` to 0.8 — **0.0% in every cell**. The one configuration that
+dents it is `attackCooldown: 1` with every chance maxed (mash back), which reaches 32.7% and collapses
+hard to 21.1% against a competent player. The test pins the FRAME RELATIONSHIP, not the win rate — a
+win-rate pin would be an anti-improvement gate.
+
+**Also known:** the anti-air branch is inert in match play. Controlled measurement (swings per descent
+tick vs per ascent tick, same tier) gives hard 2.55% vs 2.03% and normal **0.78 ratio** — no detectable
+effect. It works in a fixture and essentially never reaches its preconditions in a real match.
 
 **`cpu.ts` is sampled once per TICK, inside the fixed-timestep loop** (`CpuSeam` on `World.advance`). A CPU
 sampled once per render frame acts at the display's rate and is not reproducible. It skips `EdgeLatch`

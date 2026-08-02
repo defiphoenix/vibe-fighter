@@ -27,6 +27,8 @@ No parity item should be orphaned.
 | — | Wrap Up (18:09) | [16](phases/16-integration-parity-qa.md) | **Added.** Full-flow parity + QA |
 | — | — | [17](phases/17-meter-lie-and-cpu-pick.md) | **Added.** Post-16 defect pass: the meter lie (R-14), the CPU pick measured, three stale items |
 | — | — | [18](phases/18-mobile-touch.md) | **Added.** Mobile + tablet: touch controls, rotate gate, CPU-only mode screen on touch. Not in the source recipe at all |
+| — | — | [22](phases/22-cpu-strength.md) | **Added.** CPU strength: four free-swing behaviours (punish, anti-air, wake-up, three-way spacing). Superseded in part by 23 |
+| — | — | [23](phases/23-cpu-lock-discipline.md) | **Added.** The independent QA of 22 (verdict: do not deploy) plus D11. Every 22 strength number was measured against a proxy that could not block |
 
 ## README parity item → phase → current state → acceptance test
 
@@ -36,7 +38,7 @@ Parity list from [GitHub README](https://github.com/chongdashu/vibe-fighter).
 |-------------|-------|---------------|-----------------|
 | Menu → mode → stage → character select flow | 11, 16 | **Present** (`FlowScene` over the Phaser-free `flow-state.ts`; every step has a back edge and re-entry clears both locks, so no dead-ends) | `flow-state.test.ts` + `e2e/phase11-flow.spec.ts` + `e2e/phase16-parity.spec.ts` |
 | 1v1 local (two players, one keyboard) | 11, 12 | **Present** (P1 WASD + F/G/Q/E, P2 arrows + `,`/`.`//`/M) | `e2e/phase11-flow.spec.ts` (1v1 pair boots) + `combat.test.ts` |
-| 1vCPU mode + CPU picks a fighter | 11, 16 | **Present** (four mode cards `1v1 / CPU easy·normal·hard`; the CPU's pick is a **seeded uniform draw** over the untaken cards, so it can field any fighter) | `flow-state.test.ts` cpuPick suite + `roll.test.ts` + `cpu.test.ts` + `e2e/cpu-difficulty.spec.ts` + `e2e/phase16-parity.spec.ts` (seeded monk pick) |
+| 1vCPU mode + CPU picks a fighter | 11, 16, 22, 23 | **Present** (four mode cards `1v1 / CPU easy·normal·hard`; the CPU's pick is a **seeded uniform draw** over the untaken cards, so it can field any fighter). Hard takes **61.3%** of rounds off a scripted competent opponent, pooled over six seed blocks never used for tuning, Wilson 95% [57.5, 64.9] | `flow-state.test.ts` cpuPick suite + `roll.test.ts` + `cpu.test.ts` (the ladder gates, four easy trace hashes, and the harness-soundness suite that pins the OPPONENT as well as the CPU) + `e2e/cpu-difficulty.spec.ts` + `e2e/phase16-parity.spec.ts` (seeded monk pick) |
 | Per-frame hit/hurt/attack boxes, active windows | 09, 12, 13 | **Present** (per-frame `FrameBoxes`, guards included; Gym-authored JSON drives live combat) | `character-builder.test.ts` + `registry.test.ts` + `e2e/gym-guard.spec.ts` + `e2e/phase16-parity.spec.ts` (raw file edit changes live damage) |
 | Light + heavy attacks | 12 | **Present** (7 attack states: ground/air/crouch light+heavy, plus the meter special) | `combat.test.ts` + `e2e/phase09-characters.spec.ts` (strike lands on the active window) |
 | Geometric guard-box blocking (high/low) | 13, 13b | **Present** (per-frame `guardStand`/`guardCrouch`; `block`/`blockCrouch` are real states; high/low is decided by box overlap, never by a label) | `combat.test.ts` + `registry.test.ts` blocking & special sweeps + `e2e/crouch-block.spec.ts` + `e2e/phase13b-block.spec.ts` |

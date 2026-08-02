@@ -72,6 +72,12 @@ Skills discovered on [skills.sh](https://skills.sh/) on 2026-07-15 via `/find-sk
 | 14 HUD skin | `text-and-bitmaptext`, `tweens`, `frontend-design`, `motion-design` |
 | 15 Specials/meter | `tweens`, `audio-and-sound`, `superpowers:test-driven-development` |
 | 16 Integration/QA | `playwright-cli`, `superpowers:verification-before-completion` |
+| 22–23 CPU strength / lock discipline | `superpowers:test-driven-development`, `codex:rescue` (both gates), `playwright-cli` |
+
+**No Phaser skill applies to a `src/sim/` phase**, and 22–23 are the worked example: the sim imports no
+Phaser by the repo's hardest rule, so the 28 Phaser skills have no surface on CPU behaviour, frame data
+or the tuning harness. The skills that carry that work are TDD (every change red-first), `codex:rescue`
+for the two review gates, and `playwright-cli` only for the browser leg.
 
 The Phaser names above are bare because they resolve from [`.claude/skills/`](../.claude/skills/) in
 this repo — the `phaserjs/phaser@…` install form they used to carry no longer applies.
