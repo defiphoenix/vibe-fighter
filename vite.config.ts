@@ -1,10 +1,11 @@
 // `vitest/config` re-exports Vite's defineConfig plus the `test` key — the documented form for a shared
-// Vite+Vitest config. NOTE: tsconfig has `include: ["src"]`, so `tsc --noEmit` typechecks NEITHER this file
-// NOR vite/gym-save-plugin.ts. What actually exercises them is `vite build` and `vitest run`; a broken
-// import fails there, not in the deploy-gating typecheck.
+// Vite+Vitest config. This file and vite/ are typechecked by tsconfig.tooling.json (Node types), NOT by
+// the browser program in tsconfig.json; `npm run build` chains both, so a break here fails the deploy
+// gate. It did not use to — they were typechecked by nothing until gym-save-plugin.ts started owning an
+// authorization decision.
 import { readFileSync } from "node:fs";
 import { defineConfig } from "vitest/config";
-import { gymSavePlugin } from "./vite/gym-save-plugin";
+import { gymSavePlugin } from "./vite/gym-save-plugin.js";
 
 // Mirror production's security headers onto `vite preview` so the CSP is testable against the REAL built
 // bundle before a deploy. Read straight out of vercel.json — one source of truth, so the two can't drift.

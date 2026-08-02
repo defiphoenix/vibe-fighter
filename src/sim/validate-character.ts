@@ -1,5 +1,9 @@
-import type { AttackKey, AttackStateName, StateName } from "./types";
-import { ATTACK_STATE_TO_KEY, isAttackState, isGuardableState } from "./types";
+// NOTE: these two carry a `.js` extension while the rest of src/ does not. They are the tail of the
+// chain vite.config.ts -> vite/gym-save-plugin.ts -> here, and Vite 8's `configLoader: "native"`
+// (planned to become the default) cannot resolve an extensionless import in that chain. Extensions
+// here are the forward-compatible fix; suppressing the warning would have hidden the signal.
+import type { AttackKey, AttackStateName, StateName } from "./types.js";
+import { ATTACK_STATE_TO_KEY, isAttackState, isGuardableState } from "./types.js";
 
 /** Mirrors PLAY_LAG_TICKS in render/anim-timing.ts. Duplicated, not imported: sim/ must not depend
  *  on render/. anim-timing.test.ts pins the two together. */

@@ -2,7 +2,7 @@ import { writeFileSync, renameSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Plugin, ViteDevServer } from "vite";
-import { validateRegistry } from "../src/sim/validate-character";
+import { validateRegistry } from "../src/sim/validate-character.js";
 
 // DEV-ONLY write-back for the Character Gym. configureServer runs only under `vite` dev — never in
 // `build` or `preview` — so this endpoint does not exist in a production bundle. The target path is
