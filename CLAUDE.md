@@ -116,6 +116,13 @@ Before the security pass those tooling files were typechecked by **nothing**; th
 `vite/` held plumbing and stopped being tolerable once `gym-save-plugin.ts` owned an authorization
 decision.
 
+**Minimum browser contract: iOS/Safari 16.4+, Chrome/Edge 111+, Firefox 114+.** That is Vite 8's default
+`build.target` (`ESBUILD_BASELINE_WIDELY_AVAILABLE_TARGET`, Baseline Widely Available 2025-05-01) and it is
+ACCEPTED rather than inherited by accident — the Vite 7 → 8 upgrade raised the floor from `safari16`/`ios16`,
+which matters for a game played on phones. Every device that can run iOS 16 can update to 16.4 (March 2023),
+so the practical exclusion is only users who have not updated. `build.target` is deliberately unset; pin it
+in `vite.config.ts` if that trade ever needs reversing, and re-run `npm run build` + the e2e suite if you do.
+
 Comments tagged `ponytail:` mark deliberate simplifications with their upgrade path. Intent markers, not
 TODO noise.
 
