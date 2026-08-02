@@ -9,6 +9,15 @@
     "noImplicitReturns": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
+    // Both programs are typecheck-only (`tsc --noEmit`), stated here so the config is self-consistent
+    // rather than depending on the CLI flag — `allowImportingTsExtensions` requires it.
+    "noEmit": true,
+    // Four imports in the vite.config.ts -> vite/ -> src/sim/validate-character.ts chain carry an explicit
+    // `.ts`. Vite 8 warns that `configLoader: "native"` (planned to become the default) cannot resolve
+    // them extensionless, and `.js` does NOT fix it: the native loader hands off to a real ESM import, and
+    // Node's type stripping does no `.js` -> `.ts` search, so `vite --configLoader native` dies with
+    // ERR_MODULE_NOT_FOUND. Measured both ways — `.ts` is the extension that actually boots it.
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],

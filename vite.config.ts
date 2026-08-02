@@ -5,7 +5,7 @@
 // authorization decision.
 import { readFileSync } from "node:fs";
 import { defineConfig } from "vitest/config";
-import { gymSavePlugin } from "./vite/gym-save-plugin.js";
+import { gymSavePlugin } from "./vite/gym-save-plugin.ts";
 
 // Mirror production's security headers onto `vite preview` so the CSP is testable against the REAL built
 // bundle before a deploy. Read straight out of vercel.json — one source of truth, so the two can't drift.

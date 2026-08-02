@@ -2,7 +2,7 @@ import { writeFileSync, renameSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Plugin, ViteDevServer } from "vite";
-import { validateRegistry } from "../src/sim/validate-character.js";
+import { validateRegistry } from "../src/sim/validate-character.ts";
 
 // DEV-ONLY write-back for the Character Gym. configureServer runs only under `vite` dev — never in
 // `build` or `preview` — so this endpoint does not exist in a production bundle. The target path is
@@ -97,9 +97,13 @@ export function gymSavePlugin(): Plugin {
         // is the Gym/Playground panel in this page. Note this middleware normally sits BEHIND Vite's own
         // `hostValidationMiddleware`, which is registered before the configureServer hooks run — so the
         // rebinding case is usually stopped upstream. `originVerdict` is what still holds when it isn't.
+        // Node normally exposes this as a scalar (or comma-joined) string, so the array branch is
+        // hypothetical — but taking `site[0]` would let ["same-origin", "cross-site"] through, where the
+        // pre-refactor code compared the whole value and rejected it. Fail CLOSED on the shape you did
+        // not expect: an array becomes a sentinel that cannot equal "same-origin".
         const site = req.headers["sec-fetch-site"];
         const verdict = originVerdict({
-          secFetchSite: Array.isArray(site) ? site[0] : site,
+          secFetchSite: Array.isArray(site) ? site.join(",") : site,
           origin: req.headers["origin"],
           host: req.headers.host,
         }, allowedHosts);

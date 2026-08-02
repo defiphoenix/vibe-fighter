@@ -1,9 +1,11 @@
-// NOTE: these two carry a `.js` extension while the rest of src/ does not. They are the tail of the
-// chain vite.config.ts -> vite/gym-save-plugin.ts -> here, and Vite 8's `configLoader: "native"`
-// (planned to become the default) cannot resolve an extensionless import in that chain. Extensions
-// here are the forward-compatible fix; suppressing the warning would have hidden the signal.
-import type { AttackKey, AttackStateName, StateName } from "./types.js";
-import { ATTACK_STATE_TO_KEY, isAttackState, isGuardableState } from "./types.js";
+// NOTE: these two carry an explicit `.ts` extension while the rest of src/ does not. They are the tail
+// of the chain vite.config.ts -> vite/gym-save-plugin.ts -> here, which Vite 8 loads as CONFIG, and
+// `configLoader: "native"` (planned to become the default) cannot resolve an extensionless import there.
+// `.js` — the reflex answer — does NOT work: the native loader hands off to a real ESM import, and Node's
+// type stripping performs no `.js` -> `.ts` search, so it dies with ERR_MODULE_NOT_FOUND. Measured both
+// ways; `.ts` is the one that actually boots `vite --configLoader native`.
+import type { AttackKey, AttackStateName, StateName } from "./types.ts";
+import { ATTACK_STATE_TO_KEY, isAttackState, isGuardableState } from "./types.ts";
 
 /** Mirrors PLAY_LAG_TICKS in render/anim-timing.ts. Duplicated, not imported: sim/ must not depend
  *  on render/. anim-timing.test.ts pins the two together. */

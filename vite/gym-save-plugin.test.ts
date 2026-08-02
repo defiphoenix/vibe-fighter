@@ -47,8 +47,10 @@ async function serverWith(allowedHosts?: true | string[]): Promise<{ port: numbe
     plugins: [gymSavePlugin()],
     server: { host: "127.0.0.1", port: 5273, strictPort: false, ...(allowedHosts === undefined ? {} : { allowedHosts }) },
   });
-  await s.listen();
+  // Registered BEFORE listen(): if listen() throws for anything but an ordinary port collision, a server
+  // recorded only on success would leak its watcher past afterAll and hold the run open.
   servers.push(s);
+  await s.listen();
   return { port: (s.httpServer!.address() as { port: number }).port };
 }
 
@@ -184,6 +186,29 @@ describe("/__gym/save against real Vite servers", () => {
     const res = await post(port, { Host: `localhost:${port}`, Origin: `http://localhost:${port}` }, "{not json");
     expect(res.status).toBe(400);
     expect(JSON.parse(res.body).error).toBe("invalid JSON");
+  });
+
+  it("case 5 — a DUPLICATED Sec-Fetch-Site fails closed", async () => {
+    // Reachable version of a fail-open the refactor could have introduced. Extracting the header into a
+    // normaliser tempted `site[0]`, which would accept ["same-origin", "cross-site"] where the old
+    // whole-value comparison rejected it.
+    //
+    // Be precise about what this covers, because the first two attempts were not. Node's parser JOINS
+    // duplicate Sec-Fetch-Site headers into one comma-separated STRING, so the middleware receives
+    // "same-origin, cross-site" and NEVER an array. That makes the `Array.isArray` branch unreachable
+    // through real HTTP: mutating it to `site[0]` leaves this case — and every other — green, because the
+    // branch is dead. It is kept only to satisfy `string | string[] | undefined`, and joins rather than
+    // indexing so that if it ever DID run it would fail closed. It deliberately has no test; nothing can
+    // turn one red. What this case genuinely guards is the reachable half — the Sec-Fetch-Site check
+    // itself, which turns it red when removed.
+    const { port } = await serverWith();
+    const res = await post(port, {
+      Host: `localhost:${port}`,
+      Origin: `http://localhost:${port}`,
+      "Sec-Fetch-Site": ["same-origin", "cross-site"] as unknown as string,
+    });
+    expect(res.status).toBe(403);
+    expect(JSON.parse(res.body).error).toBe(OURS);
   });
 
   it("case 4 — with Vite's shield OFF, our guard is what stops the rebound origin", async () => {
