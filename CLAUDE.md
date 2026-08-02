@@ -26,9 +26,10 @@ data, out of scope), and the anti-air branch is inert in match play. Specs and g
 
 ```bash
 npm run dev        # Vite dev server (hot reload)
-npm run build      # tsc --noEmit typecheck, then vite build
-npm run typecheck  # tsc --noEmit only
-npm test           # vitest run — `include` is src/**/*.test.ts ONLY, sim unit tests, node env
+npm run build      # BOTH typechecks (browser + tooling), then vite build
+npm run typecheck  # tsc --noEmit — the BROWSER program (src/) only
+npm run typecheck:tooling  # tsc -p tsconfig.tooling.json — vite.config.ts + vite/, Node types
+npm test           # vitest run — `include` is src/**/*.test.ts + vite/**/*.test.ts, node env
 npm run test:e2e   # Playwright browser acceptance for the render layer (e2e/, headed)
 npm run preview    # serve the BUILT bundle — the only place the production CSP is testable
 ```
@@ -107,9 +108,13 @@ bridge. The docs above deliberately contain only what opening the file will not 
 - **`convert` on PATH is Windows NTFS `convert.exe`, not ImageMagick** — never call it.
 
 TypeScript is strict with `noUnusedLocals`/`noUnusedParameters`/`noImplicitReturns` — an unused import or
-param fails the build. **But `tsconfig` `include` is `["src"]`**, so `tsc --noEmit` typechecks NEITHER
-`vite.config.ts` NOR `vite/gym-save-plugin.ts` — a broken import there fails `vite build` or `vitest run`,
-not the deploy-gating typecheck.
+param fails the build. There are **two programs, deliberately**: `tsconfig.json` is the BROWSER one
+(`include: ["src"]`, `types: ["vite/client"]`, no Node globals — so a `node:fs` import cannot drift into
+shipped code), and [`tsconfig.tooling.json`](tsconfig.tooling.json) covers `vite.config.ts` + `vite/` with
+`types: ["node"]`. `npm run build` chains both, so a type error in either fails the deploy gate.
+Before the security pass those tooling files were typechecked by **nothing**; that was tolerable while
+`vite/` held plumbing and stopped being tolerable once `gym-save-plugin.ts` owned an authorization
+decision.
 
 Comments tagged `ponytail:` mark deliberate simplifications with their upgrade path. Intent markers, not
 TODO noise.

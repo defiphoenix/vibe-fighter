@@ -16,11 +16,76 @@ import { validateRegistry } from "../src/sim/validate-character";
 const TARGET = resolve(dirname(fileURLToPath(import.meta.url)), "..", "public/configs/character-gym.json");
 const MAX_BYTES = 256 * 1024;
 
+/** Dotted-quad or bracketed IPv6. `URL.hostname` keeps the brackets on a v6 literal. */
+const IP_LITERAL = /^((\d{1,3}\.){3}\d{1,3}|\[[0-9a-fA-F:.]+\])$/;
+
+/**
+ * Vite's own `isHostAllowedInternal` policy, applied to the ORIGIN where Vite applies it to the HOST.
+ *
+ * Deferring to the developer's configured allowlist instead of hardcoding one is the whole design: any
+ * fixed rule ("loopback and RFC-1918 only") would reject setups Vite itself accepts — `vite --host
+ * devbox.local`, an mDNS name, a hosts entry, Tailscale MagicDNS — and would break phone testing, which
+ * is the workflow this endpoint exists to serve.
+ *
+ * ONE deliberate divergence: `allowedHosts: true` is not honoured. That value turns Vite's host
+ * validation OFF, which is the single configuration where this check stops being redundant and becomes
+ * the only thing standing between a rebound DNS name and a registry write. Inheriting "allow all" there
+ * would make the guard evaporate at exactly the moment it starts mattering.
+ */
+export function isTrustedOriginHost(hostname: string, allowedHosts: true | string[]): boolean {
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) return true;
+  if (IP_LITERAL.test(hostname)) return true;
+  if (allowedHosts === true) return false;
+  return allowedHosts.some(
+    (h) => h === hostname || (h[0] === "." && (h.slice(1) === hostname || hostname.endsWith(h))),
+  );
+}
+
+/** What the endpoint checks about WHO is calling, as one pure decision. */
+export interface OriginHeaders { secFetchSite?: string; origin?: string; host?: string }
+export type OriginVerdict = { ok: true } | { ok: false; code: number; error: string };
+
+/**
+ * Exported so the test drives the REAL predicate rather than a copy of it — a second implementation in
+ * a test file proves only that the copy agrees with itself.
+ *
+ * Sec-Fetch-Site is checked only WHEN PRESENT, deliberately. Fetch Metadata is attached only for
+ * potentially-trustworthy URLs, so a browser reaching this dev server over a LAN IP (`vite --host`,
+ * e.g. testing on a phone) sends no Sec-Fetch-Site at all — making it mandatory would 403 the real panel.
+ *
+ * REQUIRING Origin is what closes the original hole: an earlier version rejected only a *mismatched*
+ * Origin, so a client that simply OMITTED both headers sailed through and rewrote the registry.
+ *
+ * None of this AUTHENTICATES — curl forges every one of these in a line. It closes CSRF, DNS rebinding
+ * and casual non-browser writes, which is the whole threat model for an endpoint that `apply: "serve"`
+ * keeps out of every build.
+ */
+export function originVerdict(h: OriginHeaders, allowedHosts: true | string[]): OriginVerdict {
+  const blocked = { ok: false, code: 403, error: "cross-origin blocked" } as const;
+  if (h.secFetchSite && h.secFetchSite !== "same-origin") return blocked;
+  if (!h.origin || !h.host) return blocked;
+  let originUrl: URL;
+  // `new URL("null")` — and any malformed value — THROWS. Unhandled that is a 500 (or a dead
+  // middleware) where a controlled 403 belongs; `Origin: null` is what a sandboxed iframe sends.
+  try { originUrl = new URL(h.origin); } catch { return blocked; }
+  // Compare the FULL origin, not just `.host` — scheme matters as well as host+port.
+  if (originUrl.host !== h.host || (originUrl.protocol !== "http:" && originUrl.protocol !== "https:")) {
+    return blocked;
+  }
+  // Origin === Host is only SELF-CONSISTENCY, and DNS rebinding satisfies it: an attacker domain that
+  // re-resolves to 127.0.0.1 sends a matching pair. The name is what gives it away.
+  if (!isTrustedOriginHost(originUrl.hostname, allowedHosts)) return blocked;
+  return { ok: true };
+}
+
 export function gymSavePlugin(): Plugin {
   return {
     name: "gym-save",
     apply: "serve", // dev server only
     configureServer(server: ViteDevServer) {
+      // Read from the RESOLVED config, not the raw one: Vite folds `server.host`/`server.origin` into
+      // the effective allowlist, and duplicating that derivation here is how the two would drift.
+      const allowedHosts = server.config.server.allowedHosts;
       server.middlewares.use("/__gym/save", (req, res) => {
         const fail = (code: number, error: string) => {
           res.statusCode = code;
@@ -28,32 +93,17 @@ export function gymSavePlugin(): Plugin {
           res.end(JSON.stringify({ error }));
         };
         if (req.method !== "POST") return fail(405, "POST only");
-        // Same-origin enforcement. The ONE legitimate caller is the Gym/Playground panel in this page,
-        // whose fetch() always carries an Origin — Fetch appends it to every non-GET/HEAD request. REQUIRING
-        // Origin is what closes the hole: the previous version only rejected a *mismatched* one, so a client
-        // that simply OMITTED both headers sailed through and rewrote the registry.
-        //
-        // Sec-Fetch-Site is checked only WHEN PRESENT, deliberately. Fetch Metadata is attached only for
-        // potentially-trustworthy URLs, so a browser reaching this dev server over a LAN IP (`vite --host`,
-        // e.g. testing on a phone) sends no Sec-Fetch-Site at all — making it mandatory would 403 the real
-        // panel.
-        //
-        // Neither header AUTHENTICATES: curl forges both in one line. This closes CSRF and casual
-        // non-browser writes, nothing more, which is why the finding is low severity. A per-server token
-        // would be the real answer if this endpoint ever needed one — it doesn't, because `apply: "serve"`
-        // keeps it out of every build.
-        if (req.headers["sec-fetch-site"] && req.headers["sec-fetch-site"] !== "same-origin") return fail(403, "cross-origin blocked");
-        const origin = req.headers["origin"];
-        const host = req.headers.host;
-        if (!origin || !host) return fail(403, "cross-origin blocked");
-        let originUrl: URL;
-        // `new URL("null")` — and any malformed value — THROWS. Unhandled that is a 500 (or a dead
-        // middleware) where a controlled 403 belongs; `Origin: null` is what a sandboxed iframe sends.
-        try { originUrl = new URL(origin); } catch { return fail(403, "cross-origin blocked"); }
-        // Compare the FULL origin, not just `.host` — scheme matters as well as host+port.
-        if (originUrl.host !== host || (originUrl.protocol !== "http:" && originUrl.protocol !== "https:")) {
-          return fail(403, "cross-origin blocked");
-        }
+        // Same-origin enforcement, in one pure decision (see `originVerdict`). The ONE legitimate caller
+        // is the Gym/Playground panel in this page. Note this middleware normally sits BEHIND Vite's own
+        // `hostValidationMiddleware`, which is registered before the configureServer hooks run — so the
+        // rebinding case is usually stopped upstream. `originVerdict` is what still holds when it isn't.
+        const site = req.headers["sec-fetch-site"];
+        const verdict = originVerdict({
+          secFetchSite: Array.isArray(site) ? site[0] : site,
+          origin: req.headers["origin"],
+          host: req.headers.host,
+        }, allowedHosts);
+        if (!verdict.ok) return fail(verdict.code, verdict.error);
         if (!String(req.headers["content-type"] ?? "").includes("application/json")) return fail(415, "JSON only");
 
         let size = 0;

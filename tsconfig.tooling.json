@@ -1,0 +1,22 @@
+{
+  // The BUILD-TOOLING typecheck, separate from tsconfig.json on purpose.
+  //
+  // tsconfig.json is the BROWSER program: `types: ["vite/client"]`, no Node globals. That is deliberate —
+  // src/sim must stay pure and deterministic, and teaching the browser program about `process`, `Buffer`
+  // and `node:fs` is how a Node import quietly ends up in shipped code.
+  //
+  // But that left vite.config.ts and vite/ typechecked by NOTHING: `tsc --noEmit` never saw them, and only
+  // `vite build` / `vitest run` would notice a break. That was tolerable while vite/ held plumbing. It
+  // stopped being tolerable when gym-save-plugin.ts became the one file in this repo that makes an
+  // authorization decision — a type error in a security predicate should not wait for a runtime to find it.
+  //
+  // So: same strictness, different lib/types, its own file list. Run via `npm run typecheck:tooling`,
+  // which `npm run build` chains — so a break here fails the deploy gate like any other type error.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "lib": ["ES2023"],
+    "noEmit": true
+  },
+  "include": ["vite", "vite.config.ts"]
+}

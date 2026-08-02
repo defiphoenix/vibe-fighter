@@ -41,6 +41,16 @@ both passed the full unit + e2e suite. Look at it.
 that is impossible (keydown is emitted before the scene's `update`); the actual cause was a reset loop next
 door. Take the *symptom* as evidence and the *cause* as a hypothesis.
 
+**`test.include` is `src/**/*.test.ts` + `vite/**/*.test.ts`.** `vite/` was added in the security pass for
+one reason: `vite/gym-save-plugin.ts` is the only code in this repo that makes an authorization decision
+(who may POST `/__gym/save`), and a decision nothing can run is a decision nothing can check. Its tests are
+two-layered on purpose — pure predicates (`originVerdict`, `isTrustedOriginHost`) so every branch is
+reachable without a server, plus four REAL `createServer()` instances, because a unit test cannot see a
+predicate that is never *called* and cannot tell our 403 from Vite's. **Both layers answer 403; only the
+body differs**, so those assertions check the body, never the status. That file also carries the tripwire
+asserting `server.allowedHosts`/`https` have not been set in a way that disables Vite's own
+DNS-rebinding shield — the real risk there was never an attack, it was a future config change.
+
 `probe/koprobe.test.ts` sits outside `test.include` on purpose: it is the manual ticks-to-KO balance probe
 (the CPU-difficulty measurement), not a test, and `npm test` never runs it. **No CLI flag reaches it** —
 Vitest 4 dropped `--include`, and `--dir`/a path filter still intersect with the configured `include`, all

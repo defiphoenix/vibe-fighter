@@ -26,6 +26,10 @@ export default defineConfig({
     // ponytail: no `globals` — it defaults to false in Vitest 4 and every *.test.ts imports
     // { describe, it, expect } from "vitest" explicitly, so injecting them was dead config.
     environment: "node", // sim core is pure — no DOM needed
-    include: ["src/**/*.test.ts"],
+    // `vite/` is in here for ONE reason: gym-save-plugin.ts is the only code in this repo that makes an
+    // authorization decision, and a decision that nothing can run is a decision nothing can check. It is
+    // Node-side middleware, so the node env already suits it. `probe/` stays OUT by design — it is the
+    // manual ticks-to-KO balance probe, not a test (see docs/testing-and-e2e.md).
+    include: ["src/**/*.test.ts", "vite/**/*.test.ts"],
   },
 });
