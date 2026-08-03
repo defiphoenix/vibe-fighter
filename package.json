@@ -3,7 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "description": "A local two-player Street Fighter-style game: deterministic 60Hz simulation, Phaser 4 renderer, every sprite and sound generated for it.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/roiizchak/vibe-fighter.git"
+  },
+  "homepage": "https://vibe-fighter-dusky.vercel.app",
   "scripts": {
+    "demo": "node scripts/record-demo.mjs",
     "dev": "vite",
     "build": "tsc --noEmit && tsc -p tsconfig.tooling.json && vite build",
     "preview": "vite preview",

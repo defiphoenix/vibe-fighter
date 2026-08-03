@@ -12,6 +12,8 @@ playwright-report/
 
 # gameplay captures (not part of the build); also covers concepts/ Seedance clips
 *.mp4
+# ...except the README demo, which is a deliberate deliverable (scripts/record-demo.mjs).
+!docs/media/demo.mp4
 
 # concepts/ is art AUTHORING, not shipped. Keep the provenance trail
 # (*.prompt.txt, *.job.json, README.md); drop the raw pixels/video.
@@ -36,3 +38,7 @@ e2e/.registry-lock/
 # Python bytecode — build junk; scripts chain by importlib so these appear on any run.
 __pycache__/
 *.pyc
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore
