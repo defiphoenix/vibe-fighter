@@ -3,9 +3,17 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "description": "A local two-player Street Fighter-style game: deterministic 60Hz simulation, Phaser 4 renderer, every sprite and sound generated for it.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/roiizchak/vibe-fighter.git"
+  },
+  "homepage": "https://vibe-fighter-dusky.vercel.app",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && tsc -p tsconfig.tooling.json && vite build",
+    "demo": "node scripts/record-demo.mjs",
+    "dev": "node init && vite",
+    "build": "node init && tsc --noEmit && tsc -p tsconfig.tooling.json && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "typecheck:tooling": "tsc -p tsconfig.tooling.json",
@@ -17,9 +25,9 @@
     "copy:portraits": "python scripts/copy-portraits.py",
     "check:characters": "python scripts/check-characters.py",
     "check:portraits": "python scripts/check-portraits.py",
-    "build:atlases": "python scripts/build-atlases.py",
-    "build:sprites": "python scripts/build-sprites.py",
-    "build:audio": "python scripts/build-audio.py",
+    "build:atlases": "node init && python scripts/build-atlases.py",
+    "build:sprites": "node init && python scripts/build-sprites.py",
+    "build:audio": "node init && python scripts/build-audio.py",
     "check:audio": "python scripts/build-audio.py --check",
     "audit:anim": "python scripts/audit-animations.py",
     "check:sprites": "python scripts/check-sprites.py",
@@ -27,6 +35,8 @@
     "audit:boxes": "python scripts/audit-boxes.py"
   },
   "dependencies": {
+    "dotenv": "^8.2.0",
+    "node-fetch": "^3.3.2",
     "phaser": "^4.2.1"
   },
   "devDependencies": {
